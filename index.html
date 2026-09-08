@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Jobsite Log</title>
-<meta name="theme-color" content="#17202A">
+<meta name="theme-color" content="#FFFFFF">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -22,7 +22,6 @@
   --chalk: #1F4FD8;
   --chalk-dark: #163BA6;
   --keel: #C2321B;
-  --mark: #1E7A46;
   --radius: 2px;
   --tap: 52px;
   --pad: 16px;
@@ -65,35 +64,65 @@ a { color: var(--chalk-dark); }
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--ink);
-  color: #fff;
+  background: var(--board);
+  color: var(--ink);
+  border-bottom: 1px solid var(--rule);
   padding-top: env(safe-area-inset-top);
 }
 
 .topbar-inner {
   max-width: var(--shell);
   margin: 0 auto;
-  min-height: 56px;
+  min-height: 60px;
   padding: 0 var(--pad);
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
+}
+
+.topbar-left { justify-self: start; min-width: 0; }
+.topbar-right { justify-self: end; min-width: 0; }
+
+.backbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 38px;
+  padding: 0 12px 0 9px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  color: var(--ink);
+  text-decoration: none;
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.backbtn::before {
+  content: "‹";
+  font-size: 21px;
+  line-height: 1;
+  margin-top: -2px;
 }
 
 .brand {
-  font-family: "Barlow Condensed", sans-serif;
-  font-weight: 700;
-  font-size: 25px;
-  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-self: center;
   text-decoration: none;
-  letter-spacing: 0.02em;
+}
+
+.brand img {
+  display: block;
+  height: 38px;
+  width: auto;
 }
 
 .whoami {
   background: none;
-  border: 1px solid #47535F;
-  color: #E7E9EB;
+  border: 1px solid var(--rule);
+  color: var(--steel);
   border-radius: var(--radius);
   padding: 7px 11px;
   font: inherit;
@@ -224,7 +253,6 @@ textarea { min-height: 120px; resize: vertical; }
 
 .tagpick input:checked + label { background: var(--ink); color: #fff; border-color: var(--ink); }
 .tagpick input#tag-issue:checked + label { background: var(--keel); border-color: var(--keel); }
-.tagpick input#tag-milestone:checked + label { background: var(--mark); border-color: var(--mark); }
 .tagpick input:focus-visible + label { outline: 3px solid var(--chalk); outline-offset: 2px; }
 
 .chip {
@@ -239,7 +267,6 @@ textarea { min-height: 120px; resize: vertical; }
 }
 
 .chip-issue { color: #fff; background: var(--keel); border-color: var(--keel); }
-.chip-milestone { color: #fff; background: var(--mark); border-color: var(--mark); }
 .chip-done { color: var(--steel); background: var(--wall); }
 
 /* ---------- Job list ---------- */
@@ -247,23 +274,55 @@ textarea { min-height: 120px; resize: vertical; }
 .joblist { list-style: none; margin: 0; padding: 0; }
 .joblist li + li { margin-top: 10px; }
 
-.jobrow {
-  display: block;
+.jobitem {
+  display: flex;
+  align-items: stretch;
   background: var(--board);
   border: 1px solid var(--rule);
   border-left: 4px solid var(--chalk);
   border-radius: var(--radius);
+}
+
+.jobitem.is-completed { border-left-color: var(--steel); }
+
+.jobact {
+  flex: 0 0 auto;
+  width: 46px;
+  align-self: stretch;
+  border: none;
+  background: none;
+  color: #A6AEB6;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.jobact[disabled] { opacity: 0.4; cursor: default; }
+
+.jobtxt:hover { color: var(--chalk); }
+.jobtxt:active { color: #fff; background: var(--chalk); }
+
+.jobdel {
+  border-radius: 0 var(--radius) var(--radius) 0;
+}
+
+.jobdel:hover { color: var(--keel); }
+.jobdel:active { color: #fff; background: var(--keel); }
+
+.jobrow {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
   padding: 14px var(--pad);
   text-decoration: none;
   color: var(--ink);
 }
 
-.jobrow.is-completed { border-left-color: var(--steel); }
-
 .jobrow-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .jobrow-name { font-family: "Barlow Condensed", sans-serif; font-weight: 600; font-size: 24px; line-height: 1.15; }
 .jobrow-meta { font-size: 15px; color: var(--steel); margin-top: 2px; }
-.jobrow-when { font-size: 13px; color: var(--steel); white-space: nowrap; }
+.jobrow-when { font-size: 13px; color: var(--steel); white-space: nowrap; padding-left: 4px; }
 
 /* ---------- Entry feed: the one bold move ----------
    Each entry is a wide band with a colored edge and an oversized date in the
@@ -282,7 +341,6 @@ textarea { min-height: 120px; resize: vertical; }
 }
 
 .entry.t-issue { border-left-color: var(--keel); }
-.entry.t-milestone { border-left-color: var(--mark); }
 
 .entry-date {
   padding: 13px 0 13px 12px;
@@ -460,6 +518,67 @@ textarea { min-height: 120px; resize: vertical; }
 .setup li { margin-bottom: 8px; }
 .setup code { background: var(--wall); padding: 1px 5px; border-radius: var(--radius); font-size: 15px; overflow-wrap: anywhere; }
 
+/* ---------- Entry author actions + edit form ---------- */
+
+.entry-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.btn-mini {
+  background: none;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 0 12px;
+  min-height: 38px;
+  cursor: pointer;
+}
+
+.btn-mini-danger { color: var(--keel); }
+.btn-mini:active { background: var(--wall); }
+
+.editpanel { border-left: 5px solid var(--chalk); }
+
+.editpanel-head {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.photochip {
+  position: relative;
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--wall);
+  width: 64px;
+  height: 64px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.photochip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.photochip.marked { border-color: var(--keel); border-width: 2px; }
+.photochip.marked img { opacity: 0.32; }
+
+.photochip-x {
+  position: absolute;
+  inset: auto 0 0 0;
+  background: var(--keel);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 0;
+  text-align: center;
+}
+
 @media (min-width: 620px) {
   .entry { grid-template-columns: 76px 1fr; }
   .entry-day { font-size: 44px; }
@@ -475,8 +594,13 @@ textarea { min-height: 120px; resize: vertical; }
 
 <header class="topbar">
   <div class="topbar-inner">
-    <a class="brand" href="#/">Jobsite Log</a>
-    <button id="whoami" class="whoami" type="button" hidden></button>
+    <div class="topbar-left">
+      <a id="back" class="backbtn" href="#/" hidden>Back</a>
+    </div>
+    <a class="brand" href="#/"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJ8AAABMBAMAAACBn3hSAAAWfmNhQlgAABZ+anVtYgAAAB5qdW1kYzJwYQARABCAAACqADibcQNjMnBhAAAAFlhqdW1iAAAAR2p1bWRjMm1hABEAEIAAAKoAOJtxA3VybjpjMnBhOmRmOWJiZjg2LTRkYzYtNDdjNC04ZTEwLWQ3MmU1NWQ2OGQxZQAAAAOTanVtYgAAAClqdW1kYzJhcwARABCAAACqADibcQNjMnBhLmFzc2VydGlvbnMAAAAAuGp1bWIAAABEanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5pbmdyZWRpZW50LnYzAAAAABhjMnNoLVrEUTyD2nK7BPT1ZYi3NwAAAGxjYm9yo2lkYzpmb3JtYXRpaW1hZ2UvcG5namluc3RhbmNlSUR4LHhtcDppaWQ6NmM0Y2U1NzAtZWRiMi00OTAxLTg2ZjctNTYyYjU5NWM0MzAwbHJlbGF0aW9uc2hpcGhwYXJlbnRPZgAAAeJqdW1iAAAAQWp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuYWN0aW9ucy52MgAAAAAYYzJzaNy4vmVKtjI1//3gIvE9pQUAAAGZY2JvcqJnYWN0aW9uc4KiZmFjdGlvbmtjMnBhLm9wZW5lZGpwYXJhbWV0ZXJzoWtpbmdyZWRpZW50c4GiY3VybHgtc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5pbmdyZWRpZW50LnYzZGhhc2hYIJwha7JQo8fZ9FMcQObzn01cAo+R+VZvYor42FHxjEZ2pGZhY3Rpb254HWNvbS5hbnRocm9waWMuY2xhdWRlLnByb3ZpZGVkanBhcmFtZXRlcnOheB9jb20uYW50aHJvcGljLm9yaWdpbi1jb25maWRlbmNlZ3Vua25vd25rZGVzY3JpcHRpb254ZkNsYXVkZSBwcm92aWRlZCB0aGlzIGZpbGUgYXQgdGhlIHJlcXVlc3Qgb2YgYSB1c2VyIGFuZCBtYXkgaGF2ZSBjcmVhdGVkIG9yIG1vZGlmaWVkIHRoZSBmaWxlIGNvbnRlbnRzLm1zb2Z0d2FyZUFnZW50oWRuYW1lZkNsYXVkZXJhbGxBY3Rpb25zSW5jbHVkZWT1AAAAyGp1bWIAAABAanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5oYXNoLmRhdGEAAAAAGGMyc2hBEr0rqYUp9042+R8sPyjhAAAAgGNib3KlY2FsZ2ZzaGEyNTZjcGFkTQAAAAAAAAAAAAAAAABkaGFzaFgg0oq3kbHJDg6W7+XLCfugZLDK20N0WH+bD+Rq/Qk3bwRkbmFtZW5qdW1iZiBtYW5pZmVzdGpleGNsdXNpb25zgaJlc3RhcnQYIWZsZW5ndGgZFooAAAI+anVtYgAAACdqdW1kYzJjbAARABCAAACqADibcQNjMnBhLmNsYWltLnYyAAAAAg9jYm9ypWNhbGdmc2hhMjU2aXNpZ25hdHVyZXhNc2VsZiNqdW1iZj0vYzJwYS91cm46YzJwYTpkZjliYmY4Ni00ZGM2LTQ3YzQtOGUxMC1kNzJlNTVkNjhkMWUvYzJwYS5zaWduYXR1cmVqaW5zdGFuY2VJRHgseG1wOmlpZDplOWNjOTQ2ZS0wZTEyLTQ0ZTAtOTc1ZS0zMjIyNGYyMmRkOThyY3JlYXRlZF9hc3NlcnRpb25zg6JjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFggnCFrslCjx9n0UxxA5vOfTVwCj5H5Vm9iivjYUfGMRnaiY3VybHgqc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5hY3Rpb25zLnYyZGhhc2hYIL3eECXWSDELXFoWFx+uvrujuS5tUqy3T2X15LA+FGS2omN1cmx4KXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaGFzaC5kYXRhZGhhc2hYIAikabL3KBWZdRuPne2up2t835jFNILvjN+SCjUJT0n+dGNsYWltX2dlbmVyYXRvcl9pbmZvo2RuYW1lb0FudGhyb3BpYyBGaWxlc2d2ZXJzaW9uZTEuMC4wa3NwZWNWZXJzaW9uZTIuNC4wAAAQOGp1bWIAAAAoanVtZGMyY3MAEQAQgAAAqgA4m3EDYzJwYS5zaWduYXR1cmUAAAAQCGNib3LShFkCEqIBJhghWQIKMIICBjCCAY2gAwIBAgIUQOWgCu7COdC+uIP6BkIFPWdVEwAwCgYIKoZIzj0EAwMwSTEXMBUGA1UEChMOQW50aHJvcGljLCBQQkMxLjAsBgNVBAMTJUFudGhyb3BpYyBDb250ZW50IENyZWRlbnRpYWxzIFJvb3QgQ0EwHhcNMjYwODA3MTg0MzU2WhcNMjgwODA2MTk0MzU2WjBEMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEpMCcGA1UEAxMgQW50aHJvcGljIENsYXVkZSBDb250ZW50IFNpZ25pbmcwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASYegpry1AYBRTVNL1CpTlbROnY3dey+UrsF9C3phYrATN3ZHf93Mo8RQN0KOUuOn19P4oWNFWe5n2/She9N7eTo1gwVjAOBgNVHQ8BAf8EBAMCB4AwFQYDVR0lBA4wDAYKKwYBBAGD6F4CATAMBgNVHRMBAf8EAjAAMB8GA1UdIwQYMBaAFM5R4gSBTmRbI/jjxM+aPpzB11zCMAoGCCqGSM49BAMDA2cAMGQCMDFzHRSeAXrSy1WOzkbhPZ6Km2wGTmZ/2gK18k8BQGXyqz88Rdrz6CTX9flAnYNVxgIwcF9c3fVhqmJKpi+UhasNUMko69cyX6STPfta3Q8EjyzDjzoyrol46FP6VFHhvUcJoWNwYWRZDZ4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA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" width="80" height="38" alt="Stallman Drywall"></a>
+    <div class="topbar-right">
+      <button id="whoami" class="whoami" type="button" hidden></button>
+    </div>
   </div>
 </header>
 
@@ -492,23 +616,30 @@ textarea { min-height: 120px; resize: vertical; }
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
-/* =====================================================================
-   SETTINGS — this is the only part of this file you need to change.
-   Paste your two Supabase values between the quote marks.
-   ===================================================================== */
+/* =========================================================
+   SETTINGS — the only part of this file you need to edit.
+
+   Paste your two Supabase values between the quote marks below.
+   You get them in Supabase under: Project Settings -> API Keys
+   (see step 2 of README.md).
+   ========================================================= */
+
 window.CONFIG = {
 
   // Looks like: https://abcdefghijklm.supabase.co
   SUPABASE_URL: "https://cwhxijanglqksbgjwjex.supabase.co",
 
-  // The long "anon" / "publishable" key. Never paste the service_role key.
+  // The long "sb_publishable_..." key. Safe to put here — it is designed
+  // to be used in a web page. Never paste a secret key.
   SUPABASE_ANON_KEY: "sb_publishable_C26OIIhQZUagcgQj7rs84Q_EA3TLOnU",
 
-  // Your company name. Appears on the PDF reports you send clients.
+  // Your company name. Shows up on the PDF reports you send clients.
   COMPANY_NAME: "Stallman Drywall",
 
-  // A shared word your crew types once to get in. "" skips it entirely.
-  TEAM_CODE: "drywall"
+  // A shared word your crew types once to get in. Change it any time —
+  // anyone who was already signed in stays signed in until they sign out.
+  // Leave it as "" to skip the code entirely.
+  TEAM_CODE: "drywall321"
 };
 </script>
 <script>
@@ -520,19 +651,32 @@ window.CONFIG = {
 (function () {
 
   var BUCKET = 'jobsite-photos';
+  var NOTES_SVG =
+    '<svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" focusable="false" ' +
+      'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M12 4v9m0 0 3.4-3.4M12 13 8.6 9.6M5 15.5v3A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5v-3"/>' +
+    '</svg>';
+  var TRASH_SVG =
+    '<svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true" focusable="false" ' +
+      'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">' +
+      '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 12.5h9l1-12.5M10.5 10.5v6M13.5 10.5v6"/>' +
+    '</svg>';
   var MAX_PX = 1600;        // photos are shrunk to this on the long edge before upload
   var JPEG_Q = 0.72;
   var app = document.getElementById('app');
   var toastEl = document.getElementById('toast');
   var whoamiBtn = document.getElementById('whoami');
+  var backBtn = document.getElementById('back');
   var lightbox = document.getElementById('lightbox');
   var lightboxImg = document.getElementById('lightbox-img');
 
   var sb = null;
   var me = null;
   var staged = [];                       // photos picked but not yet uploaded
+  var editStaged = [];                   // photos added while editing an entry
+  var editRemove = {};                   // existing photo ids marked for removal
   var dash = { q: '', status: 'Active' };
-  var view = { entries: [], job: null, q: '', date: '' };
+  var view = { entries: [], job: null, q: '', date: '', editing: null };
   var toastTimer = null;
 
   /* ---------------- small helpers ---------------- */
@@ -601,9 +745,7 @@ window.CONFIG = {
   }
 
   function tagChip(tag) {
-    if (tag === 'issue') return '<span class="chip chip-issue">Issue</span>';
-    if (tag === 'milestone') return '<span class="chip chip-milestone">Milestone</span>';
-    return '';
+    return tag === 'issue' ? '<span class="chip chip-issue">Issue</span>' : '';
   }
 
   function on(id, evt, fn) {
@@ -651,13 +793,17 @@ window.CONFIG = {
 
   function route() {
     staged = [];
+    clearEditState();
     whoamiBtn.hidden = !me;
     if (me) whoamiBtn.textContent = firstName(me.name);
 
-    if (!me) return renderSignIn();
-
     var hash = location.hash || '#/';
     var m = hash.match(/^#\/job\/([0-9a-fA-F-]{6,})/);
+
+    // Back only appears where there is somewhere to go back to.
+    backBtn.hidden = !me || !m;
+
+    if (!me) return renderSignIn();
     if (m) return renderJob(m[1]);
     renderDashboard();
   }
@@ -790,6 +936,16 @@ window.CONFIG = {
       document.getElementById('nj-open').hidden = false;
     });
     on('nj-save', 'click', saveNewJob);
+
+    Array.prototype.forEach.call(document.querySelectorAll('.js-jobdel'), function (b) {
+      b.addEventListener('click', function () { deleteJob(b.dataset.id, b.dataset.name); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.js-jobtxt'), function (b) {
+      b.addEventListener('click', function () {
+        var job = jobs.filter(function (j) { return j.id === b.dataset.id; })[0];
+        if (job) exportJobNotes(job, b);
+      });
+    });
   }
 
   function paintDashboardKeepFocus(jobs, focusId) {
@@ -805,15 +961,21 @@ window.CONFIG = {
   }
 
   function jobRowHtml(j) {
-    return '<li><a class="jobrow' + (j.status === 'Completed' ? ' is-completed' : '') + '" href="#/job/' + esc(j.id) + '">' +
-      '<div class="jobrow-top">' +
-        '<span class="jobrow-name">' + esc(j.name) + '</span>' +
-        '<span class="jobrow-when">' + esc(relTime(j.updated_at)) + '</span>' +
-      '</div>' +
-      '<div class="jobrow-meta">' + esc(j.client_name || 'No client listed') +
-        (j.address ? ' · ' + esc(j.address) : '') + '</div>' +
-      (j.status === 'Completed' ? '<div style="margin-top:7px"><span class="chip chip-done">Completed</span></div>' : '') +
-      '</a></li>';
+    return '<li class="jobitem' + (j.status === 'Completed' ? ' is-completed' : '') + '">' +
+      '<a class="jobrow" href="#/job/' + esc(j.id) + '">' +
+        '<div class="jobrow-top">' +
+          '<span class="jobrow-name">' + esc(j.name) + '</span>' +
+          '<span class="jobrow-when">' + esc(relTime(j.updated_at)) + '</span>' +
+        '</div>' +
+        '<div class="jobrow-meta">' + esc(j.client_name || 'No client listed') +
+          (j.address ? ' · ' + esc(j.address) : '') + '</div>' +
+        (j.status === 'Completed' ? '<div style="margin-top:7px"><span class="chip chip-done">Completed</span></div>' : '') +
+      '</a>' +
+      '<button type="button" class="jobact jobtxt js-jobtxt" data-id="' + esc(j.id) +
+        '" aria-label="Save notes for ' + esc(j.name) + '" title="Save notes (.txt)">' + NOTES_SVG + '</button>' +
+      '<button type="button" class="jobact jobdel js-jobdel" data-id="' + esc(j.id) + '" data-name="' + esc(j.name) +
+        '" aria-label="Delete ' + esc(j.name) + '" title="Delete job">' + TRASH_SVG + '</button>' +
+    '</li>';
   }
 
   function emptyJobsHtml(total) {
@@ -844,6 +1006,31 @@ window.CONFIG = {
     });
   }
 
+  function deleteJob(id, name) {
+    if (!confirm('Delete "' + name + '"?\n\nEvery entry and photo on this job goes with it, for the whole crew. This cannot be undone.')) return;
+
+    toast('Deleting…');
+
+    sb.from('entries').select('entry_photos(storage_path)').eq('job_id', id)
+      .then(function (res) {
+        var paths = [];
+        (res.data || []).forEach(function (en) {
+          (en.entry_photos || []).forEach(function (p) { paths.push(p.storage_path); });
+        });
+        return paths.length ? sb.storage.from(BUCKET).remove(paths) : Promise.resolve({});
+      })
+      .then(function () {
+        // Entries and photo rows are removed by the database itself.
+        return sb.from('jobs').delete().eq('id', id);
+      })
+      .then(function (res) {
+        if (res.error) return toast('Could not delete: ' + res.error.message);
+        toast('Job deleted');
+        renderDashboard();
+      })
+      .catch(function (err) { toast('Could not delete: ' + (err.message || err)); });
+  }
+
   /* ---------------- job page ---------------- */
 
   function renderJob(id) {
@@ -870,8 +1057,6 @@ window.CONFIG = {
     var j = view.job;
 
     app.innerHTML =
-      '<a class="backlink" href="#/">All jobs</a>' +
-
       '<div class="jobhead">' +
         '<h1>' + esc(j.name) + '</h1>' +
         '<div class="jobhead-meta">' + esc(j.client_name || 'No client listed') +
@@ -884,22 +1069,22 @@ window.CONFIG = {
       '</div>' +
 
       '<div id="compose" class="panel" hidden style="margin-top:14px">' +
-        '<h2 style="font-size:22px;margin-bottom:10px">Today · ' + esc(longDate(todayISO())) + '</h2>' +
+        '<div class="field"><label for="c-date">Date</label>' +
+          '<input id="c-date" type="date" value="' + todayISO() + '" max="' + todayISO() + '"></div>' +
         '<div class="field"><label for="c-notes">What happened on site?</label>' +
           '<textarea id="c-notes" placeholder="Hung 42 sheets on the second floor. Need 20 more sheets of 5/8 by Thursday."></textarea></div>' +
-        '<div class="field"><label>Mark this entry</label>' +
+        '<div class="field">' +
           '<div class="tagpick">' +
-            '<input type="radio" name="tag" id="tag-note" value="note" checked><label for="tag-note">Progress</label>' +
+            '<input type="radio" name="tag" id="tag-note" value="note" checked><label for="tag-note">Update</label>' +
             '<input type="radio" name="tag" id="tag-issue" value="issue"><label for="tag-issue">Issue</label>' +
-            '<input type="radio" name="tag" id="tag-milestone" value="milestone"><label for="tag-milestone">Milestone</label>' +
           '</div></div>' +
-        '<div class="field"><label>Photos</label>' +
+        '<div class="field">' +
           '<div class="filedrop">' +
             '<input id="c-files" type="file" accept="image/*" multiple>' +
-            '<label class="filedrop-label" for="c-files">Take or choose photos</label>' +
+            '<label class="filedrop-label" for="c-files">Add photos</label>' +
             '<div id="c-thumbs" class="thumbs"></div>' +
           '</div></div>' +
-        '<div class="row" style="margin-top:14px">' +
+        '<div class="row" style="margin-top:16px">' +
           '<button id="c-save" class="btn grow">Post entry</button>' +
           '<button id="c-cancel" class="btn btn-quiet">Cancel</button>' +
         '</div>' +
@@ -919,7 +1104,7 @@ window.CONFIG = {
       feedHtml() +
 
       '<div class="dock"><div class="dock-inner">' +
-        '<button id="c-open" class="btn btn-block">Add today\'s entry</button>' +
+        '<button id="c-open" class="btn btn-block">Add entry</button>' +
       '</div></div>';
 
     on('toggle-status', 'click', toggleStatus);
@@ -928,6 +1113,7 @@ window.CONFIG = {
     on('c-open', 'click', function () {
       document.getElementById('compose').hidden = false;
       document.getElementById('c-open').hidden = true;
+      document.getElementById('c-date').value = todayISO();
       document.getElementById('c-notes').focus();
       document.getElementById('compose').scrollIntoView({ block: 'start' });
     });
@@ -936,6 +1122,7 @@ window.CONFIG = {
       document.getElementById('compose').hidden = true;
       document.getElementById('c-open').hidden = false;
       document.getElementById('c-notes').value = '';
+      document.getElementById('c-date').value = todayISO();
       document.getElementById('c-thumbs').innerHTML = '';
     });
     on('c-files', 'change', onPickFiles);
@@ -976,7 +1163,9 @@ window.CONFIG = {
       return '<div class="empty"><h2>Nothing matches</h2>' +
         '<p>Clear the search box or the date to see the whole log again.</p></div>';
     }
-    return '<ul class="feed">' + list.map(entryHtml).join('') + '</ul>';
+    return '<ul class="feed">' + list.map(function (en) {
+      return view.editing === en.id ? entryEditHtml(en) : entryHtml(en);
+    }).join('') + '</ul>';
   }
 
   function entryHtml(en) {
@@ -999,9 +1188,69 @@ window.CONFIG = {
           return '<button type="button" class="js-zoom" data-url="' + esc(url) + '">' +
             '<img loading="lazy" src="' + esc(url) + '" alt="Photo from ' + esc(longDate(en.entry_date)) + '"></button>';
         }).join('') + '</div>' : '') +
-        (mine ? '<button class="btn-danger js-del" data-id="' + esc(en.id) + '">Delete my entry</button>' : '') +
+        (mine ? '<div class="entry-actions">' +
+            '<button class="btn-mini js-edit" data-id="' + esc(en.id) + '">Edit</button>' +
+            '<button class="btn-mini btn-mini-danger js-del" data-id="' + esc(en.id) + '">Delete</button>' +
+          '</div>' : '') +
       '</div>' +
     '</article></li>';
+  }
+
+  // Editing reuses the same fields as posting, shown in place of the entry.
+  function entryEditHtml(en) {
+    var photos = en.entry_photos || [];
+
+    return '<li><div class="panel editpanel">' +
+      '<div class="editpanel-head">Editing your entry</div>' +
+      '<div class="field"><label for="e-date">Date</label>' +
+        '<input id="e-date" type="date" value="' + esc(en.entry_date) + '" max="' + todayISO() + '"></div>' +
+      '<div class="field"><label for="e-notes">What happened on site?</label>' +
+        '<textarea id="e-notes">' + esc(en.notes || '') + '</textarea></div>' +
+      '<div class="field">' +
+        '<div class="tagpick">' +
+          '<input type="radio" name="etag" id="etag-note" value="note"' + (en.tag !== 'issue' ? ' checked' : '') + '>' +
+          '<label for="etag-note">Update</label>' +
+          '<input type="radio" name="etag" id="etag-issue" value="issue"' + (en.tag === 'issue' ? ' checked' : '') + '>' +
+          '<label for="etag-issue">Issue</label>' +
+        '</div></div>' +
+
+      (photos.length ?
+        '<div class="field"><label>Photos on this entry</label>' +
+          '<p class="small muted" style="margin:0 0 8px">Tap a photo to remove it when you save.</p>' +
+          '<div class="thumbs">' + photos.map(function (p) {
+            var marked = !!editRemove[p.id];
+            return '<button type="button" class="photochip js-photo-toggle' + (marked ? ' marked' : '') + '" ' +
+              'data-id="' + esc(p.id) + '">' +
+              '<img src="' + esc(photoUrl(p.storage_path)) + '" alt="Photo on this entry">' +
+              (marked ? '<span class="photochip-x">Removing</span>' : '') +
+            '</button>';
+          }).join('') + '</div></div>' : '') +
+
+      '<div class="field">' +
+        '<div class="filedrop">' +
+          '<input id="e-files" type="file" accept="image/*" multiple>' +
+          '<label class="filedrop-label" for="e-files">Add photos</label>' +
+          '<div id="e-thumbs" class="thumbs"></div>' +
+        '</div></div>' +
+
+      '<div class="row" style="margin-top:16px">' +
+        '<button id="e-save" class="btn grow" data-id="' + esc(en.id) + '">Save changes</button>' +
+        '<button id="e-cancel" class="btn btn-quiet">Cancel</button>' +
+      '</div>' +
+    '</div></li>';
+  }
+
+  function clearEditState() {
+    view.editing = null;
+    editStaged = [];
+    editRemove = {};
+  }
+
+  function refreshFeed() {
+    var wrap = document.getElementById('feed-wrap');
+    if (!wrap) return;
+    wrap.innerHTML = feedInner();
+    wireFeed();
   }
 
   function wireFeed() {
@@ -1011,27 +1260,50 @@ window.CONFIG = {
     Array.prototype.forEach.call(document.querySelectorAll('.js-del'), function (b) {
       b.addEventListener('click', function () { deleteEntry(b.dataset.id); });
     });
+    Array.prototype.forEach.call(document.querySelectorAll('.js-edit'), function (b) {
+      b.addEventListener('click', function () {
+        clearEditState();
+        view.editing = b.dataset.id;
+        refreshFeed();
+        var box = document.getElementById('e-notes');
+        if (box) box.focus();
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.js-photo-toggle'), function (b) {
+      b.addEventListener('click', function () {
+        var id = b.dataset.id;
+        editRemove[id] = !editRemove[id];
+        refreshFeed();
+      });
+    });
+
+    on('e-cancel', 'click', function () { clearEditState(); refreshFeed(); });
+    on('e-files', 'change', function (e) { collectFiles(e, editStaged, 'e-thumbs'); });
+    var save = document.getElementById('e-save');
+    if (save) save.addEventListener('click', function () { saveEdit(save.dataset.id); });
   }
 
   /* ---------------- posting an entry ---------------- */
 
-  function onPickFiles(e) {
-    var files = Array.prototype.slice.call(e.target.files || []);
-    files.forEach(function (f) {
-      if (f.type.indexOf('image/') !== 0) return;
-      staged.push(f);
+  function onPickFiles(e) { collectFiles(e, staged, 'c-thumbs'); }
+
+  function collectFiles(e, into, thumbsId) {
+    Array.prototype.slice.call(e.target.files || []).forEach(function (f) {
+      if (f.type.indexOf('image/') === 0) into.push(f);
     });
     e.target.value = '';
-    var wrap = document.getElementById('c-thumbs');
-    wrap.innerHTML = staged.map(function (f) {
+    var wrap = document.getElementById(thumbsId);
+    if (!wrap) return;
+    wrap.innerHTML = into.map(function (f) {
       return '<img alt="Selected photo" src="' + URL.createObjectURL(f) + '">';
-    }).join('') + (staged.length ? '<div class="small muted" style="width:100%">' + staged.length +
-      (staged.length === 1 ? ' photo ready' : ' photos ready') + '</div>' : '');
+    }).join('') + (into.length ? '<div class="small muted" style="width:100%">' + into.length +
+      (into.length === 1 ? ' photo ready' : ' photos ready') + '</div>' : '');
   }
 
   function postEntry() {
     var notes = document.getElementById('c-notes').value.trim();
     var tag = (document.querySelector('input[name=tag]:checked') || {}).value || 'note';
+    var when = document.getElementById('c-date').value || todayISO();
 
     if (!notes && !staged.length) return toast('Add a note or a photo first.');
 
@@ -1045,11 +1317,11 @@ window.CONFIG = {
       author_email: me.email,
       notes: notes,
       tag: tag,
-      entry_date: todayISO()
+      entry_date: when
     }).select().single().then(function (res) {
       if (res.error) throw res.error;
       var entry = res.data;
-      return uploadPhotos(entry).then(function () { return entry; });
+      return uploadPhotos(entry, staged, btn).then(function () { return entry; });
     }).then(function () {
       toast('Entry posted');
       staged = [];
@@ -1061,13 +1333,12 @@ window.CONFIG = {
     });
   }
 
-  function uploadPhotos(entry) {
-    if (!staged.length) return Promise.resolve();
-    var btn = document.getElementById('c-save');
+  function uploadPhotos(entry, files, btn) {
+    if (!files.length) return Promise.resolve();
     var done = 0;
     var rows = [];
 
-    return staged.reduce(function (chain, file, i) {
+    return files.reduce(function (chain, file, i) {
       return chain.then(function () {
         return shrink(file).then(function (blob) {
           var path = view.job.id + '/' + entry.id + '/' + Date.now() + '-' + i + '.jpg';
@@ -1076,7 +1347,7 @@ window.CONFIG = {
               if (up.error) throw up.error;
               rows.push({ entry_id: entry.id, storage_path: path });
               done++;
-              if (btn) btn.textContent = 'Uploading photo ' + done + ' of ' + staged.length + '…';
+              if (btn) btn.textContent = 'Uploading photo ' + done + ' of ' + files.length + '…';
             });
         });
       });
@@ -1107,6 +1378,53 @@ window.CONFIG = {
       img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('That photo could not be read.')); };
       img.src = url;
     });
+  }
+
+  function saveEdit(id) {
+    var en = view.entries.filter(function (x) { return x.id === id; })[0];
+    if (!en) return;
+
+    var notes = document.getElementById('e-notes').value.trim();
+    var tag = (document.querySelector('input[name=etag]:checked') || {}).value || 'note';
+    var when = document.getElementById('e-date').value || en.entry_date;
+
+    var photos = en.entry_photos || [];
+    var dropping = photos.filter(function (p) { return editRemove[p.id]; });
+    var keeping = photos.length - dropping.length;
+
+    if (!notes && !editStaged.length && keeping === 0) {
+      return toast('An entry needs a note or a photo.');
+    }
+
+    var btn = document.getElementById('e-save');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    sb.from('entries')
+      .update({ notes: notes, tag: tag, entry_date: when })
+      .eq('id', id).eq('author_email', me.email)
+      .then(function (res) {
+        if (res.error) throw res.error;
+        if (!dropping.length) return;
+        var paths = dropping.map(function (p) { return p.storage_path; });
+        var ids = dropping.map(function (p) { return p.id; });
+        return sb.storage.from(BUCKET).remove(paths).then(function () {
+          return sb.from('entry_photos').delete().in('id', ids).then(function (r) {
+            if (r.error) throw r.error;
+          });
+        });
+      })
+      .then(function () { return uploadPhotos(en, editStaged, btn); })
+      .then(function () {
+        toast('Entry updated');
+        clearEditState();
+        renderJob(view.job.id);
+      })
+      .catch(function (err) {
+        btn.disabled = false;
+        btn.textContent = 'Save changes';
+        toast('Could not save: ' + (err.message || err));
+      });
   }
 
   function deleteEntry(id) {
@@ -1149,6 +1467,68 @@ window.CONFIG = {
   function closeLightbox() {
     lightbox.hidden = true;
     lightboxImg.src = '';
+  }
+
+  /* ---------------- plain text export ---------------- */
+
+  // One file per job: notes only, oldest day first, no photos.
+  function exportJobNotes(job, btn) {
+    btn.disabled = true;
+    toast('Building notes file…');
+
+    sb.from('entries')
+      .select('author_name,notes,tag,entry_date,created_at')
+      .eq('job_id', job.id)
+      .order('entry_date', { ascending: true })
+      .order('created_at', { ascending: true })
+      .then(function (res) {
+        if (res.error) throw res.error;
+        var list = res.data || [];
+
+        var L = [];
+        L.push(job.name);
+        L.push(new Array(job.name.length + 1).join('='));
+        if (job.client_name) L.push('Client:  ' + job.client_name);
+        if (job.address)     L.push('Address: ' + job.address);
+        L.push('Status:  ' + job.status);
+        L.push('Entries: ' + list.length);
+        L.push('Saved:   ' + longDate(todayISO()) + ' by ' + (window.CONFIG.COMPANY_NAME || ''));
+        L.push('');
+
+        if (!list.length) {
+          L.push('No entries yet.');
+        } else {
+          list.forEach(function (en) {
+            L.push('----------------------------------------');
+            L.push(longDate(en.entry_date) + '   ' + en.author_name + '   ' +
+                   clockTime(en.created_at) + (en.tag === 'issue' ? '   [ISSUE]' : ''));
+            L.push('');
+            if (en.notes) L.push(en.notes);
+            L.push('');
+          });
+        }
+
+        var stem = job.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+        downloadFile(stem + '-notes-' + todayISO() + '.txt',
+                     L.join('\r\n'), 'text/plain;charset=utf-8');
+
+        btn.disabled = false;
+        toast('Notes saved');
+      })
+      .catch(function (err) {
+        btn.disabled = false;
+        toast('Could not build the file: ' + (err.message || err));
+      });
+  }
+
+  function downloadFile(filename, text, type) {
+    var url = URL.createObjectURL(new Blob([text], { type: type }));
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 2000);
   }
 
   /* ---------------- PDF report ---------------- */
