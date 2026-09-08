@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Jobsite Log</title>
+<meta name="theme-color" content="#17202A">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* Jobsite Log — field-first styling.
+   Palette is drawn from the trade: drywall dust, gypsum board, blue chalk line,
+   red keel crayon. Squared corners, hairline rules, very large touch targets. */
+
+:root {
+  --wall: #E7E9EB;
+  --board: #FFFFFF;
+  --ink: #17202A;
+  --steel: #5F6C79;
+  --rule: #CBD1D6;
+  --chalk: #1F4FD8;
+  --chalk-dark: #163BA6;
+  --keel: #C2321B;
+  --mark: #1E7A46;
+  --radius: 2px;
+  --tap: 52px;
+  --pad: 16px;
+  --shell: 680px;
+}
+
+* { box-sizing: border-box; }
+
+/* The app hides panels with the hidden attribute; class rules below set
+   display, so this has to win. */
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0;
+  background: var(--wall);
+  color: var(--ink);
+  font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  font-size: 17px;
+  line-height: 1.5;
+  -webkit-text-size-adjust: 100%;
+}
+
+h1, h2, h3, .cond {
+  font-family: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  margin: 0;
+}
+
+a { color: var(--chalk-dark); }
+
+:focus-visible {
+  outline: 3px solid var(--chalk);
+  outline-offset: 2px;
+}
+
+/* ---------- Top bar ---------- */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--ink);
+  color: #fff;
+  padding-top: env(safe-area-inset-top);
+}
+
+.topbar-inner {
+  max-width: var(--shell);
+  margin: 0 auto;
+  min-height: 56px;
+  padding: 0 var(--pad);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.brand {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 700;
+  font-size: 25px;
+  color: #fff;
+  text-decoration: none;
+  letter-spacing: 0.02em;
+}
+
+.whoami {
+  background: none;
+  border: 1px solid #47535F;
+  color: #E7E9EB;
+  border-radius: var(--radius);
+  padding: 7px 11px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  min-height: 36px;
+}
+
+/* ---------- Shell ---------- */
+
+.app {
+  max-width: var(--shell);
+  margin: 0 auto;
+  padding: var(--pad) var(--pad) 120px;
+}
+
+.stack > * + * { margin-top: 14px; }
+
+.muted { color: var(--steel); }
+.small { font-size: 14px; }
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 22px 0 10px;
+}
+
+.section-head h2 { font-size: 22px; }
+
+/* ---------- Panels, forms, buttons ---------- */
+
+.panel {
+  background: var(--board);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--pad);
+}
+
+label {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  margin-bottom: 5px;
+}
+
+input[type=text], input[type=email], input[type=date], input[type=password], select, textarea {
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--steel);
+  border-radius: var(--radius);
+  padding: 13px 12px;
+  min-height: var(--tap);
+}
+
+textarea { min-height: 120px; resize: vertical; }
+
+.field + .field { margin-top: 13px; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--tap);
+  padding: 0 18px;
+  font: inherit;
+  font-weight: 600;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  background: var(--chalk);
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn:active { background: var(--chalk-dark); }
+.btn[disabled] { opacity: 0.55; cursor: default; }
+.btn-block { width: 100%; }
+
+.btn-quiet {
+  background: var(--board);
+  color: var(--ink);
+  border-color: var(--steel);
+}
+
+.btn-plain {
+  background: none;
+  border: none;
+  color: var(--chalk-dark);
+  font: inherit;
+  font-weight: 500;
+  padding: 10px 0;
+  min-height: 44px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.btn-danger { background: none; border: none; color: var(--keel); font: inherit; font-size: 14px; cursor: pointer; padding: 8px 0; min-height: 40px; }
+
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row > .grow { flex: 1 1 180px; }
+
+/* ---------- Tag chooser + chips ---------- */
+
+.tagpick { display: flex; gap: 8px; }
+
+.tagpick input { position: absolute; opacity: 0; pointer-events: none; }
+
+.tagpick label {
+  flex: 1;
+  margin: 0;
+  text-align: center;
+  border: 1px solid var(--steel);
+  border-radius: var(--radius);
+  padding: 13px 4px;
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: #fff;
+  font-weight: 500;
+}
+
+.tagpick input:checked + label { background: var(--ink); color: #fff; border-color: var(--ink); }
+.tagpick input#tag-issue:checked + label { background: var(--keel); border-color: var(--keel); }
+.tagpick input#tag-milestone:checked + label { background: var(--mark); border-color: var(--mark); }
+.tagpick input:focus-visible + label { outline: 3px solid var(--chalk); outline-offset: 2px; }
+
+.chip {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: var(--radius);
+  border: 1px solid var(--rule);
+  color: var(--steel);
+  background: #fff;
+}
+
+.chip-issue { color: #fff; background: var(--keel); border-color: var(--keel); }
+.chip-milestone { color: #fff; background: var(--mark); border-color: var(--mark); }
+.chip-done { color: var(--steel); background: var(--wall); }
+
+/* ---------- Job list ---------- */
+
+.joblist { list-style: none; margin: 0; padding: 0; }
+.joblist li + li { margin-top: 10px; }
+
+.jobrow {
+  display: block;
+  background: var(--board);
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--chalk);
+  border-radius: var(--radius);
+  padding: 14px var(--pad);
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.jobrow.is-completed { border-left-color: var(--steel); }
+
+.jobrow-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.jobrow-name { font-family: "Barlow Condensed", sans-serif; font-weight: 600; font-size: 24px; line-height: 1.15; }
+.jobrow-meta { font-size: 15px; color: var(--steel); margin-top: 2px; }
+.jobrow-when { font-size: 13px; color: var(--steel); white-space: nowrap; }
+
+/* ---------- Entry feed: the one bold move ----------
+   Each entry is a wide band with a colored edge and an oversized date in the
+   gutter, so a phone scan reads as date -> tag -> note. */
+
+.feed { list-style: none; margin: 0; padding: 0; }
+.feed > li + li { margin-top: 12px; }
+
+.entry {
+  display: grid;
+  grid-template-columns: 62px 1fr;
+  background: var(--board);
+  border: 1px solid var(--rule);
+  border-left: 5px solid var(--steel);
+  border-radius: var(--radius);
+}
+
+.entry.t-issue { border-left-color: var(--keel); }
+.entry.t-milestone { border-left-color: var(--mark); }
+
+.entry-date {
+  padding: 13px 0 13px 12px;
+  font-family: "Barlow Condensed", sans-serif;
+  line-height: 0.92;
+  color: var(--ink);
+}
+
+.entry-day { display: block; font-size: 38px; font-weight: 700; }
+.entry-mon { display: block; font-size: 15px; font-weight: 500; color: var(--steel); letter-spacing: 0.04em; }
+
+.entry-body { padding: 13px var(--pad) 15px 12px; min-width: 0; }
+.entry-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.entry-who { font-weight: 600; font-size: 15px; }
+.entry-time { font-size: 13px; color: var(--steel); }
+.entry-note { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+
+.gallery {
+  margin-top: 11px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 6px;
+}
+
+.gallery button {
+  padding: 0;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: var(--wall);
+  aspect-ratio: 1;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.gallery img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* ---------- Job header ---------- */
+
+.jobhead {
+  background: var(--board);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--pad);
+}
+
+.jobhead h1 { font-size: 30px; line-height: 1.1; }
+.jobhead .jobhead-meta { margin-top: 6px; color: var(--steel); font-size: 15px; }
+.jobhead .row { margin-top: 14px; }
+
+.backlink {
+  display: inline-block;
+  padding: 8px 0;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--chalk-dark);
+  text-decoration: none;
+  min-height: 40px;
+}
+
+/* ---------- Sticky compose bar ---------- */
+
+.dock {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 15;
+  background: var(--wall);
+  border-top: 1px solid var(--rule);
+  padding: 10px var(--pad) calc(10px + env(safe-area-inset-bottom));
+}
+
+.dock-inner { max-width: var(--shell); margin: 0 auto; }
+
+/* ---------- Photo staging ---------- */
+
+.filedrop {
+  border: 1px dashed var(--steel);
+  border-radius: var(--radius);
+  padding: 15px;
+  text-align: center;
+  background: #fff;
+}
+
+.filedrop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+.filedrop-label {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  font-weight: 600;
+  color: var(--chalk-dark);
+  cursor: pointer;
+  margin: 0;
+}
+
+.thumbs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.thumbs img { width: 64px; height: 64px; object-fit: cover; border: 1px solid var(--rule); border-radius: var(--radius); }
+
+/* ---------- Empty + loading states ---------- */
+
+.empty {
+  background: var(--board);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 26px var(--pad);
+  text-align: center;
+}
+
+.empty h2 { font-size: 22px; margin-bottom: 6px; }
+.empty p { margin: 0 auto; max-width: 42ch; color: var(--steel); }
+
+.error {
+  border-left: 5px solid var(--keel);
+  background: #fff;
+  border-radius: var(--radius);
+  border-top: 1px solid var(--rule);
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  padding: 14px var(--pad);
+}
+
+/* ---------- Toast ---------- */
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(84px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 40;
+  background: var(--ink);
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: var(--radius);
+  font-size: 15px;
+  max-width: calc(100% - 32px);
+  box-shadow: 0 6px 20px rgba(23, 32, 42, 0.28);
+}
+
+/* ---------- Lightbox ---------- */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(23, 32, 42, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.lightbox img { max-width: 100%; max-height: 88vh; }
+
+.lightbox-close {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 12px;
+  min-height: 44px;
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: #fff;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+/* ---------- Sign-in / setup ---------- */
+
+.gate { max-width: 420px; margin: 8vh auto 0; }
+.gate h1 { font-size: 32px; margin-bottom: 4px; }
+.gate p { color: var(--steel); margin: 0 0 18px; }
+
+.setup ol { padding-left: 22px; }
+.setup li { margin-bottom: 8px; }
+.setup code { background: var(--wall); padding: 1px 5px; border-radius: var(--radius); font-size: 15px; overflow-wrap: anywhere; }
+
+@media (min-width: 620px) {
+  .entry { grid-template-columns: 76px 1fr; }
+  .entry-day { font-size: 44px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
+
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="topbar-inner">
+    <a class="brand" href="#/">Jobsite Log</a>
+    <button id="whoami" class="whoami" type="button" hidden></button>
+  </div>
+</header>
+
+<main id="app" class="app"></main>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+<div id="lightbox" class="lightbox" hidden>
+  <button id="lightbox-close" class="lightbox-close" type="button" aria-label="Close photo">Close</button>
+  <img id="lightbox-img" alt="Jobsite photo, full size">
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+/* =====================================================================
+   SETTINGS — this is the only part of this file you need to change.
+   Paste your two Supabase values between the quote marks.
+   ===================================================================== */
+window.CONFIG = {
+
+  // Looks like: https://abcdefghijklm.supabase.co
+  SUPABASE_URL: "https://cwhxijanglqksbgjwjex.supabase.co",
+
+  // The long "anon" / "publishable" key. Never paste the service_role key.
+  SUPABASE_ANON_KEY: "sb_publishable_C26OIIhQZUagcgQj7rs84Q_EA3TLOnU",
+
+  // Your company name. Appears on the PDF reports you send clients.
+  COMPANY_NAME: "Stallman Drywall",
+
+  // A shared word your crew types once to get in. "" skips it entirely.
+  TEAM_CODE: "drywall"
+};
+</script>
+<script>
+/* Jobsite Log — all app logic lives here.
+   Below this line is app logic. Your settings are in the SETTINGS block above. */
+
+'use strict';
+
+(function () {
+
+  var BUCKET = 'jobsite-photos';
+  var MAX_PX = 1600;        // photos are shrunk to this on the long edge before upload
+  var JPEG_Q = 0.72;
+  var app = document.getElementById('app');
+  var toastEl = document.getElementById('toast');
+  var whoamiBtn = document.getElementById('whoami');
+  var lightbox = document.getElementById('lightbox');
+  var lightboxImg = document.getElementById('lightbox-img');
+
+  var sb = null;
+  var me = null;
+  var staged = [];                       // photos picked but not yet uploaded
+  var dash = { q: '', status: 'Active' };
+  var view = { entries: [], job: null, q: '', date: '' };
+  var toastTimer = null;
+
+  /* ---------------- small helpers ---------------- */
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 3200);
+  }
+
+  function todayISO() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  function dateParts(ymd) {
+    var p = String(ymd || '').split('-');
+    var mon = MONTHS[Number(p[1]) - 1] || '';
+    return { day: String(Number(p[2]) || ''), mon: mon, year: p[0] || '' };
+  }
+
+  function longDate(ymd) {
+    var d = dateParts(ymd);
+    return d.mon + ' ' + d.day + ', ' + d.year;
+  }
+
+  function clockTime(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return '';
+    var h = d.getHours(), m = pad(d.getMinutes());
+    var ap = h >= 12 ? 'pm' : 'am';
+    h = h % 12; if (h === 0) h = 12;
+    return h + ':' + m + ' ' + ap;
+  }
+
+  function relTime(iso) {
+    var then = new Date(iso).getTime();
+    if (isNaN(then)) return '';
+    var mins = Math.round((Date.now() - then) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + ' min ago';
+    var hrs = Math.round(mins / 60);
+    if (hrs < 24) return hrs + (hrs === 1 ? ' hour ago' : ' hours ago');
+    var days = Math.round(hrs / 24);
+    if (days < 7) return days + (days === 1 ? ' day ago' : ' days ago');
+    var wks = Math.round(days / 7);
+    if (wks < 5) return wks + (wks === 1 ? ' week ago' : ' weeks ago');
+    return longDate(iso.slice(0, 10));
+  }
+
+  function firstName(name) { return String(name || '').trim().split(/\s+/)[0] || 'Me'; }
+
+  function photoUrl(path) {
+    return sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  }
+
+  function tagChip(tag) {
+    if (tag === 'issue') return '<span class="chip chip-issue">Issue</span>';
+    if (tag === 'milestone') return '<span class="chip chip-milestone">Milestone</span>';
+    return '';
+  }
+
+  function on(id, evt, fn) {
+    var node = document.getElementById(id);
+    if (node) node.addEventListener(evt, fn);
+  }
+
+  /* ---------------- boot ---------------- */
+
+  function configured() {
+    var c = window.CONFIG || {};
+    return c.SUPABASE_URL && c.SUPABASE_URL.indexOf('supabase.co') > -1 &&
+           c.SUPABASE_ANON_KEY && c.SUPABASE_ANON_KEY.length > 30;
+  }
+
+  function boot() {
+    if (!configured()) return renderSetupNeeded();
+
+    sb = window.supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY);
+    me = loadMe();
+
+    whoamiBtn.addEventListener('click', function () {
+      if (confirm('Sign out of Jobsite Log on this phone?')) {
+        localStorage.removeItem('jsl.crew');
+        me = null;
+        route();
+      }
+    });
+
+    document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
+    lightbox.addEventListener('click', function (e) { if (e.target === lightbox) closeLightbox(); });
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeLightbox(); });
+
+    window.addEventListener('hashchange', route);
+    route();
+  }
+
+  function loadMe() {
+    try {
+      var raw = localStorage.getItem('jsl.crew');
+      var u = raw ? JSON.parse(raw) : null;
+      return (u && u.name && u.email) ? u : null;
+    } catch (e) { return null; }
+  }
+
+  function route() {
+    staged = [];
+    whoamiBtn.hidden = !me;
+    if (me) whoamiBtn.textContent = firstName(me.name);
+
+    if (!me) return renderSignIn();
+
+    var hash = location.hash || '#/';
+    var m = hash.match(/^#\/job\/([0-9a-fA-F-]{6,})/);
+    if (m) return renderJob(m[1]);
+    renderDashboard();
+  }
+
+  /* ---------------- setup screen ---------------- */
+
+  function renderSetupNeeded() {
+    app.innerHTML =
+      '<div class="panel setup" style="margin-top:18px">' +
+        '<h1 style="font-size:28px">Finish the setup</h1>' +
+        '<p class="muted">The app is running, but it does not know where to store your notes yet.</p>' +
+        '<ol>' +
+          '<li>Open this <code>index.html</code> file in Notepad — right-click it, choose Open with, then Notepad.</li>' +
+          '<li>Paste your Supabase <strong>Project URL</strong> and <strong>anon key</strong> between the quote marks.</li>' +
+          '<li>Save the file, then refresh this page. If the file is on GitHub, commit the change and wait about a minute.</li>' +
+        '</ol>' +
+        '<p class="muted small">Step 2 of README.md shows exactly where those two values live in Supabase.</p>' +
+      '</div>';
+  }
+
+  /* ---------------- sign in ---------------- */
+
+  function renderSignIn() {
+    var needCode = !!(window.CONFIG.TEAM_CODE || '');
+    app.innerHTML =
+      '<div class="gate panel">' +
+        '<h1>Who is posting?</h1>' +
+        '<p>Your name gets stamped on every note and photo you add.</p>' +
+        '<div class="field"><label for="in-name">Your name</label>' +
+          '<input id="in-name" type="text" autocomplete="name" placeholder="Dave Kruger"></div>' +
+        '<div class="field"><label for="in-email">Email</label>' +
+          '<input id="in-email" type="email" autocomplete="email" inputmode="email" placeholder="dave@example.com"></div>' +
+        (needCode ? '<div class="field"><label for="in-code">Crew code</label>' +
+          '<input id="in-code" type="text" autocomplete="off" placeholder="Ask the boss"></div>' : '') +
+        '<div class="field"><button id="do-signin" class="btn btn-block">Start posting</button></div>' +
+        '<p class="small muted" style="margin:0">This phone stays signed in until you sign out.</p>' +
+      '</div>';
+
+    on('do-signin', 'click', function () {
+      var name = document.getElementById('in-name').value.trim();
+      var email = document.getElementById('in-email').value.trim().toLowerCase();
+      var code = needCode ? document.getElementById('in-code').value.trim() : '';
+
+      if (name.length < 2) return toast('Enter your name.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('Enter a valid email address.');
+      if (needCode && code.toLowerCase() !== String(window.CONFIG.TEAM_CODE).toLowerCase()) {
+        return toast('That crew code does not match.');
+      }
+
+      me = { name: name, email: email };
+      localStorage.setItem('jsl.crew', JSON.stringify(me));
+      location.hash = '#/';
+      route();
+    });
+
+    var codeInput = document.getElementById(needCode ? 'in-code' : 'in-email');
+    if (codeInput) codeInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') document.getElementById('do-signin').click();
+    });
+  }
+
+  /* ---------------- dashboard ---------------- */
+
+  function renderDashboard() {
+    app.innerHTML = '<p class="muted">Loading jobs…</p>';
+
+    sb.from('jobs').select('*').order('updated_at', { ascending: false })
+      .then(function (res) {
+        if (res.error) return renderError(res.error.message);
+        paintDashboard(res.data || []);
+      });
+  }
+
+  function paintDashboard(jobs) {
+    var q = dash.q.toLowerCase();
+    var shown = jobs.filter(function (j) {
+      var okStatus = dash.status === 'All' || j.status === dash.status;
+      var hay = (j.name + ' ' + (j.address || '') + ' ' + (j.client_name || '')).toLowerCase();
+      return okStatus && (!q || hay.indexOf(q) > -1);
+    });
+
+    var counts = { active: 0, completed: 0 };
+    jobs.forEach(function (j) { j.status === 'Completed' ? counts.completed++ : counts.active++; });
+
+    app.innerHTML =
+      '<div class="row" style="margin-bottom:4px">' +
+        '<div class="grow"><label for="dash-q">Search jobs</label>' +
+          '<input id="dash-q" type="text" value="' + esc(dash.q) + '" placeholder="Name, address or client"></div>' +
+        '<div style="flex:0 0 150px"><label for="dash-status">Show</label>' +
+          '<select id="dash-status">' +
+            opt('Active', 'Active (' + counts.active + ')', dash.status) +
+            opt('Completed', 'Completed (' + counts.completed + ')', dash.status) +
+            opt('All', 'All jobs (' + jobs.length + ')', dash.status) +
+          '</select></div>' +
+      '</div>' +
+
+      '<div class="section-head"><h2>' + (dash.status === 'All' ? 'All jobs' : dash.status + ' jobs') + '</h2>' +
+        '<span class="small muted">Newest activity first</span></div>' +
+
+      (shown.length ? '<ul class="joblist">' + shown.map(jobRowHtml).join('') + '</ul>' : emptyJobsHtml(jobs.length)) +
+
+      '<div id="newjob" class="panel" hidden style="margin-top:18px">' +
+        '<h2 style="font-size:22px;margin-bottom:12px">Add a job</h2>' +
+        '<div class="field"><label for="nj-name">Job name</label>' +
+          '<input id="nj-name" type="text" placeholder="Hillcrest Apartments, Bldg C"></div>' +
+        '<div class="field"><label for="nj-address">Address</label>' +
+          '<input id="nj-address" type="text" placeholder="412 Hillcrest Dr, Morris MN"></div>' +
+        '<div class="field"><label for="nj-client">Client</label>' +
+          '<input id="nj-client" type="text" placeholder="Barrett Construction"></div>' +
+        '<div class="row" style="margin-top:14px">' +
+          '<button id="nj-save" class="btn grow">Save job</button>' +
+          '<button id="nj-cancel" class="btn btn-quiet">Cancel</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="dock"><div class="dock-inner">' +
+        '<button id="nj-open" class="btn btn-block">Add a job</button>' +
+      '</div></div>';
+
+    on('dash-q', 'input', function (e) { dash.q = e.target.value; paintDashboardKeepFocus(jobs, 'dash-q'); });
+    on('dash-status', 'change', function (e) { dash.status = e.target.value; paintDashboard(jobs); });
+
+    on('nj-open', 'click', function () {
+      document.getElementById('newjob').hidden = false;
+      document.getElementById('nj-open').hidden = true;
+      document.getElementById('nj-name').focus();
+    });
+    on('nj-cancel', 'click', function () {
+      document.getElementById('newjob').hidden = true;
+      document.getElementById('nj-open').hidden = false;
+    });
+    on('nj-save', 'click', saveNewJob);
+  }
+
+  function paintDashboardKeepFocus(jobs, focusId) {
+    var pos = document.getElementById(focusId).selectionStart;
+    paintDashboard(jobs);
+    var node = document.getElementById(focusId);
+    node.focus();
+    try { node.setSelectionRange(pos, pos); } catch (e) {}
+  }
+
+  function opt(value, label, current) {
+    return '<option value="' + value + '"' + (current === value ? ' selected' : '') + '>' + esc(label) + '</option>';
+  }
+
+  function jobRowHtml(j) {
+    return '<li><a class="jobrow' + (j.status === 'Completed' ? ' is-completed' : '') + '" href="#/job/' + esc(j.id) + '">' +
+      '<div class="jobrow-top">' +
+        '<span class="jobrow-name">' + esc(j.name) + '</span>' +
+        '<span class="jobrow-when">' + esc(relTime(j.updated_at)) + '</span>' +
+      '</div>' +
+      '<div class="jobrow-meta">' + esc(j.client_name || 'No client listed') +
+        (j.address ? ' · ' + esc(j.address) : '') + '</div>' +
+      (j.status === 'Completed' ? '<div style="margin-top:7px"><span class="chip chip-done">Completed</span></div>' : '') +
+      '</a></li>';
+  }
+
+  function emptyJobsHtml(total) {
+    if (total === 0) {
+      return '<div class="empty"><h2>No jobs yet</h2>' +
+        '<p>Add your first job below. Once it is in, your crew can post notes and photos to it from their phones.</p></div>';
+    }
+    return '<div class="empty"><h2>Nothing matches</h2>' +
+      '<p>Clear the search box, or switch “Show” to all jobs.</p></div>';
+  }
+
+  function saveNewJob() {
+    var name = document.getElementById('nj-name').value.trim();
+    if (name.length < 2) return toast('Give the job a name.');
+    var btn = document.getElementById('nj-save');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    sb.from('jobs').insert({
+      name: name,
+      address: document.getElementById('nj-address').value.trim(),
+      client_name: document.getElementById('nj-client').value.trim(),
+      status: 'Active'
+    }).select().single().then(function (res) {
+      if (res.error) { btn.disabled = false; btn.textContent = 'Save job'; return toast('Could not save: ' + res.error.message); }
+      toast('Job saved');
+      location.hash = '#/job/' + res.data.id;
+    });
+  }
+
+  /* ---------------- job page ---------------- */
+
+  function renderJob(id) {
+    app.innerHTML = '<p class="muted">Loading job…</p>';
+
+    Promise.all([
+      sb.from('jobs').select('*').eq('id', id).single(),
+      sb.from('entries')
+        .select('id,job_id,author_name,author_email,notes,tag,entry_date,created_at,entry_photos(id,storage_path)')
+        .eq('job_id', id)
+        .order('entry_date', { ascending: false })
+        .order('created_at', { ascending: false })
+    ]).then(function (r) {
+      if (r[0].error) return renderError('That job could not be loaded. ' + r[0].error.message);
+      if (r[1].error) return renderError(r[1].error.message);
+      view.job = r[0].data;
+      view.entries = r[1].data || [];
+      view.q = ''; view.date = '';
+      paintJob();
+    });
+  }
+
+  function paintJob() {
+    var j = view.job;
+
+    app.innerHTML =
+      '<a class="backlink" href="#/">All jobs</a>' +
+
+      '<div class="jobhead">' +
+        '<h1>' + esc(j.name) + '</h1>' +
+        '<div class="jobhead-meta">' + esc(j.client_name || 'No client listed') +
+          (j.address ? '<br>' + esc(j.address) : '') + '</div>' +
+        '<div class="row">' +
+          '<button id="toggle-status" class="btn btn-quiet">' +
+            (j.status === 'Completed' ? 'Reopen job' : 'Mark job completed') + '</button>' +
+          '<button id="do-pdf" class="btn btn-quiet">Client PDF</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div id="compose" class="panel" hidden style="margin-top:14px">' +
+        '<h2 style="font-size:22px;margin-bottom:10px">Today · ' + esc(longDate(todayISO())) + '</h2>' +
+        '<div class="field"><label for="c-notes">What happened on site?</label>' +
+          '<textarea id="c-notes" placeholder="Hung 42 sheets on the second floor. Need 20 more sheets of 5/8 by Thursday."></textarea></div>' +
+        '<div class="field"><label>Mark this entry</label>' +
+          '<div class="tagpick">' +
+            '<input type="radio" name="tag" id="tag-note" value="note" checked><label for="tag-note">Progress</label>' +
+            '<input type="radio" name="tag" id="tag-issue" value="issue"><label for="tag-issue">Issue</label>' +
+            '<input type="radio" name="tag" id="tag-milestone" value="milestone"><label for="tag-milestone">Milestone</label>' +
+          '</div></div>' +
+        '<div class="field"><label>Photos</label>' +
+          '<div class="filedrop">' +
+            '<input id="c-files" type="file" accept="image/*" multiple>' +
+            '<label class="filedrop-label" for="c-files">Take or choose photos</label>' +
+            '<div id="c-thumbs" class="thumbs"></div>' +
+          '</div></div>' +
+        '<div class="row" style="margin-top:14px">' +
+          '<button id="c-save" class="btn grow">Post entry</button>' +
+          '<button id="c-cancel" class="btn btn-quiet">Cancel</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="section-head"><h2>Daily log</h2>' +
+        '<span class="small muted">' + view.entries.length +
+        (view.entries.length === 1 ? ' entry' : ' entries') + '</span></div>' +
+
+      '<div class="row" style="margin-bottom:12px">' +
+        '<div class="grow"><label for="f-q">Search notes</label>' +
+          '<input id="f-q" type="text" value="' + esc(view.q) + '" placeholder="Word, name or material"></div>' +
+        '<div style="flex:0 0 165px"><label for="f-date">On date</label>' +
+          '<input id="f-date" type="date" value="' + esc(view.date) + '"></div>' +
+      '</div>' +
+
+      feedHtml() +
+
+      '<div class="dock"><div class="dock-inner">' +
+        '<button id="c-open" class="btn btn-block">Add today\'s entry</button>' +
+      '</div></div>';
+
+    on('toggle-status', 'click', toggleStatus);
+    on('do-pdf', 'click', exportPdf);
+
+    on('c-open', 'click', function () {
+      document.getElementById('compose').hidden = false;
+      document.getElementById('c-open').hidden = true;
+      document.getElementById('c-notes').focus();
+      document.getElementById('compose').scrollIntoView({ block: 'start' });
+    });
+    on('c-cancel', 'click', function () {
+      staged = [];
+      document.getElementById('compose').hidden = true;
+      document.getElementById('c-open').hidden = false;
+      document.getElementById('c-notes').value = '';
+      document.getElementById('c-thumbs').innerHTML = '';
+    });
+    on('c-files', 'change', onPickFiles);
+    on('c-save', 'click', postEntry);
+
+    on('f-q', 'input', function (e) {
+      view.q = e.target.value;
+      document.getElementById('feed-wrap').innerHTML = feedInner();
+      wireFeed();
+    });
+    on('f-date', 'change', function (e) {
+      view.date = e.target.value;
+      document.getElementById('feed-wrap').innerHTML = feedInner();
+      wireFeed();
+    });
+
+    wireFeed();
+  }
+
+  function visibleEntries() {
+    var q = view.q.toLowerCase();
+    return view.entries.filter(function (en) {
+      if (view.date && en.entry_date !== view.date) return false;
+      if (!q) return true;
+      return ((en.notes || '') + ' ' + (en.author_name || '')).toLowerCase().indexOf(q) > -1;
+    });
+  }
+
+  function feedHtml() { return '<div id="feed-wrap">' + feedInner() + '</div>'; }
+
+  function feedInner() {
+    var list = visibleEntries();
+    if (!list.length) {
+      if (view.entries.length === 0) {
+        return '<div class="empty"><h2>The log is empty</h2>' +
+          '<p>Post the first entry with the button at the bottom. Notes are dated automatically.</p></div>';
+      }
+      return '<div class="empty"><h2>Nothing matches</h2>' +
+        '<p>Clear the search box or the date to see the whole log again.</p></div>';
+    }
+    return '<ul class="feed">' + list.map(entryHtml).join('') + '</ul>';
+  }
+
+  function entryHtml(en) {
+    var d = dateParts(en.entry_date);
+    var photos = en.entry_photos || [];
+    var mine = me && en.author_email === me.email;
+
+    return '<li><article class="entry t-' + esc(en.tag || 'note') + '">' +
+      '<div class="entry-date"><span class="entry-day">' + esc(d.day) + '</span>' +
+        '<span class="entry-mon">' + esc(d.mon) + '</span></div>' +
+      '<div class="entry-body">' +
+        '<div class="entry-head">' +
+          '<span class="entry-who">' + esc(en.author_name) + '</span>' +
+          '<span class="entry-time">' + esc(clockTime(en.created_at)) + '</span>' +
+          tagChip(en.tag) +
+        '</div>' +
+        (en.notes ? '<p class="entry-note">' + esc(en.notes) + '</p>' : '') +
+        (photos.length ? '<div class="gallery">' + photos.map(function (p) {
+          var url = photoUrl(p.storage_path);
+          return '<button type="button" class="js-zoom" data-url="' + esc(url) + '">' +
+            '<img loading="lazy" src="' + esc(url) + '" alt="Photo from ' + esc(longDate(en.entry_date)) + '"></button>';
+        }).join('') + '</div>' : '') +
+        (mine ? '<button class="btn-danger js-del" data-id="' + esc(en.id) + '">Delete my entry</button>' : '') +
+      '</div>' +
+    '</article></li>';
+  }
+
+  function wireFeed() {
+    Array.prototype.forEach.call(document.querySelectorAll('.js-zoom'), function (b) {
+      b.addEventListener('click', function () { openLightbox(b.dataset.url); });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.js-del'), function (b) {
+      b.addEventListener('click', function () { deleteEntry(b.dataset.id); });
+    });
+  }
+
+  /* ---------------- posting an entry ---------------- */
+
+  function onPickFiles(e) {
+    var files = Array.prototype.slice.call(e.target.files || []);
+    files.forEach(function (f) {
+      if (f.type.indexOf('image/') !== 0) return;
+      staged.push(f);
+    });
+    e.target.value = '';
+    var wrap = document.getElementById('c-thumbs');
+    wrap.innerHTML = staged.map(function (f) {
+      return '<img alt="Selected photo" src="' + URL.createObjectURL(f) + '">';
+    }).join('') + (staged.length ? '<div class="small muted" style="width:100%">' + staged.length +
+      (staged.length === 1 ? ' photo ready' : ' photos ready') + '</div>' : '');
+  }
+
+  function postEntry() {
+    var notes = document.getElementById('c-notes').value.trim();
+    var tag = (document.querySelector('input[name=tag]:checked') || {}).value || 'note';
+
+    if (!notes && !staged.length) return toast('Add a note or a photo first.');
+
+    var btn = document.getElementById('c-save');
+    btn.disabled = true;
+    btn.textContent = 'Posting…';
+
+    sb.from('entries').insert({
+      job_id: view.job.id,
+      author_name: me.name,
+      author_email: me.email,
+      notes: notes,
+      tag: tag,
+      entry_date: todayISO()
+    }).select().single().then(function (res) {
+      if (res.error) throw res.error;
+      var entry = res.data;
+      return uploadPhotos(entry).then(function () { return entry; });
+    }).then(function () {
+      toast('Entry posted');
+      staged = [];
+      renderJob(view.job.id);
+    }).catch(function (err) {
+      btn.disabled = false;
+      btn.textContent = 'Post entry';
+      toast('Could not post: ' + (err.message || err));
+    });
+  }
+
+  function uploadPhotos(entry) {
+    if (!staged.length) return Promise.resolve();
+    var btn = document.getElementById('c-save');
+    var done = 0;
+    var rows = [];
+
+    return staged.reduce(function (chain, file, i) {
+      return chain.then(function () {
+        return shrink(file).then(function (blob) {
+          var path = view.job.id + '/' + entry.id + '/' + Date.now() + '-' + i + '.jpg';
+          return sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' })
+            .then(function (up) {
+              if (up.error) throw up.error;
+              rows.push({ entry_id: entry.id, storage_path: path });
+              done++;
+              if (btn) btn.textContent = 'Uploading photo ' + done + ' of ' + staged.length + '…';
+            });
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      return sb.from('entry_photos').insert(rows).then(function (res) {
+        if (res.error) throw res.error;
+      });
+    });
+  }
+
+  // Phone photos are 4-8 MB each. Shrinking in the browser keeps uploads fast
+  // on a weak site signal and keeps you well inside the free storage tier.
+  function shrink(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, MAX_PX / Math.max(img.width, img.height));
+        var w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+        canvas.toBlob(function (blob) {
+          resolve(blob || file);
+        }, 'image/jpeg', JPEG_Q);
+      };
+      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('That photo could not be read.')); };
+      img.src = url;
+    });
+  }
+
+  function deleteEntry(id) {
+    var en = view.entries.filter(function (x) { return x.id === id; })[0];
+    if (!en) return;
+    if (!confirm('Delete this entry and its photos? This cannot be undone.')) return;
+
+    var paths = (en.entry_photos || []).map(function (p) { return p.storage_path; });
+    var first = paths.length ? sb.storage.from(BUCKET).remove(paths) : Promise.resolve({});
+
+    first.then(function () {
+      return sb.from('entries').delete().eq('id', id).eq('author_email', me.email);
+    }).then(function (res) {
+      if (res.error) return toast('Could not delete: ' + res.error.message);
+      toast('Entry deleted');
+      renderJob(view.job.id);
+    });
+  }
+
+  function toggleStatus() {
+    var next = view.job.status === 'Completed' ? 'Active' : 'Completed';
+    sb.from('jobs').update({ status: next, updated_at: new Date().toISOString() })
+      .eq('id', view.job.id).select().single()
+      .then(function (res) {
+        if (res.error) return toast('Could not update: ' + res.error.message);
+        view.job = res.data;
+        toast(next === 'Completed' ? 'Job marked completed' : 'Job reopened');
+        paintJob();
+      });
+  }
+
+  /* ---------------- lightbox ---------------- */
+
+  function openLightbox(url) {
+    lightboxImg.src = url;
+    lightbox.hidden = false;
+    document.getElementById('lightbox-close').focus();
+  }
+
+  function closeLightbox() {
+    lightbox.hidden = true;
+    lightboxImg.src = '';
+  }
+
+  /* ---------------- PDF report ---------------- */
+
+  function exportPdf() {
+    var btn = document.getElementById('do-pdf');
+    btn.disabled = true;
+    btn.textContent = 'Building…';
+
+    var list = visibleEntries().slice().reverse();   // oldest first reads better for a client
+    var doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter' });
+    var M = 48, PW = 612, PH = 792, CW = PW - M * 2;
+    var y = M;
+
+    function space(need) {
+      if (y + need > PH - M) { doc.addPage(); y = M; }
+    }
+
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(22);
+    doc.text(view.job.name, M, y); y += 26;
+
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
+    [
+      view.job.client_name ? 'Client: ' + view.job.client_name : '',
+      view.job.address || '',
+      'Status: ' + view.job.status,
+      'Report prepared by ' + (window.CONFIG.COMPANY_NAME || '') + ' on ' + longDate(todayISO()),
+      list.length + (list.length === 1 ? ' entry' : ' entries')
+    ].filter(Boolean).forEach(function (line) {
+      doc.text(line, M, y); y += 15;
+    });
+
+    y += 6;
+    doc.setDrawColor(120); doc.line(M, y, PW - M, y); y += 20;
+
+    var step = list.reduce(function (chain, en) {
+      return chain.then(function () {
+        space(70);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+        doc.text(longDate(en.entry_date), M, y);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
+        var right = en.author_name + (en.tag && en.tag !== 'note' ? '  ·  ' + en.tag.toUpperCase() : '');
+        doc.text(right, PW - M, y, { align: 'right' });
+        y += 16;
+
+        if (en.notes) {
+          doc.setFontSize(11);
+          var lines = doc.splitTextToSize(en.notes, CW);
+          lines.forEach(function (ln) { space(16); doc.text(ln, M, y); y += 14; });
+        }
+
+        var photos = en.entry_photos || [];
+        if (!photos.length) { y += 14; return; }
+        y += 6;
+
+        return photos.reduce(function (c2, p, i) {
+          return c2.then(function () {
+            return imageData(photoUrl(p.storage_path)).then(function (im) {
+              if (!im) return;
+              var boxW = (CW - 12) / 2;
+              var w = boxW, h = boxW * (im.h / im.w);
+              if (h > 200) { h = 200; w = 200 * (im.w / im.h); }
+              var col = i % 2;
+              if (col === 0) space(h + 12);
+              var x = M + col * (boxW + 12);
+              doc.addImage(im.data, 'JPEG', x, y, w, h);
+              if (col === 1 || i === photos.length - 1) y += h + 12;
+            });
+          });
+        }, Promise.resolve()).then(function () { y += 10; });
+      });
+    }, Promise.resolve());
+
+    step.then(function () {
+      var pages = doc.getNumberOfPages();
+      for (var p = 1; p <= pages; p++) {
+        doc.setPage(p);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(110);
+        doc.text((window.CONFIG.COMPANY_NAME || '') + '  —  ' + view.job.name, M, PH - 26);
+        doc.text('Page ' + p + ' of ' + pages, PW - M, PH - 26, { align: 'right' });
+      }
+      var safe = view.job.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+      doc.save(safe + '-report-' + todayISO() + '.pdf');
+      btn.disabled = false;
+      btn.textContent = 'Client PDF';
+    }).catch(function (err) {
+      btn.disabled = false;
+      btn.textContent = 'Client PDF';
+      toast('PDF failed: ' + (err.message || err));
+    });
+  }
+
+  // Photos are re-drawn small so a 30-entry report stays a reasonable file size.
+  function imageData(url) {
+    return fetch(url).then(function (r) { return r.blob(); }).then(function (blob) {
+      return new Promise(function (resolve) {
+        var objUrl = URL.createObjectURL(blob);
+        var img = new Image();
+        img.onload = function () {
+          var scale = Math.min(1, 900 / Math.max(img.width, img.height));
+          var w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(objUrl);
+          resolve({ data: canvas.toDataURL('image/jpeg', 0.7), w: w, h: h });
+        };
+        img.onerror = function () { URL.revokeObjectURL(objUrl); resolve(null); };
+        img.src = objUrl;
+      });
+    }).catch(function () { return null; });
+  }
+
+  /* ---------------- errors ---------------- */
+
+  function renderError(msg) {
+    app.innerHTML = '<div class="error"><h2 style="font-size:20px;margin-bottom:6px">Could not reach your data</h2>' +
+      '<p class="small" style="margin:0 0 10px">' + esc(msg) + '</p>' +
+      '<p class="small muted" style="margin:0">If this says something about a table or policy, the database script in ' +
+      '<code>db/schema.sql</code> has not been run yet. Step 4 of README.md covers it.</p>' +
+      '<a class="backlink" href="#/">Back to jobs</a></div>';
+  }
+
+  boot();
+
+})();
+
+</script>
+</body>
+</html>
