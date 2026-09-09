@@ -117,7 +117,36 @@ a { color: var(--chalk-dark); }
   display: block;
   height: 38px;
   width: auto;
+  max-width: 190px;
+  object-fit: contain;
 }
+
+#brand-text {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 700;
+  font-size: 23px;
+  line-height: 1.1;
+  color: var(--ink);
+  letter-spacing: 0.01em;
+  max-width: 190px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logopreview {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+}
+
+.logopreview img { height: 44px; width: auto; max-width: 220px; object-fit: contain; display: block; }
 
 .whoami {
   background: none;
@@ -588,6 +617,49 @@ textarea { min-height: 120px; resize: vertical; }
   * { transition: none !important; animation: none !important; }
 }
 
+/* ---------- Company join + team screens ---------- */
+
+.joinsplit {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  color: var(--steel);
+  font-size: 14px;
+}
+
+.joinsplit::before,
+.joinsplit::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--rule);
+}
+
+.codelist { list-style: none; margin: 0; padding: 0; }
+
+.codelist li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.codelist li:last-child { border-bottom: none; }
+
+.joincode {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  background: var(--wall);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 4px 10px;
+}
+
 </style>
 </head>
 <body>
@@ -597,7 +669,7 @@ textarea { min-height: 120px; resize: vertical; }
     <div class="topbar-left">
       <a id="back" class="backbtn" href="#/" hidden>Back</a>
     </div>
-    <a class="brand" href="#/"><img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAJ8AAABMBAMAAACBn3hSAAAWfmNhQlgAABZ+anVtYgAAAB5qdW1kYzJwYQARABCAAACqADibcQNjMnBhAAAAFlhqdW1iAAAAR2p1bWRjMm1hABEAEIAAAKoAOJtxA3VybjpjMnBhOmRmOWJiZjg2LTRkYzYtNDdjNC04ZTEwLWQ3MmU1NWQ2OGQxZQAAAAOTanVtYgAAAClqdW1kYzJhcwARABCAAACqADibcQNjMnBhLmFzc2VydGlvbnMAAAAAuGp1bWIAAABEanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5pbmdyZWRpZW50LnYzAAAAABhjMnNoLVrEUTyD2nK7BPT1ZYi3NwAAAGxjYm9yo2lkYzpmb3JtYXRpaW1hZ2UvcG5namluc3RhbmNlSUR4LHhtcDppaWQ6NmM0Y2U1NzAtZWRiMi00OTAxLTg2ZjctNTYyYjU5NWM0MzAwbHJlbGF0aW9uc2hpcGhwYXJlbnRPZgAAAeJqdW1iAAAAQWp1bWRjYm9yABEAEIAAAKoAOJtxE2MycGEuYWN0aW9ucy52MgAAAAAYYzJzaNy4vmVKtjI1//3gIvE9pQUAAAGZY2JvcqJnYWN0aW9uc4KiZmFjdGlvbmtjMnBhLm9wZW5lZGpwYXJhbWV0ZXJzoWtpbmdyZWRpZW50c4GiY3VybHgtc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5pbmdyZWRpZW50LnYzZGhhc2hYIJwha7JQo8fZ9FMcQObzn01cAo+R+VZvYor42FHxjEZ2pGZhY3Rpb254HWNvbS5hbnRocm9waWMuY2xhdWRlLnByb3ZpZGVkanBhcmFtZXRlcnOheB9jb20uYW50aHJvcGljLm9yaWdpbi1jb25maWRlbmNlZ3Vua25vd25rZGVzY3JpcHRpb254ZkNsYXVkZSBwcm92aWRlZCB0aGlzIGZpbGUgYXQgdGhlIHJlcXVlc3Qgb2YgYSB1c2VyIGFuZCBtYXkgaGF2ZSBjcmVhdGVkIG9yIG1vZGlmaWVkIHRoZSBmaWxlIGNvbnRlbnRzLm1zb2Z0d2FyZUFnZW50oWRuYW1lZkNsYXVkZXJhbGxBY3Rpb25zSW5jbHVkZWT1AAAAyGp1bWIAAABAanVtZGNib3IAEQAQgAAAqgA4m3ETYzJwYS5oYXNoLmRhdGEAAAAAGGMyc2hBEr0rqYUp9042+R8sPyjhAAAAgGNib3KlY2FsZ2ZzaGEyNTZjcGFkTQAAAAAAAAAAAAAAAABkaGFzaFgg0oq3kbHJDg6W7+XLCfugZLDK20N0WH+bD+Rq/Qk3bwRkbmFtZW5qdW1iZiBtYW5pZmVzdGpleGNsdXNpb25zgaJlc3RhcnQYIWZsZW5ndGgZFooAAAI+anVtYgAAACdqdW1kYzJjbAARABCAAACqADibcQNjMnBhLmNsYWltLnYyAAAAAg9jYm9ypWNhbGdmc2hhMjU2aXNpZ25hdHVyZXhNc2VsZiNqdW1iZj0vYzJwYS91cm46YzJwYTpkZjliYmY4Ni00ZGM2LTQ3YzQtOGUxMC1kNzJlNTVkNjhkMWUvYzJwYS5zaWduYXR1cmVqaW5zdGFuY2VJRHgseG1wOmlpZDplOWNjOTQ2ZS0wZTEyLTQ0ZTAtOTc1ZS0zMjIyNGYyMmRkOThyY3JlYXRlZF9hc3NlcnRpb25zg6JjdXJseC1zZWxmI2p1bWJmPWMycGEuYXNzZXJ0aW9ucy9jMnBhLmluZ3JlZGllbnQudjNkaGFzaFggnCFrslCjx9n0UxxA5vOfTVwCj5H5Vm9iivjYUfGMRnaiY3VybHgqc2VsZiNqdW1iZj1jMnBhLmFzc2VydGlvbnMvYzJwYS5hY3Rpb25zLnYyZGhhc2hYIL3eECXWSDELXFoWFx+uvrujuS5tUqy3T2X15LA+FGS2omN1cmx4KXNlbGYjanVtYmY9YzJwYS5hc3NlcnRpb25zL2MycGEuaGFzaC5kYXRhZGhhc2hYIAikabL3KBWZdRuPne2up2t835jFNILvjN+SCjUJT0n+dGNsYWltX2dlbmVyYXRvcl9pbmZvo2RuYW1lb0FudGhyb3BpYyBGaWxlc2d2ZXJzaW9uZTEuMC4wa3NwZWNWZXJzaW9uZTIuNC4wAAAQOGp1bWIAAAAoanVtZGMyY3MAEQAQgAAAqgA4m3EDYzJwYS5zaWduYXR1cmUAAAAQCGNib3LShFkCEqIBJhghWQIKMIICBjCCAY2gAwIBAgIUQOWgCu7COdC+uIP6BkIFPWdVEwAwCgYIKoZIzj0EAwMwSTEXMBUGA1UEChMOQW50aHJvcGljLCBQQkMxLjAsBgNVBAMTJUFudGhyb3BpYyBDb250ZW50IENyZWRlbnRpYWxzIFJvb3QgQ0EwHhcNMjYwODA3MTg0MzU2WhcNMjgwODA2MTk0MzU2WjBEMRcwFQYDVQQKEw5BbnRocm9waWMsIFBCQzEpMCcGA1UEAxMgQW50aHJvcGljIENsYXVkZSBDb250ZW50IFNpZ25pbmcwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASYegpry1AYBRTVNL1CpTlbROnY3dey+UrsF9C3phYrATN3ZHf93Mo8RQN0KOUuOn19P4oWNFWe5n2/She9N7eTo1gwVjAOBgNVHQ8BAf8EBAMCB4AwFQYDVR0lBA4wDAYKKwYBBAGD6F4CATAMBgNVHRMBAf8EAjAAMB8GA1UdIwQYMBaAFM5R4gSBTmRbI/jjxM+aPpzB11zCMAoGCCqGSM49BAMDA2cAMGQCMDFzHRSeAXrSy1WOzkbhPZ6Km2wGTmZ/2gK18k8BQGXyqz88Rdrz6CTX9flAnYNVxgIwcF9c3fVhqmJKpi+UhasNUMko69cyX6STPfta3Q8EjyzDjzoyrol46FP6VFHhvUcJoWNwYWRZDZ4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA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" width="80" height="38" alt="Stallman Drywall"></a>
+    <a class="brand" href="#/"><img id="brand-logo" alt="" hidden><span id="brand-text">Jobsite Log</span></a>
     <div class="topbar-right">
       <button id="whoami" class="whoami" type="button" hidden></button>
     </div>
@@ -634,12 +706,7 @@ window.CONFIG = {
   SUPABASE_ANON_KEY: "sb_publishable_C26OIIhQZUagcgQj7rs84Q_EA3TLOnU",
 
   // Your company name. Shows up on the PDF reports you send clients.
-  COMPANY_NAME: "Stallman Drywall",
-
-  // A shared word your crew types once to get in. Change it any time —
-  // anyone who was already signed in stays signed in until they sign out.
-  // Leave it as "" to skip the code entirely.
-  TEAM_CODE: "drywall321"
+  COMPANY_NAME: "Stallman Drywall"
 };
 </script>
 <script>
@@ -667,11 +734,15 @@ window.CONFIG = {
   var toastEl = document.getElementById('toast');
   var whoamiBtn = document.getElementById('whoami');
   var backBtn = document.getElementById('back');
+  var brandLogo = document.getElementById('brand-logo');
+  var brandText = document.getElementById('brand-text');
+  var LOGO_BUCKET = 'company-logos';
   var lightbox = document.getElementById('lightbox');
   var lightboxImg = document.getElementById('lightbox-img');
 
   var sb = null;
   var me = null;
+  var org = null;   // { company_id, company_name, role, active }
   var staged = [];                       // photos picked but not yet uploaded
   var editStaged = [];                   // photos added while editing an entry
   var editRemove = {};                   // existing photo ids marked for removal
@@ -738,10 +809,35 @@ window.CONFIG = {
     return longDate(iso.slice(0, 10));
   }
 
+  function companyName() {
+    return (org && org.company_name) || window.CONFIG.COMPANY_NAME || '';
+  }
+
   function firstName(name) { return String(name || '').trim().split(/\s+/)[0] || 'Me'; }
 
-  function photoUrl(path) {
-    return sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+  // The bucket is private, so each photo gets a temporary signed link.
+  // Links are attached to the photo rows once, when a job is loaded.
+  var SIGNED_FOR = 60 * 60 * 4;   // 4 hours
+
+  function signPhotos(entries) {
+    var photos = [];
+    (entries || []).forEach(function (en) {
+      (en.entry_photos || []).forEach(function (p) { photos.push(p); });
+    });
+    if (!photos.length) return Promise.resolve(entries);
+
+    var paths = photos.map(function (p) { return p.storage_path; });
+
+    return sb.storage.from(BUCKET).createSignedUrls(paths, SIGNED_FOR)
+      .then(function (res) {
+        var byPath = {};
+        (res.data || []).forEach(function (r) {
+          if (r && r.path && r.signedUrl) byPath[r.path] = r.signedUrl;
+        });
+        photos.forEach(function (p) { p.url = byPath[p.storage_path] || ''; });
+        return entries;
+      })
+      .catch(function () { return entries; });
   }
 
   function tagChip(tag) {
@@ -765,30 +861,73 @@ window.CONFIG = {
     if (!configured()) return renderSetupNeeded();
 
     sb = window.supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY);
-    me = loadMe();
 
-    whoamiBtn.addEventListener('click', function () {
-      if (confirm('Sign out of Jobsite Log on this phone?')) {
-        localStorage.removeItem('jsl.crew');
-        me = null;
-        route();
-      }
-    });
+    whoamiBtn.addEventListener('click', function () { location.hash = '#/team'; });
 
     document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
     lightbox.addEventListener('click', function (e) { if (e.target === lightbox) closeLightbox(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeLightbox(); });
 
-    window.addEventListener('hashchange', route);
-    route();
+    startSession();
   }
 
-  function loadMe() {
-    try {
-      var raw = localStorage.getItem('jsl.crew');
-      var u = raw ? JSON.parse(raw) : null;
-      return (u && u.name && u.email) ? u : null;
-    } catch (e) { return null; }
+  // Identity comes from the login token, not from anything typed in.
+  function meFromSession(session) {
+    if (!session || !session.user) return null;
+    var u = session.user;
+    var meta = u.user_metadata || {};
+    return {
+      email: u.email,
+      name: meta.full_name || meta.name || (u.email || '').split('@')[0]
+    };
+  }
+
+  function startSession() {
+    sb.auth.onAuthStateChange(function (event, session) {
+      var next = meFromSession(session);
+      var was = me && me.email;
+      me = next;
+      if (!next && was) { org = null; toast('Signed out'); route(); }
+    });
+
+    sb.auth.getSession().then(function (res) {
+      me = meFromSession(res.data && res.data.session);
+      window.addEventListener('hashchange', route);
+      if (!me) return route();
+      loadOrg().then(route);
+    });
+  }
+
+  // The header shows the company's own logo, its name if there is no logo,
+  // and the product name before anyone signs in.
+  function paintBrand() {
+    if (org && org.logo_url) {
+      brandLogo.src = org.logo_url;
+      brandLogo.alt = org.company_name || '';
+      brandLogo.hidden = false;
+      brandText.hidden = true;
+      return;
+    }
+    brandLogo.hidden = true;
+    brandLogo.removeAttribute('src');
+    brandText.hidden = false;
+    brandText.textContent = (org && org.company_name) || 'Jobsite Log';
+  }
+
+  function loadOrg() {
+    return sb.rpc('my_membership').then(function (res) {
+      var row = (res.data || [])[0];
+      org = row ? {
+        company_id: row.company_id,
+        company_name: row.company_name,
+        role: row.role,
+        active: row.active,
+        logo_path: row.logo_path || null,
+        logo_url: row.logo_path
+          ? sb.storage.from(LOGO_BUCKET).getPublicUrl(row.logo_path).data.publicUrl
+          : null
+      } : null;
+    }).catch(function () { org = null; });
   }
 
   function route() {
@@ -799,11 +938,17 @@ window.CONFIG = {
 
     var hash = location.hash || '#/';
     var m = hash.match(/^#\/job\/([0-9a-fA-F-]{6,})/);
+    var isTeam = hash.indexOf('#/team') === 0;
+
+    paintBrand();
 
     // Back only appears where there is somewhere to go back to.
-    backBtn.hidden = !me || !m;
+    backBtn.hidden = !me || (!m && !isTeam);
 
-    if (!me) return renderSignIn();
+    if (!me) return renderAuth();
+    if (!org) return renderJoin();
+    if (!org.active) return renderSuspended();
+    if (isTeam) return renderTeam();
     if (m) return renderJob(m[1]);
     renderDashboard();
   }
@@ -824,44 +969,365 @@ window.CONFIG = {
       '</div>';
   }
 
-  /* ---------------- sign in ---------------- */
+  /* ---------------- sign in and sign up ---------------- */
 
-  function renderSignIn() {
-    var needCode = !!(window.CONFIG.TEAM_CODE || '');
+  var authMode = 'in';   // 'in' or 'up'
+
+  function renderAuth() {
+    var up = authMode === 'up';
+
     app.innerHTML =
       '<div class="gate panel">' +
-        '<h1>Who is posting?</h1>' +
-        '<p>Your name gets stamped on every note and photo you add.</p>' +
-        '<div class="field"><label for="in-name">Your name</label>' +
-          '<input id="in-name" type="text" autocomplete="name" placeholder="Dave Kruger"></div>' +
+        '<h1>' + (up ? 'Create your account' : 'Sign in') + '</h1>' +
+        '<p>' + (up
+          ? 'Then either start your company or join your crew with a code.'
+          : 'Use the email and password for your account.') + '</p>' +
+
+        (up ? '<div class="field"><label for="in-name">Your name</label>' +
+          '<input id="in-name" type="text" autocomplete="name" placeholder="Dave Kruger"></div>' : '') +
+
         '<div class="field"><label for="in-email">Email</label>' +
-          '<input id="in-email" type="email" autocomplete="email" inputmode="email" placeholder="dave@example.com"></div>' +
-        (needCode ? '<div class="field"><label for="in-code">Crew code</label>' +
-          '<input id="in-code" type="text" autocomplete="off" placeholder="Ask the boss"></div>' : '') +
-        '<div class="field"><button id="do-signin" class="btn btn-block">Start posting</button></div>' +
-        '<p class="small muted" style="margin:0">This phone stays signed in until you sign out.</p>' +
+          '<input id="in-email" type="email" autocomplete="username" inputmode="email" ' +
+            'autocapitalize="off" spellcheck="false" placeholder="dave@example.com"></div>' +
+
+        '<div class="field"><label for="in-pass">Password</label>' +
+          '<input id="in-pass" type="password" autocomplete="' +
+            (up ? 'new-password' : 'current-password') + '" placeholder="••••••••"></div>' +
+
+        (up ? '<p class="small muted" style="margin:-4px 0 12px">At least 8 characters.</p>' : '') +
+
+        '<div class="field"><button id="do-auth" class="btn btn-block">' +
+          (up ? 'Create account' : 'Sign in') + '</button></div>' +
+
+        '<button id="swap-mode" class="btn-plain">' +
+          (up ? 'I already have an account' : 'New here? Create an account') + '</button>' +
       '</div>';
 
-    on('do-signin', 'click', function () {
-      var name = document.getElementById('in-name').value.trim();
-      var email = document.getElementById('in-email').value.trim().toLowerCase();
-      var code = needCode ? document.getElementById('in-code').value.trim() : '';
+    on('do-auth', 'click', up ? doSignUp : doSignIn);
+    on('in-pass', 'keydown', function (e) { if (e.key === 'Enter') document.getElementById('do-auth').click(); });
+    on('swap-mode', 'click', function () { authMode = up ? 'in' : 'up'; renderAuth(); });
+    document.getElementById(up ? 'in-name' : 'in-email').focus();
+  }
 
-      if (name.length < 2) return toast('Enter your name.');
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('Enter a valid email address.');
-      if (needCode && code.toLowerCase() !== String(window.CONFIG.TEAM_CODE).toLowerCase()) {
-        return toast('That crew code does not match.');
+  function readAuthFields() {
+    return {
+      email: document.getElementById('in-email').value.trim().toLowerCase(),
+      pass: document.getElementById('in-pass').value
+    };
+  }
+
+  function doSignIn() {
+    var f = readAuthFields();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) return toast('Enter your email address.');
+    if (!f.pass) return toast('Enter your password.');
+
+    var btn = document.getElementById('do-auth');
+    btn.disabled = true; btn.textContent = 'Signing in…';
+
+    sb.auth.signInWithPassword({ email: f.email, password: f.pass }).then(function (res) {
+      if (res.error) {
+        btn.disabled = false; btn.textContent = 'Sign in';
+        var m = res.error.message || '';
+        if (/invalid login/i.test(m)) return toast('That email and password do not match.');
+        return toast(m);
       }
+      me = meFromSession(res.data.session);
+      loadOrg().then(function () { location.hash = '#/'; route(); });
+    });
+  }
 
-      me = { name: name, email: email };
-      localStorage.setItem('jsl.crew', JSON.stringify(me));
+  function doSignUp() {
+    var name = document.getElementById('in-name').value.trim();
+    var f = readAuthFields();
+
+    if (name.length < 2) return toast('Enter your name.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) return toast('Enter a valid email address.');
+    if (f.pass.length < 8) return toast('Use a password of at least 8 characters.');
+
+    var btn = document.getElementById('do-auth');
+    btn.disabled = true; btn.textContent = 'Creating…';
+
+    sb.auth.signUp({
+      email: f.email,
+      password: f.pass,
+      options: { data: { full_name: name } }
+    }).then(function (res) {
+      btn.disabled = false; btn.textContent = 'Create account';
+
+      if (res.error) {
+        var m = res.error.message || '';
+        if (/already registered/i.test(m)) return toast('That email already has an account — sign in instead.');
+        return toast(m);
+      }
+      if (!res.data.session) {
+        authMode = 'in';
+        renderAuth();
+        return toast('Account created. Sign in to continue.');
+      }
+      me = meFromSession(res.data.session);
+      org = null;
+      renderJoin();
+    });
+  }
+
+  /* ---------------- company: start one or join one ---------------- */
+
+  function renderJoin() {
+    app.innerHTML =
+      '<div class="gate panel">' +
+        '<h1>One more step</h1>' +
+        '<p>If your company already uses Jobsite Log, enter the join code from your office. Otherwise start a new company.</p>' +
+
+        '<div class="field"><label for="jn-code">Join code</label>' +
+          '<input id="jn-code" type="text" autocapitalize="off" spellcheck="false" placeholder="e.g. k4mrtqp"></div>' +
+        '<div class="field"><button id="do-join" class="btn btn-block">Join my crew</button></div>' +
+
+        '<div class="joinsplit"><span>or</span></div>' +
+
+        '<div class="field"><label for="jn-company">New company name</label>' +
+          '<input id="jn-company" type="text" placeholder="Stallman Drywall"></div>' +
+        '<div class="field"><button id="do-create" class="btn btn-quiet btn-block">Start a new company</button></div>' +
+
+        '<button id="do-signout" class="btn-plain">Sign out</button>' +
+      '</div>';
+
+    on('do-join', 'click', function () {
+      var code = document.getElementById('jn-code').value.trim();
+      if (!code) return toast('Enter the join code from your office.');
+      var btn = document.getElementById('do-join');
+      btn.disabled = true; btn.textContent = 'Joining…';
+
+      sb.rpc('redeem_invite', { p_code: code }).then(function (res) {
+        btn.disabled = false; btn.textContent = 'Join my crew';
+        if (res.error) return toast(cleanRpcError(res.error));
+        loadOrg().then(function () { toast('You are in'); location.hash = '#/'; route(); });
+      });
+    });
+
+    on('do-create', 'click', function () {
+      var name = document.getElementById('jn-company').value.trim();
+      if (name.length < 2) return toast('Enter your company name.');
+      var btn = document.getElementById('do-create');
+      btn.disabled = true; btn.textContent = 'Setting up…';
+
+      sb.rpc('create_company', { p_name: name }).then(function (res) {
+        btn.disabled = false; btn.textContent = 'Start a new company';
+        if (res.error) return toast(cleanRpcError(res.error));
+        loadOrg().then(function () { location.hash = '#/team'; route(); });
+      });
+    });
+
+    on('do-signout', 'click', signOut);
+  }
+
+  function renderSuspended() {
+    app.innerHTML =
+      '<div class="gate panel">' +
+        '<h1>Account paused</h1>' +
+        '<p>' + esc(org.company_name) + ' is paused, so the log is read-only until it is reactivated. ' +
+        'Your jobs and photos are untouched.</p>' +
+        '<button id="do-signout" class="btn-plain">Sign out</button>' +
+      '</div>';
+    on('do-signout', 'click', signOut);
+  }
+
+  function signOut() {
+    sb.auth.signOut().then(function () {
+      me = null; org = null; authMode = 'in';
       location.hash = '#/';
       route();
     });
+  }
 
-    var codeInput = document.getElementById(needCode ? 'in-code' : 'in-email');
-    if (codeInput) codeInput.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') document.getElementById('do-signin').click();
+  // Postgres errors arrive prefixed and technical; the message we raised is the useful part.
+  function cleanRpcError(err) {
+    var m = (err && err.message) || 'Something went wrong.';
+    return m.replace(/^.*?:\s*/, '').replace(/\s*CONTEXT:[\s\S]*$/, '');
+  }
+
+  /* ---------------- company logo ---------------- */
+
+  function uploadLogo(file) {
+    if (file.size > 6 * 1024 * 1024) return toast('That image is very large — try one under 6 MB.');
+
+    toast('Uploading logo…');
+    var old = org.logo_path;
+
+    shrinkLogo(file).then(function (out) {
+      var path = org.company_id + '/logo-' + Date.now() + '.' + out.ext;
+      return sb.storage.from(LOGO_BUCKET)
+        .upload(path, out.blob, { contentType: out.type, upsert: false })
+        .then(function (up) {
+          if (up.error) throw up.error;
+          return sb.rpc('set_company_logo', { p_path: path });
+        })
+        .then(function (res) {
+          if (res.error) throw res.error;
+          if (old && old !== path) sb.storage.from(LOGO_BUCKET).remove([old]);
+          return loadOrg();
+        });
+    }).then(function () {
+      paintBrand();
+      toast('Logo updated');
+      renderTeam();
+    }).catch(function (err) {
+      toast('Could not upload the logo: ' + (err.message || err));
+    });
+  }
+
+  // Scaled to twice the header height so it stays sharp on phones.
+  // PNG is kept as PNG so transparent backgrounds survive.
+  function shrinkLogo(file) {
+    return new Promise(function (resolve, reject) {
+      var url = URL.createObjectURL(file);
+      var img = new Image();
+      img.onload = function () {
+        var maxH = 96, maxW = 480;
+        var scale = Math.min(1, maxH / img.height, maxW / img.width);
+        var w = Math.max(1, Math.round(img.width * scale));
+        var h = Math.max(1, Math.round(img.height * scale));
+
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        URL.revokeObjectURL(url);
+
+        var keepPng = /png|webp/i.test(file.type);
+        var type = keepPng ? 'image/png' : 'image/jpeg';
+        canvas.toBlob(function (blob) {
+          if (!blob) return reject(new Error('That image could not be processed.'));
+          resolve({ blob: blob, type: type, ext: keepPng ? 'png' : 'jpg' });
+        }, type, keepPng ? undefined : 0.9);
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+        reject(new Error('That file did not look like an image.'));
+      };
+      img.src = url;
+    });
+  }
+
+  /* ---------------- team screen ---------------- */
+
+  function renderTeam() {
+    app.innerHTML = '<p class="muted">Loading crew…</p>';
+
+    Promise.all([
+      sb.from('memberships').select('user_id,email,full_name,role,created_at').order('created_at'),
+      org.role === 'owner'
+        ? sb.from('invites').select('code,role,uses_left,expires_at').order('created_at', { ascending: false })
+        : Promise.resolve({ data: [] })
+    ]).then(function (r) {
+      var members = (r[0].data) || [];
+      var invites = (r[1].data) || [];
+      var owner = org.role === 'owner';
+      var live = invites.filter(function (i) {
+        return i.uses_left > 0 && new Date(i.expires_at) > new Date();
+      });
+
+      app.innerHTML =
+        '<div class="jobhead">' +
+          '<h1>' + esc(org.company_name) + '</h1>' +
+          '<div class="jobhead-meta">You are signed in as ' + esc(me.email) +
+            ' · ' + (owner ? 'account owner' : 'crew') + '</div>' +
+        '</div>' +
+
+        '<div class="section-head"><h2>Crew</h2>' +
+          '<span class="small muted">' + members.length +
+          (members.length === 1 ? ' person' : ' people') + '</span></div>' +
+
+        '<ul class="joblist">' + members.map(function (m) {
+          var isMe = m.email === me.email;
+          return '<li class="jobitem"><div class="jobrow">' +
+            '<div class="jobrow-top"><span class="jobrow-name">' +
+              esc(m.full_name || m.email.split('@')[0]) + (isMe ? ' (you)' : '') + '</span>' +
+              '<span class="jobrow-when">' + esc(m.role) + '</span></div>' +
+            '<div class="jobrow-meta">' + esc(m.email) + '</div>' +
+          '</div>' +
+          (owner && !isMe ? '<button type="button" class="jobact jobdel js-remove" data-id="' + esc(m.user_id) +
+            '" data-name="' + esc(m.full_name || m.email) + '" aria-label="Remove ' +
+            esc(m.full_name || m.email) + '" title="Remove from crew">' + TRASH_SVG + '</button>' : '') +
+          '</li>';
+        }).join('') + '</ul>' +
+
+        (owner ?
+          '<div class="section-head"><h2>Company logo</h2></div>' +
+          '<div class="panel">' +
+            (org.logo_url
+              ? '<div class="logopreview"><img src="' + esc(org.logo_url) + '" alt="' +
+                  esc(org.company_name) + ' logo">' +
+                  '<button id="do-logo-clear" class="btn-mini btn-mini-danger">Remove</button></div>'
+              : '<p class="small muted" style="margin:0 0 12px">No logo yet — your company name shows at the top instead.</p>') +
+            '<div class="filedrop">' +
+              '<input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp">' +
+              '<label class="filedrop-label" for="logo-file">' +
+                (org.logo_url ? 'Choose a different logo' : 'Choose a logo') + '</label>' +
+            '</div>' +
+            '<p class="small muted" style="margin:10px 0 0">A wide logo works best. PNG with a transparent ' +
+            'or white background looks cleanest against the white bar.</p>' +
+          '</div>' +
+          '<div class="section-head"><h2>Join codes</h2></div>' +
+          '<div class="panel">' +
+            '<p class="small muted" style="margin:0 0 12px">Your crew creates an account, then enters one of these. ' +
+            'Codes last 30 days and work for up to 25 people.</p>' +
+            (live.length
+              ? '<ul class="codelist">' + live.map(function (i) {
+                  return '<li><code class="joincode">' + esc(i.code) + '</code>' +
+                    '<span class="small muted">' + i.uses_left + ' left · expires ' +
+                    esc(longDate(i.expires_at.slice(0, 10))) + '</span></li>';
+                }).join('') + '</ul>'
+              : '<p class="small muted" style="margin:0 0 12px">No active codes.</p>') +
+            '<button id="do-invite" class="btn btn-block" style="margin-top:12px">Create a join code</button>' +
+          '</div>'
+        : '') +
+
+        '<div class="panel" style="margin-top:18px">' +
+          '<button id="do-signout" class="btn btn-quiet btn-block">Sign out</button>' +
+        '</div>';
+
+      on('do-signout', 'click', signOut);
+
+      on('do-invite', 'click', function () {
+        var btn = document.getElementById('do-invite');
+        btn.disabled = true; btn.textContent = 'Creating…';
+        sb.rpc('create_invite', { p_role: 'crew', p_uses: 25 }).then(function (res) {
+          btn.disabled = false; btn.textContent = 'Create a join code';
+          if (res.error) return toast(cleanRpcError(res.error));
+          toast('Code created: ' + res.data);
+          renderTeam();
+        });
+      });
+
+      on('logo-file', 'change', function (e) {
+        var file = (e.target.files || [])[0];
+        e.target.value = '';
+        if (file) uploadLogo(file);
+      });
+
+      on('do-logo-clear', 'click', function () {
+        if (!confirm('Remove the logo? Your company name will show at the top instead.')) return;
+        var old = org.logo_path;
+        sb.rpc('set_company_logo', { p_path: null }).then(function (res) {
+          if (res.error) return toast(cleanRpcError(res.error));
+          if (old) sb.storage.from(LOGO_BUCKET).remove([old]);
+          return loadOrg().then(function () {
+            paintBrand();
+            toast('Logo removed');
+            renderTeam();
+          });
+        });
+      });
+
+      Array.prototype.forEach.call(document.querySelectorAll('.js-remove'), function (b) {
+        b.addEventListener('click', function () {
+          if (!confirm('Remove ' + b.dataset.name + ' from the crew?\n\nTheir past entries and photos stay in the log. They lose access immediately.')) return;
+          sb.rpc('remove_member', { p_user: b.dataset.id }).then(function (res) {
+            if (res.error) return toast(cleanRpcError(res.error));
+            toast('Removed');
+            renderTeam();
+          });
+        });
+      });
     });
   }
 
@@ -995,6 +1461,7 @@ window.CONFIG = {
     btn.textContent = 'Saving…';
 
     sb.from('jobs').insert({
+      company_id: org.company_id,
       name: name,
       address: document.getElementById('nj-address').value.trim(),
       client_name: document.getElementById('nj-client').value.trim(),
@@ -1049,7 +1516,7 @@ window.CONFIG = {
       view.job = r[0].data;
       view.entries = r[1].data || [];
       view.q = ''; view.date = '';
-      paintJob();
+      signPhotos(view.entries).then(paintJob);
     });
   }
 
@@ -1184,7 +1651,7 @@ window.CONFIG = {
         '</div>' +
         (en.notes ? '<p class="entry-note">' + esc(en.notes) + '</p>' : '') +
         (photos.length ? '<div class="gallery">' + photos.map(function (p) {
-          var url = photoUrl(p.storage_path);
+          var url = p.url || '';
           return '<button type="button" class="js-zoom" data-url="' + esc(url) + '">' +
             '<img loading="lazy" src="' + esc(url) + '" alt="Photo from ' + esc(longDate(en.entry_date)) + '"></button>';
         }).join('') + '</div>' : '') +
@@ -1221,7 +1688,7 @@ window.CONFIG = {
             var marked = !!editRemove[p.id];
             return '<button type="button" class="photochip js-photo-toggle' + (marked ? ' marked' : '') + '" ' +
               'data-id="' + esc(p.id) + '">' +
-              '<img src="' + esc(photoUrl(p.storage_path)) + '" alt="Photo on this entry">' +
+              '<img src="' + esc(p.url || '') + '" alt="Photo on this entry">' +
               (marked ? '<span class="photochip-x">Removing</span>' : '') +
             '</button>';
           }).join('') + '</div></div>' : '') +
@@ -1341,7 +1808,7 @@ window.CONFIG = {
     return files.reduce(function (chain, file, i) {
       return chain.then(function () {
         return shrink(file).then(function (blob) {
-          var path = view.job.id + '/' + entry.id + '/' + Date.now() + '-' + i + '.jpg';
+          var path = org.company_id + '/' + view.job.id + '/' + entry.id + '/' + Date.now() + '-' + i + '.jpg';
           return sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' })
             .then(function (up) {
               if (up.error) throw up.error;
@@ -1492,7 +1959,7 @@ window.CONFIG = {
         if (job.address)     L.push('Address: ' + job.address);
         L.push('Status:  ' + job.status);
         L.push('Entries: ' + list.length);
-        L.push('Saved:   ' + longDate(todayISO()) + ' by ' + (window.CONFIG.COMPANY_NAME || ''));
+        L.push('Saved:   ' + longDate(todayISO()) + ' by ' + companyName());
         L.push('');
 
         if (!list.length) {
@@ -1555,7 +2022,7 @@ window.CONFIG = {
       view.job.client_name ? 'Client: ' + view.job.client_name : '',
       view.job.address || '',
       'Status: ' + view.job.status,
-      'Report prepared by ' + (window.CONFIG.COMPANY_NAME || '') + ' on ' + longDate(todayISO()),
+      'Report prepared by ' + companyName() + ' on ' + longDate(todayISO()),
       list.length + (list.length === 1 ? ' entry' : ' entries')
     ].filter(Boolean).forEach(function (line) {
       doc.text(line, M, y); y += 15;
@@ -1586,7 +2053,7 @@ window.CONFIG = {
 
         return photos.reduce(function (c2, p, i) {
           return c2.then(function () {
-            return imageData(photoUrl(p.storage_path)).then(function (im) {
+            return imageData(p.url || '').then(function (im) {
               if (!im) return;
               var boxW = (CW - 12) / 2;
               var w = boxW, h = boxW * (im.h / im.w);
@@ -1607,7 +2074,7 @@ window.CONFIG = {
       for (var p = 1; p <= pages; p++) {
         doc.setPage(p);
         doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(110);
-        doc.text((window.CONFIG.COMPANY_NAME || '') + '  —  ' + view.job.name, M, PH - 26);
+        doc.text(companyName() + '  —  ' + view.job.name, M, PH - 26);
         doc.text('Page ' + p + ' of ' + pages, PW - M, PH - 26, { align: 'right' });
       }
       var safe = view.job.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
