@@ -156,12 +156,17 @@ a { color: var(--chalk-dark); }
   border: 1px solid var(--rule);
   color: var(--steel);
   border-radius: var(--radius);
-  padding: 7px 11px;
-  font: inherit;
-  font-size: 14px;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   cursor: pointer;
-  min-height: 36px;
 }
+
+.whoami:hover { color: var(--ink); border-color: var(--steel); }
+.whoami:active { background: var(--wall); }
 
 /* ---------- Shell ---------- */
 
@@ -663,6 +668,72 @@ textarea { min-height: 120px; resize: vertical; }
   padding: 4px 10px;
 }
 
+.codelist .grow { flex: 1 1 auto; }
+
+/* ---------- Admin console ---------- */
+
+.adminrow {
+  background: var(--board);
+  border: 1px solid var(--rule);
+  border-left: 4px solid var(--chalk);
+  border-radius: var(--radius);
+  margin-bottom: 10px;
+  padding: 0;
+}
+
+.adminrow.is-off { border-left-color: var(--keel); }
+
+.adminrow > summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 13px var(--pad);
+  display: grid;
+  gap: 3px;
+}
+
+.adminrow > summary::-webkit-details-marker { display: none; }
+.adminrow > summary:hover { background: #FAFBFB; }
+
+.adminrow-name {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 600;
+  font-size: 23px;
+  line-height: 1.15;
+}
+
+.adminrow-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+.adminrow-meta { font-size: 14px; color: var(--steel); }
+
+.adminrow-body {
+  padding: 4px var(--pad) var(--pad);
+  border-top: 1px solid var(--rule);
+}
+
+.adminrow-body .field { margin-top: 13px; }
+
+/* ---------- Admin: people list ---------- */
+
+.peoplelist { list-style: none; margin: 0; padding: 0; }
+
+.peoplerow {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.peoplerow:last-child { border-bottom: none; }
+.peoplerow.is-new { border-left: 3px solid var(--keel); padding-left: 11px; }
+
+.peoplerow-top { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+
+.peoplerow-name {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 600;
+  font-size: 21px;
+}
+
+.peoplerow-tags { display: flex; gap: 5px; flex-wrap: wrap; }
+.peoplerow-meta { font-size: 14px; color: var(--steel); margin-top: 2px; }
+
 </style>
 </head>
 <body>
@@ -674,7 +745,7 @@ textarea { min-height: 120px; resize: vertical; }
     </div>
     <a class="brand" href="#/"><img id="brand-logo" alt="" hidden><span id="brand-text">Jobsite Log</span></a>
     <div class="topbar-right">
-      <button id="whoami" class="whoami" type="button" hidden></button>
+      <button id="whoami" class="whoami" type="button" hidden aria-label="Settings and account" title="Settings"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
   </div>
 </header>
@@ -746,6 +817,8 @@ window.CONFIG = {
   var sb = null;
   var me = null;
   var org = null;   // { company_id, company_name, role, active }
+  var isAdmin = false;   // platform admin: the vendor, not a customer
+  var pendingAuth = null;   // set when arriving from an invite or reset link
   var staged = [];                       // photos picked but not yet uploaded
   var editStaged = [];                   // photos added while editing an entry
   var editRemove = {};                   // existing photo ids marked for removal
@@ -816,8 +889,6 @@ window.CONFIG = {
     return (org && org.company_name) || window.CONFIG.COMPANY_NAME || '';
   }
 
-  function firstName(name) { return String(name || '').trim().split(/\s+/)[0] || 'Me'; }
-
   // The bucket is private, so each photo gets a temporary signed link.
   // Links are attached to the photo rows once, when a job is loaded.
   var SIGNED_FOR = 60 * 60 * 4;   // 4 hours
@@ -863,9 +934,17 @@ window.CONFIG = {
   function boot() {
     if (!configured()) return renderSetupNeeded();
 
-    sb = window.supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY);
+    // Invite and reset links arrive as #access_token=...&type=invite. Read that
+    // before creating the client, because the client consumes and clears it.
+    pendingAuth = readAuthHash();
 
-    whoamiBtn.addEventListener('click', function () { location.hash = '#/team'; });
+    sb = window.supabase.createClient(window.CONFIG.SUPABASE_URL, window.CONFIG.SUPABASE_ANON_KEY, {
+      auth: { detectSessionInUrl: true, flowType: 'implicit', persistSession: true }
+    });
+
+    whoamiBtn.addEventListener('click', function () {
+      location.hash = (isAdmin && !org) ? '#/admin' : '#/team';
+    });
 
     document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
     lightbox.addEventListener('click', function (e) { if (e.target === lightbox) closeLightbox(); });
@@ -875,6 +954,23 @@ window.CONFIG = {
   }
 
   // Identity comes from the login token, not from anything typed in.
+  // Pulls type and any error out of the fragment an email link lands on.
+  function readAuthHash() {
+    var h = (location.hash || '').replace(/^#\/?/, '');
+    if (h.indexOf('access_token=') === -1 && h.indexOf('error') === -1) return null;
+
+    var out = {};
+    h.split('&').forEach(function (pair) {
+      var bits = pair.split('=');
+      if (bits.length === 2) out[bits[0]] = decodeURIComponent(bits[1].replace(/\+/g, ' '));
+    });
+
+    return {
+      type: out.type || '',
+      error: out.error_description || out.error || ''
+    };
+  }
+
   function meFromSession(session) {
     if (!session || !session.user) return null;
     var u = session.user;
@@ -918,37 +1014,59 @@ window.CONFIG = {
   }
 
   function loadOrg() {
-    return sb.rpc('my_membership').then(function (res) {
+    return Promise.all([
+      sb.rpc('my_membership'),
+      sb.rpc('is_platform_admin').then(function (r) { return r; }, function () { return {}; })
+    ]).then(function (both) {
+      var res = both[0];
+      isAdmin = both[1] && both[1].data === true;
       var row = (res.data || [])[0];
       org = row ? {
         company_id: row.company_id,
         company_name: row.company_name,
         role: row.role,
         active: row.active,
+        seat_limit: row.seat_limit,
+        seats_used: row.seats_used,
+        access_until: row.access_until || null,
         logo_path: row.logo_path || null,
         logo_url: row.logo_path
           ? sb.storage.from(LOGO_BUCKET).getPublicUrl(row.logo_path).data.publicUrl
           : null
       } : null;
-    }).catch(function () { org = null; });
+    }).catch(function () { org = null; isAdmin = false; });
   }
 
   function route() {
     staged = [];
     clearEditState();
     whoamiBtn.hidden = !me;
-    if (me) whoamiBtn.textContent = firstName(me.name);
 
     var hash = location.hash || '#/';
     var m = hash.match(/^#\/job\/([0-9a-fA-F-]{6,})/);
     var isTeam = hash.indexOf('#/team') === 0;
+    var isAdminPage = hash.indexOf('#/admin') === 0;
 
     paintBrand();
 
     // Back only appears where there is somewhere to go back to.
-    backBtn.hidden = !me || (!m && !isTeam);
+    backBtn.hidden = !me || (!m && !isTeam && !isAdminPage);
+
+    if (pendingAuth && pendingAuth.error) {
+      var msg = pendingAuth.error;
+      pendingAuth = null;
+      return renderLinkProblem(msg);
+    }
+
+    // An invite or reset link signs them in, then they must set a password.
+    if (me && pendingAuth && (pendingAuth.type === 'invite' || pendingAuth.type === 'recovery')) {
+      return renderSetPassword();
+    }
 
     if (!me) return renderAuth();
+    if (isAdminPage && isAdmin) return renderAdmin();
+    // The vendor has no company of their own, so the console is home.
+    if (isAdmin && !org) return renderAdmin();
     if (!org) return renderJoin();
     if (!org.active) return renderSuspended();
     if (isTeam) return renderTeam();
@@ -972,66 +1090,48 @@ window.CONFIG = {
       '</div>';
   }
 
-  /* ---------------- sign in and sign up ---------------- */
-
-  var authMode = 'in';   // 'in' or 'up'
+  /* ---------------- sign in ---------------- */
 
   function renderAuth() {
-    var up = authMode === 'up';
-
     app.innerHTML =
       '<div class="gate panel">' +
-        '<h1>' + (up ? 'Create your account' : 'Sign in') + '</h1>' +
-        '<p>' + (up
-          ? 'Then either start your company or join your crew with a code.'
-          : 'Use the email and password for your account.') + '</p>' +
-
-        (up ? '<div class="field"><label for="in-name">Your name</label>' +
-          '<input id="in-name" type="text" autocomplete="name" placeholder="Dave Kruger"></div>' : '') +
-
+        '<h1>Sign in</h1>' +
+        '<p>Use the email and password you were given.</p>' +
         '<div class="field"><label for="in-email">Email</label>' +
           '<input id="in-email" type="email" autocomplete="username" inputmode="email" ' +
             'autocapitalize="off" spellcheck="false" placeholder="dave@example.com"></div>' +
-
         '<div class="field"><label for="in-pass">Password</label>' +
-          '<input id="in-pass" type="password" autocomplete="' +
-            (up ? 'new-password' : 'current-password') + '" placeholder="••••••••"></div>' +
-
-        (up ? '<p class="small muted" style="margin:-4px 0 12px">At least 8 characters.</p>' : '') +
-
-        '<div class="field"><button id="do-auth" class="btn btn-block">' +
-          (up ? 'Create account' : 'Sign in') + '</button></div>' +
-
-        '<button id="swap-mode" class="btn-plain">' +
-          (up ? 'I already have an account' : 'New here? Create an account') + '</button>' +
+          '<input id="in-pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>' +
+        '<div class="field"><button id="do-auth" class="btn btn-block">Sign in</button></div>' +
+        '<button id="do-forgot" class="btn-plain">Forgot your password?</button>' +
+        '<p class="small muted" style="margin:0">Accounts are set up for you — there is no sign-up here. ' +
+          'Need a login? Ask whoever set up your crew.</p>' +
       '</div>';
 
-    on('do-auth', 'click', up ? doSignUp : doSignIn);
-    on('in-pass', 'keydown', function (e) { if (e.key === 'Enter') document.getElementById('do-auth').click(); });
-    on('swap-mode', 'click', function () { authMode = up ? 'in' : 'up'; renderAuth(); });
-    document.getElementById(up ? 'in-name' : 'in-email').focus();
-  }
-
-  function readAuthFields() {
-    return {
-      email: document.getElementById('in-email').value.trim().toLowerCase(),
-      pass: document.getElementById('in-pass').value
-    };
+    on('do-forgot', 'click', doForgot);
+    on('do-auth', 'click', doSignIn);
+    on('in-pass', 'keydown', function (e) { if (e.key === 'Enter') doSignIn(); });
+    document.getElementById('in-email').focus();
   }
 
   function doSignIn() {
-    var f = readAuthFields();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) return toast('Enter your email address.');
-    if (!f.pass) return toast('Enter your password.');
+    var email = document.getElementById('in-email').value.trim().toLowerCase();
+    var pass = document.getElementById('in-pass').value;
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('Enter your email address.');
+    if (!pass) return toast('Enter your password.');
 
     var btn = document.getElementById('do-auth');
-    btn.disabled = true; btn.textContent = 'Signing in…';
+    btn.disabled = true;
+    btn.textContent = 'Signing in…';
 
-    sb.auth.signInWithPassword({ email: f.email, password: f.pass }).then(function (res) {
+    sb.auth.signInWithPassword({ email: email, password: pass }).then(function (res) {
       if (res.error) {
-        btn.disabled = false; btn.textContent = 'Sign in';
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
         var m = res.error.message || '';
         if (/invalid login/i.test(m)) return toast('That email and password do not match.');
+        if (/not confirmed/i.test(m)) return toast('This account is not confirmed yet — ask the office.');
         return toast(m);
       }
       me = meFromSession(res.data.session);
@@ -1039,84 +1139,140 @@ window.CONFIG = {
     });
   }
 
-  function doSignUp() {
-    var name = document.getElementById('in-name').value.trim();
-    var f = readAuthFields();
+  function doForgot() {
+    var email = document.getElementById('in-email').value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      document.getElementById('in-email').focus();
+      return toast('Type your email address above first, then tap this.');
+    }
 
-    if (name.length < 2) return toast('Enter your name.');
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(f.email)) return toast('Enter a valid email address.');
-    if (f.pass.length < 8) return toast('Use a password of at least 8 characters.');
+    var btn = document.getElementById('do-forgot');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
 
-    var btn = document.getElementById('do-auth');
-    btn.disabled = true; btn.textContent = 'Creating…';
-
-    sb.auth.signUp({
-      email: f.email,
-      password: f.pass,
-      options: { data: { full_name: name } }
+    sb.auth.resetPasswordForEmail(email, {
+      redirectTo: location.origin + location.pathname
     }).then(function (res) {
-      btn.disabled = false; btn.textContent = 'Create account';
-
-      if (res.error) {
-        var m = res.error.message || '';
-        if (/already registered/i.test(m)) return toast('That email already has an account — sign in instead.');
-        return toast(m);
-      }
-      if (!res.data.session) {
-        authMode = 'in';
-        renderAuth();
-        return toast('Account created. Sign in to continue.');
-      }
-      me = meFromSession(res.data.session);
-      org = null;
-      renderJoin();
+      btn.disabled = false;
+      btn.textContent = 'Forgot your password?';
+      if (res.error) return toast(res.error.message);
+      // Deliberately vague: confirming which addresses exist would leak them.
+      toast('If that address has an account, a reset link is on its way. Check your junk folder too.');
     });
   }
 
-  /* ---------------- company: start one or join one ---------------- */
+  /* ---------------- setting a password from an invite or reset ---------------- */
+
+  function renderSetPassword() {
+    var invited = pendingAuth && pendingAuth.type === 'invite';
+    var needName = !me.name || me.name === (me.email || '').split('@')[0];
+
+    app.innerHTML =
+      '<div class="gate panel">' +
+        '<h1>' + (invited ? 'Set your password' : 'Choose a new password') + '</h1>' +
+        '<p>' + (invited
+          ? 'Welcome. Pick a password and you are in.'
+          : 'Pick a new password for your account.') + '</p>' +
+        '<p class="small muted">' + esc(me.email) + '</p>' +
+
+        (needName
+          ? '<div class="field"><label for="sp-name">Your name</label>' +
+              '<input id="sp-name" type="text" autocomplete="name" placeholder="Dave Kruger">' +
+              '<p class="small muted" style="margin:6px 0 0">This shows on everything you post.</p></div>'
+          : '') +
+
+        '<div class="field"><label for="sp-pass">Password</label>' +
+          '<input id="sp-pass" type="password" autocomplete="new-password" placeholder="••••••••"></div>' +
+        '<p class="small muted" style="margin:-4px 0 12px">At least 8 characters.</p>' +
+        '<div class="field"><label for="sp-pass2">Confirm password</label>' +
+          '<input id="sp-pass2" type="password" autocomplete="new-password" placeholder="••••••••"></div>' +
+
+        '<div class="field"><button id="sp-save" class="btn btn-block">Save and continue</button></div>' +
+        '<button id="sp-out" class="btn-plain">Sign out instead</button>' +
+      '</div>';
+
+    on('sp-save', 'click', saveNewPassword);
+    on('sp-pass2', 'keydown', function (e) {
+      if (e.key === 'Enter') document.getElementById('sp-save').click();
+    });
+    document.getElementById(needName ? 'sp-name' : 'sp-pass').focus();
+  }
+
+  function saveNewPassword() {
+    var nameBox = document.getElementById('sp-name');
+    var name = nameBox ? nameBox.value.trim() : '';
+    var pass = document.getElementById('sp-pass').value;
+    var pass2 = document.getElementById('sp-pass2').value;
+
+    if (nameBox && name.length < 2) return toast('Enter your name.');
+    if (pass.length < 8) return toast('Use a password of at least 8 characters.');
+    if (pass !== pass2) {
+      document.getElementById('sp-pass2').focus();
+      return toast('The two passwords do not match.');
+    }
+
+    var btn = document.getElementById('sp-save');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    var payload = { password: pass };
+    if (nameBox) payload.data = { full_name: name };
+
+    sb.auth.updateUser(payload).then(function (res) {
+      if (res.error) {
+        btn.disabled = false;
+        btn.textContent = 'Save and continue';
+        var m = res.error.message || '';
+        if (/same.*password/i.test(m)) return toast('That is already your password — pick a different one.');
+        return toast(m);
+      }
+
+      pendingAuth = null;
+      if (nameBox) me.name = name;
+      toast('Password saved');
+
+      loadOrg().then(function () {
+        location.hash = '#/';
+        route();
+      });
+    });
+  }
+
+  function renderLinkProblem(msg) {
+    app.innerHTML =
+      '<div class="gate panel">' +
+        '<h1>That link did not work</h1>' +
+        '<p>' + esc(msg) + '</p>' +
+        '<p class="small muted">Invite and reset links expire after an hour and only work once. ' +
+          'Ask for a fresh one.</p>' +
+        '<div class="field"><button id="lp-back" class="btn btn-block">Back to sign in</button></div>' +
+      '</div>';
+
+    on('lp-back', 'click', function () { location.hash = '#/'; route(); });
+  }
+
+  /* ---------------- account not linked to a crew yet ---------------- */
 
   function renderJoin() {
     app.innerHTML =
       '<div class="gate panel">' +
-        '<h1>One more step</h1>' +
-        '<p>If your company already uses Jobsite Log, enter the join code from your office. Otherwise start a new company.</p>' +
-
-        '<div class="field"><label for="jn-code">Join code</label>' +
-          '<input id="jn-code" type="text" autocapitalize="off" spellcheck="false" placeholder="e.g. k4mrtqp"></div>' +
-        '<div class="field"><button id="do-join" class="btn btn-block">Join my crew</button></div>' +
-
-        '<div class="joinsplit"><span>or</span></div>' +
-
-        '<div class="field"><label for="jn-company">New company name</label>' +
-          '<input id="jn-company" type="text" placeholder="Stallman Drywall"></div>' +
-        '<div class="field"><button id="do-create" class="btn btn-quiet btn-block">Start a new company</button></div>' +
-
+        '<h1>Almost there</h1>' +
+        '<p>Your login works, but it is not attached to a crew yet. ' +
+          'Whoever set up your account needs to add you — that usually takes a minute.</p>' +
+        '<p class="small muted">Signed in as ' + esc(me.email) + '</p>' +
+        '<div class="field"><button id="do-recheck" class="btn btn-block">Check again</button></div>' +
         '<button id="do-signout" class="btn-plain">Sign out</button>' +
       '</div>';
 
-    on('do-join', 'click', function () {
-      var code = document.getElementById('jn-code').value.trim();
-      if (!code) return toast('Enter the join code from your office.');
-      var btn = document.getElementById('do-join');
-      btn.disabled = true; btn.textContent = 'Joining…';
-
-      sb.rpc('redeem_invite', { p_code: code }).then(function (res) {
-        btn.disabled = false; btn.textContent = 'Join my crew';
-        if (res.error) return toast(cleanRpcError(res.error));
-        loadOrg().then(function () { toast('You are in'); location.hash = '#/'; route(); });
-      });
-    });
-
-    on('do-create', 'click', function () {
-      var name = document.getElementById('jn-company').value.trim();
-      if (name.length < 2) return toast('Enter your company name.');
-      var btn = document.getElementById('do-create');
-      btn.disabled = true; btn.textContent = 'Setting up…';
-
-      sb.rpc('create_company', { p_name: name }).then(function (res) {
-        btn.disabled = false; btn.textContent = 'Start a new company';
-        if (res.error) return toast(cleanRpcError(res.error));
-        loadOrg().then(function () { location.hash = '#/team'; route(); });
+    on('do-recheck', 'click', function () {
+      var btn = document.getElementById('do-recheck');
+      btn.disabled = true;
+      btn.textContent = 'Checking…';
+      loadOrg().then(function () {
+        if (org) { location.hash = '#/'; return route(); }
+        btn.disabled = false;
+        btn.textContent = 'Check again';
+        toast('Not yet — try again in a minute.');
       });
     });
 
@@ -1124,11 +1280,16 @@ window.CONFIG = {
   }
 
   function renderSuspended() {
+    var expired = org.access_until && new Date(org.access_until) <= new Date();
+
     app.innerHTML =
       '<div class="gate panel">' +
-        '<h1>Account paused</h1>' +
-        '<p>' + esc(org.company_name) + ' is paused, so the log is read-only until it is reactivated. ' +
-        'Your jobs and photos are untouched.</p>' +
+        '<h1>' + (expired ? 'Access has ended' : 'Account paused') + '</h1>' +
+        '<p>' + esc(org.company_name) + (expired
+          ? '\u2019s access ended on ' + esc(longDate(org.access_until.slice(0, 10))) + '.'
+          : ' is paused.') +
+        ' Every job, note and photo is exactly where you left it and nothing has been deleted. ' +
+        'Get in touch to switch it back on.</p>' +
         '<button id="do-signout" class="btn-plain">Sign out</button>' +
       '</div>';
     on('do-signout', 'click', signOut);
@@ -1136,7 +1297,7 @@ window.CONFIG = {
 
   function signOut() {
     sb.auth.signOut().then(function () {
-      me = null; org = null; authMode = 'in';
+      me = null; org = null; isAdmin = false;
       location.hash = '#/';
       route();
     });
@@ -1148,9 +1309,385 @@ window.CONFIG = {
     return m.replace(/^.*?:\s*/, '').replace(/\s*CONTEXT:[\s\S]*$/, '');
   }
 
+  /* ---------------- admin console (vendor only) ---------------- */
+
+  var adminNew = false;   // is the "add a contractor" panel open
+
+  function renderAdmin() {
+    app.innerHTML = '<p class="muted">Loading customers…</p>';
+
+    Promise.all([
+      sb.rpc('admin_list_companies'),
+      sb.rpc('admin_list_users'),
+      sb.rpc('admin_company_options')
+    ]).then(function (r) {
+      if (r[0].error) {
+        return renderError('Admin data could not be loaded. ' + r[0].error.message);
+      }
+
+      var list = r[0].data || [];
+      var users = (r[1] && r[1].data) || [];
+      var options = (r[2] && r[2].data) || [];
+      var unassigned = users.filter(function (u) { return !u.company_id; });
+      var now = new Date();
+
+      var live = list.filter(adminHasAccess).length;
+      var paying = list.filter(function (c) { return c.plan === 'paid'; }).length;
+      var seats = list.reduce(function (n, c) { return n + (c.member_count || 0); }, 0);
+      var jobs = list.reduce(function (n, c) { return n + (c.job_count || 0); }, 0);
+
+      // Anything worth chasing this week.
+      var soon = list.filter(function (c) {
+        if (!c.access_until) return false;
+        var d = new Date(c.access_until);
+        return d > now && (d - now) / 86400000 <= 7;
+      });
+      var ended = list.filter(function (c) {
+        return c.access_until && new Date(c.access_until) <= now;
+      });
+
+      app.innerHTML =
+        '<div class="jobhead">' +
+          '<h1>Customer accounts</h1>' +
+          '<div class="jobhead-meta">' + list.length + (list.length === 1 ? ' contractor' : ' contractors') +
+            ' · ' + live + ' with access · ' + paying + ' paying · ' +
+            seats + ' people · ' + jobs + ' jobs</div>' +
+          '<div class="row">' +
+            '<button id="adm-new" class="btn">Add a contractor</button>' +
+            '<button id="adm-refresh" class="btn btn-quiet">Refresh</button>' +
+          '</div>' +
+        '</div>' +
+
+        ((soon.length || ended.length)
+          ? '<div class="panel" style="margin-top:14px;border-left:5px solid var(--keel)">' +
+              '<strong>Needs attention</strong>' +
+              (ended.length ? '<p class="small" style="margin:6px 0 0">' + ended.length +
+                ' with access ended: ' + ended.map(function (c) { return esc(c.name); }).join(', ') + '</p>' : '') +
+              (soon.length ? '<p class="small" style="margin:6px 0 0">' + soon.length +
+                ' ending within 7 days: ' + soon.map(function (c) {
+                  return esc(c.name) + ' (' + esc(longDate(c.access_until.slice(0, 10))) + ')';
+                }).join(', ') + '</p>' : '') +
+            '</div>'
+          : '') +
+
+        (adminNew
+          ? '<div class="panel" style="margin-top:14px">' +
+              '<h2 style="font-size:22px;margin-bottom:12px">Add a contractor</h2>' +
+              '<div class="field"><label for="nc-name">Company name</label>' +
+                '<input id="nc-name" type="text" placeholder="Drywall Business LLC"></div>' +
+              '<div class="row" style="margin-top:13px">' +
+                '<div class="grow"><label for="nc-seats">Seats</label>' +
+                  '<input id="nc-seats" type="text" inputmode="numeric" value="5"></div>' +
+                '<div class="grow"><label for="nc-days">Access for (days)</label>' +
+                  '<input id="nc-days" type="text" inputmode="numeric" value="14"></div>' +
+              '</div>' +
+              '<div class="row" style="margin-top:14px">' +
+                '<button id="nc-save" class="btn grow">Create and get owner code</button>' +
+                '<button id="nc-cancel" class="btn btn-quiet">Cancel</button>' +
+              '</div>' +
+            '</div>'
+          : '') +
+
+        '<div class="section-head"><h2>Contractors</h2>' +
+          '<span class="small muted">Newest first</span></div>' +
+
+        (list.length
+          ? list.map(adminRowHtml).join('')
+          : '<div class="empty"><h2>No contractors yet</h2>' +
+            '<p>Use “Add a contractor” to set one up and get a code to send them.</p></div>') +
+
+        '<div class="section-head"><h2>People</h2>' +
+          '<span class="small muted">' + users.length + ' accounts · ' +
+            unassigned.length + ' unassigned</span></div>' +
+
+        '<div class="panel">' +
+          '<p class="small muted" style="margin:0 0 12px">Create the login in Supabase under ' +
+            'Authentication → Users → Add user (tick Auto Confirm), then assign it to a crew here.</p>' +
+          (users.length
+            ? '<ul class="peoplelist">' + users.map(function (u) {
+                return peopleRowHtml(u, options);
+              }).join('') + '</ul>'
+            : '<p class="small muted" style="margin:0">No accounts yet.</p>') +
+        '</div>';
+
+      wireAdmin();
+    });
+  }
+
+  function adminHasAccess(c) {
+    return c.active && (!c.access_until || new Date(c.access_until) > new Date());
+  }
+
+  function adminRowHtml(c) {
+    var access = c.access_until ? c.access_until.slice(0, 10) : '';
+    var ok = adminHasAccess(c);
+    var expired = c.access_until && new Date(c.access_until) <= new Date();
+    var full = c.seat_limit != null && c.member_count >= c.seat_limit;
+
+    return '<details class="adminrow' + (ok ? '' : ' is-off') + '">' +
+      '<summary>' +
+        '<span class="adminrow-name">' + esc(c.name) + '</span>' +
+        '<span class="adminrow-tags">' +
+          '<span class="chip">' + esc(c.plan) + '</span>' +
+          (expired ? '<span class="chip chip-issue">Access ended</span>'
+                   : (!c.active ? '<span class="chip chip-issue">Paused</span>' : '')) +
+          (full ? '<span class="chip chip-issue">Seats full</span>' : '') +
+        '</span>' +
+        '<span class="adminrow-meta">' +
+          c.member_count + ' of ' + (c.seat_limit == null ? '∞' : c.seat_limit) + ' seats · ' +
+          c.job_count + ' jobs · ' +
+          (c.access_until ? 'until ' + esc(longDate(access)) : 'no expiry') + ' · ' +
+          (c.last_activity ? esc(relTime(c.last_activity)) : 'never posted') +
+        '</span>' +
+      '</summary>' +
+
+      '<div class="adminrow-body">' +
+        '<p class="small muted" style="margin:0 0 12px">Owner: ' +
+          (c.owner_email
+            ? '<a href="mailto:' + esc(c.owner_email) + '">' + esc(c.owner_email) + '</a>'
+            : 'has not signed up yet') +
+          ' · started ' + esc(longDate(c.created_at.slice(0, 10))) +
+          ' · ' + c.entry_count + ' entries</p>' +
+
+        '<div class="row">' +
+          '<div class="grow"><label for="as-' + esc(c.id) + '">Seats</label>' +
+            '<input id="as-' + esc(c.id) + '" type="text" inputmode="numeric" value="' +
+              (c.seat_limit == null ? '' : c.seat_limit) + '"></div>' +
+          '<div class="grow"><label for="ap-' + esc(c.id) + '">Plan</label>' +
+            '<select id="ap-' + esc(c.id) + '">' +
+              ['trial', 'paid', 'internal', 'cancelled'].map(function (p) {
+                return '<option value="' + p + '"' + (c.plan === p ? ' selected' : '') + '>' + p + '</option>';
+              }).join('') +
+            '</select></div>' +
+        '</div>' +
+
+        '<div class="field"><label for="aa-' + esc(c.id) + '">Access until</label>' +
+          '<input id="aa-' + esc(c.id) + '" type="date" value="' + esc(access) + '">' +
+          '<p class="small muted" style="margin:6px 0 0">Leave empty for no expiry. ' +
+            'When this date passes the tool stops working for them.</p></div>' +
+
+        '<div class="row" style="margin-top:10px">' +
+          '<button class="btn btn-quiet js-adm-extend" data-id="' + esc(c.id) + '" data-days="30">+30 days</button>' +
+          '<button class="btn btn-quiet js-adm-extend" data-id="' + esc(c.id) + '" data-days="365">+1 year</button>' +
+        '</div>' +
+
+        '<div class="field"><label for="an-' + esc(c.id) + '">Notes (only you see these)</label>' +
+          '<textarea id="an-' + esc(c.id) + '" style="min-height:70px">' + esc(c.admin_notes || '') + '</textarea></div>' +
+
+        '<div class="row" style="margin-top:12px">' +
+          '<button class="btn grow js-adm-save" data-id="' + esc(c.id) + '">Save changes</button>' +
+          '<button class="btn btn-quiet js-adm-toggle" data-id="' + esc(c.id) + '" data-active="' +
+            (c.active ? '1' : '0') + '" data-name="' + esc(c.name) + '">' +
+            (c.active ? 'Pause now' : 'Unpause') + '</button>' +
+        '</div>' +
+
+        '<button class="btn-plain js-adm-crew" data-id="' + esc(c.id) + '" data-name="' + esc(c.name) +
+          '">Show crew</button>' +
+        '<div id="crew-' + esc(c.id) + '"></div>' +
+      '</div>' +
+    '</details>';
+  }
+
+  function peopleRowHtml(u, options) {
+    var id = esc(u.user_id);
+    var assigned = !!u.company_id;
+
+    return '<li class="peoplerow' + (assigned ? '' : ' is-new') + '">' +
+      '<div class="peoplerow-top">' +
+        '<span class="peoplerow-name">' + esc(u.full_name || u.email.split('@')[0]) + '</span>' +
+        '<span class="peoplerow-tags">' +
+          (assigned
+            ? '<span class="chip">' + esc(u.company_name) + '</span><span class="chip">' + esc(u.role) + '</span>'
+            : '<span class="chip chip-issue">Unassigned</span>') +
+          (u.confirmed ? '' : '<span class="chip chip-issue">Unconfirmed</span>') +
+        '</span>' +
+      '</div>' +
+      '<div class="peoplerow-meta">' + esc(u.email) +
+        ' · ' + (u.last_sign_in ? 'last in ' + esc(relTime(u.last_sign_in)) : 'never signed in') + '</div>' +
+
+      '<div class="row" style="margin-top:9px">' +
+        '<div class="grow"><select id="uc-' + id + '">' +
+          '<option value="">Choose a crew…</option>' +
+          options.map(function (o) {
+            var full = o.seat_limit != null && o.seats_used >= o.seat_limit;
+            return '<option value="' + esc(o.id) + '"' +
+              (o.id === u.company_id ? ' selected' : '') +
+              (full && o.id !== u.company_id ? ' disabled' : '') + '>' +
+              esc(o.name) + ' (' + o.seats_used + '/' +
+              (o.seat_limit == null ? '∞' : o.seat_limit) + ')' +
+              (full && o.id !== u.company_id ? ' — full' : '') +
+            '</option>';
+          }).join('') +
+        '</select></div>' +
+        '<div style="flex:0 0 118px"><select id="ur-' + id + '">' +
+          '<option value="crew"' + (u.role === 'crew' ? ' selected' : '') + '>crew</option>' +
+          '<option value="owner"' + (u.role === 'owner' ? ' selected' : '') + '>owner</option>' +
+        '</select></div>' +
+        '<button class="btn js-assign" data-id="' + id + '">' +
+          (assigned ? 'Update' : 'Assign') + '</button>' +
+        (assigned
+          ? '<button class="btn btn-quiet js-unassign" data-id="' + id + '" data-name="' +
+              esc(u.full_name || u.email) + '">Remove access</button>'
+          : '') +
+      '</div>' +
+    '</li>';
+  }
+
+  function wireAdmin() {
+    on('adm-refresh', 'click', renderAdmin);
+
+    Array.prototype.forEach.call(document.querySelectorAll('.js-assign'), function (b) {
+      b.addEventListener('click', function () {
+        var id = b.dataset.id;
+        var company = document.getElementById('uc-' + id).value;
+        var role = document.getElementById('ur-' + id).value;
+        if (!company) return toast('Choose which crew they belong to.');
+
+        b.disabled = true;
+        b.textContent = 'Saving…';
+
+        sb.rpc('admin_assign_user', { p_user: id, p_company: company, p_role: role })
+          .then(function (res) {
+            b.disabled = false;
+            if (res.error) { b.textContent = 'Assign'; return toast(cleanRpcError(res.error)); }
+            toast('Access granted');
+            renderAdmin();
+          });
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('.js-unassign'), function (b) {
+      b.addEventListener('click', function () {
+        if (!confirm('Remove ' + b.dataset.name + ' from their crew?\n\nThey lose access immediately. Their past entries and photos stay in the log.')) return;
+        sb.rpc('admin_unassign_user', { p_user: b.dataset.id }).then(function (res) {
+          if (res.error) return toast(cleanRpcError(res.error));
+          toast('Access removed');
+          renderAdmin();
+        });
+      });
+    });
+
+    on('adm-new', 'click', function () { adminNew = !adminNew; renderAdmin(); });
+    on('nc-cancel', 'click', function () { adminNew = false; renderAdmin(); });
+
+    on('nc-save', 'click', function () {
+      var name = document.getElementById('nc-name').value.trim();
+      var seats = parseInt(document.getElementById('nc-seats').value, 10);
+      var days = parseInt(document.getElementById('nc-days').value, 10);
+      if (name.length < 2) return toast('Enter the company name.');
+
+      var btn = document.getElementById('nc-save');
+      btn.disabled = true; btn.textContent = 'Creating…';
+
+      sb.rpc('admin_create_company', {
+        p_name: name,
+        p_seats: isNaN(seats) ? 5 : seats,
+        p_days: isNaN(days) ? 14 : days
+      }).then(function (res) {
+        btn.disabled = false; btn.textContent = 'Create and get owner code';
+        if (res.error) return toast(cleanRpcError(res.error));
+        adminNew = false;
+        renderAdmin();
+        alert('Created "' + name + '".\n\nNext: add their login in Supabase under ' +
+              'Authentication \u2192 Users \u2192 Add user (tick Auto Confirm), then assign it to ' +
+              'this crew as owner in the People section below.');
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('.js-adm-save'), function (b) {
+      b.addEventListener('click', function () {
+        var id = b.dataset.id;
+        var seats = document.getElementById('as-' + id).value.trim();
+        var access = document.getElementById('aa-' + id).value;
+        var n = parseInt(seats, 10);
+
+        if (seats !== '' && (isNaN(n) || n < 1)) return toast('Seats must be a number, 1 or more.');
+
+        b.disabled = true; b.textContent = 'Saving…';
+
+        sb.rpc('admin_update_company', {
+          p_id: id,
+          p_active: null,
+          p_plan: document.getElementById('ap-' + id).value,
+          p_trial: null,
+          p_notes: document.getElementById('an-' + id).value,
+          p_seats: seats === '' ? null : n,
+          p_access: access ? access + 'T23:59:00Z' : null,
+          p_clear_access: !access
+        }).then(function (res) {
+          b.disabled = false; b.textContent = 'Save changes';
+          if (res.error) return toast(cleanRpcError(res.error));
+          toast('Saved');
+          renderAdmin();
+        });
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('.js-adm-extend'), function (b) {
+      b.addEventListener('click', function () {
+        var days = parseInt(b.dataset.days, 10);
+        var d = new Date();
+        d.setDate(d.getDate() + days);
+        var iso = d.toISOString().slice(0, 10);
+
+        sb.rpc('admin_update_company', {
+          p_id: b.dataset.id, p_active: true, p_plan: null, p_trial: null,
+          p_notes: null, p_seats: null,
+          p_access: iso + 'T23:59:00Z', p_clear_access: false
+        }).then(function (res) {
+          if (res.error) return toast(cleanRpcError(res.error));
+          toast('Access extended to ' + longDate(iso));
+          renderAdmin();
+        });
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('.js-adm-toggle'), function (b) {
+      b.addEventListener('click', function () {
+        var on_ = b.dataset.active === '1';
+        if (!confirm((on_ ? 'Pause ' : 'Unpause ') + b.dataset.name +
+              '?\n\n' + (on_ ? 'Their crew loses access immediately. Nothing is deleted.'
+                             : 'Their crew gets access back straight away.'))) return;
+
+        sb.rpc('admin_update_company', {
+          p_id: b.dataset.id, p_active: !on_, p_plan: null, p_trial: null,
+          p_notes: null, p_seats: null, p_access: null, p_clear_access: false
+        }).then(function (res) {
+          if (res.error) return toast(cleanRpcError(res.error));
+          toast(on_ ? 'Paused' : 'Unpaused');
+          renderAdmin();
+        });
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('.js-adm-crew'), function (b) {
+      b.addEventListener('click', function () {
+        var box = document.getElementById('crew-' + b.dataset.id);
+        if (box.innerHTML) { box.innerHTML = ''; b.textContent = 'Show crew'; return; }
+
+        b.textContent = 'Loading…';
+        sb.rpc('admin_list_members', { p_company: b.dataset.id }).then(function (res) {
+          b.textContent = 'Hide crew';
+          if (res.error) { box.innerHTML = ''; return toast(cleanRpcError(res.error)); }
+          var rows = res.data || [];
+          box.innerHTML = rows.length
+            ? '<ul class="codelist">' + rows.map(function (m) {
+                return '<li><span class="grow">' + esc(m.full_name || m.email.split('@')[0]) +
+                  ' <span class="muted small">' + esc(m.email) + '</span></span>' +
+                  '<span class="chip">' + esc(m.role) + '</span></li>';
+              }).join('') + '</ul>'
+            : '<p class="small muted">Nobody has joined yet.</p>';
+        });
+      });
+    });
+  }
+
   /* ---------------- company logo ---------------- */
 
   function uploadLogo(file) {
+    if (file.type && file.type.indexOf('image/') !== 0) {
+      return toast('That is not an image file — try a PNG or JPG.');
+    }
     if (file.size > 6 * 1024 * 1024) return toast('That image is very large — try one under 6 MB.');
 
     toast('Uploading logo…');
@@ -1217,22 +1754,18 @@ window.CONFIG = {
 
     Promise.all([
       sb.from('memberships').select('user_id,email,full_name,role,created_at').order('created_at'),
-      org.role === 'owner'
-        ? sb.from('invites').select('code,role,uses_left,expires_at').order('created_at', { ascending: false })
-        : Promise.resolve({ data: [] })
+      Promise.resolve({ data: [] })
     ]).then(function (r) {
       var members = (r[0].data) || [];
-      var invites = (r[1].data) || [];
       var owner = org.role === 'owner';
-      var live = invites.filter(function (i) {
-        return i.uses_left > 0 && new Date(i.expires_at) > new Date();
-      });
 
       app.innerHTML =
         '<div class="jobhead">' +
           '<h1>' + esc(org.company_name) + '</h1>' +
           '<div class="jobhead-meta">You are signed in as ' + esc(me.email) +
             ' · ' + (owner ? 'account owner' : 'crew') + '</div>' +
+          '<div class="row"><button id="do-signout" class="btn btn-quiet">Sign out</button>' +
+            (isAdmin ? '<a class="btn btn-quiet" href="#/admin">Admin console</a>' : '') + '</div>' +
         '</div>' +
 
         '<div class="section-head"><h2>Crew</h2>' +
@@ -1262,44 +1795,16 @@ window.CONFIG = {
                   '<button id="do-logo-clear" class="btn-mini btn-mini-danger">Remove</button></div>'
               : '<p class="small muted" style="margin:0 0 12px">No logo yet — your company name shows at the top instead.</p>') +
             '<div class="filedrop">' +
-              '<input id="logo-file" type="file" accept="image/png,image/jpeg,image/webp">' +
+              '<input id="logo-file" type="file" accept="image/*">' +
               '<label class="filedrop-label" for="logo-file">' +
                 (org.logo_url ? 'Choose a different logo' : 'Choose a logo') + '</label>' +
             '</div>' +
-            '<p class="small muted" style="margin:10px 0 0">A wide logo works best. PNG with a transparent ' +
-            'or white background looks cleanest against the white bar.</p>' +
-          '</div>' +
-          '<div class="section-head"><h2>Join codes</h2></div>' +
-          '<div class="panel">' +
-            '<p class="small muted" style="margin:0 0 12px">Your crew creates an account, then enters one of these. ' +
-            'Codes last 30 days and work for up to 25 people.</p>' +
-            (live.length
-              ? '<ul class="codelist">' + live.map(function (i) {
-                  return '<li><code class="joincode">' + esc(i.code) + '</code>' +
-                    '<span class="small muted">' + i.uses_left + ' left · expires ' +
-                    esc(longDate(i.expires_at.slice(0, 10))) + '</span></li>';
-                }).join('') + '</ul>'
-              : '<p class="small muted" style="margin:0 0 12px">No active codes.</p>') +
-            '<button id="do-invite" class="btn btn-block" style="margin-top:12px">Create a join code</button>' +
+            '<p class="small muted" style="margin:10px 0 0">PNG, JPG or WebP. A wide logo works best, and a ' +
+            'PNG with a transparent or white background looks cleanest against the white bar.</p>' +
           '</div>'
-        : '') +
-
-        '<div class="panel" style="margin-top:18px">' +
-          '<button id="do-signout" class="btn btn-quiet btn-block">Sign out</button>' +
-        '</div>';
+        : '');
 
       on('do-signout', 'click', signOut);
-
-      on('do-invite', 'click', function () {
-        var btn = document.getElementById('do-invite');
-        btn.disabled = true; btn.textContent = 'Creating…';
-        sb.rpc('create_invite', { p_role: 'crew', p_uses: 25 }).then(function (res) {
-          btn.disabled = false; btn.textContent = 'Create a join code';
-          if (res.error) return toast(cleanRpcError(res.error));
-          toast('Code created: ' + res.data);
-          renderTeam();
-        });
-      });
 
       on('logo-file', 'change', function (e) {
         var file = (e.target.files || [])[0];
