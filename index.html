@@ -663,8 +663,6 @@ textarea { min-height: 120px; resize: vertical; }
   padding: 4px 10px;
 }
 
-.codelist .grow { flex: 1 1 auto; }
-
 </style>
 </head>
 <body>
@@ -1278,11 +1276,8 @@ window.CONFIG = {
             (live.length
               ? '<ul class="codelist">' + live.map(function (i) {
                   return '<li><code class="joincode">' + esc(i.code) + '</code>' +
-                    '<span class="small muted grow">' + i.uses_left + ' left · expires ' +
-                    esc(longDate(i.expires_at.slice(0, 10))) +
-                    (i.role === 'owner' ? ' · <strong>makes owners</strong>' : '') + '</span>' +
-                    '<button type="button" class="btn-mini btn-mini-danger js-revoke" data-code="' +
-                      esc(i.code) + '">Revoke</button></li>';
+                    '<span class="small muted">' + i.uses_left + ' left · expires ' +
+                    esc(longDate(i.expires_at.slice(0, 10))) + '</span></li>';
                 }).join('') + '</ul>'
               : '<p class="small muted" style="margin:0 0 12px">No active codes.</p>') +
             '<button id="do-invite" class="btn btn-block" style="margin-top:12px">Create a join code</button>' +
@@ -1310,17 +1305,6 @@ window.CONFIG = {
         var file = (e.target.files || [])[0];
         e.target.value = '';
         if (file) uploadLogo(file);
-      });
-
-      Array.prototype.forEach.call(document.querySelectorAll('.js-revoke'), function (b) {
-        b.addEventListener('click', function () {
-          if (!confirm('Revoke the code "' + b.dataset.code + '"?\n\nAnyone already using it stays in the crew. The code itself stops working.')) return;
-          sb.rpc('revoke_invite', { p_code: b.dataset.code }).then(function (res) {
-            if (res.error) return toast(cleanRpcError(res.error));
-            toast('Code revoked');
-            renderTeam();
-          });
-        });
       });
 
       on('do-logo-clear', 'click', function () {
