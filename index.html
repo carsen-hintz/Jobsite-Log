@@ -839,6 +839,123 @@ textarea { min-height: 120px; resize: vertical; }
 
 .tagpick-3 label { font-size: 15px; padding: 13px 2px; }
 
+/* ---------- Issue update history ---------- */
+
+.history {
+  margin-top: 12px;
+  border-top: 1px solid var(--rule);
+  padding-top: 4px;
+}
+
+.history-head {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  color: var(--steel);
+  padding: 7px 0 3px;
+}
+
+.history-item {
+  border-left: 3px solid var(--rule);
+  padding: 7px 0 7px 11px;
+  margin-bottom: 3px;
+}
+
+.history-item.h-open     { border-left-color: var(--keel); }
+.history-item.h-working  { border-left-color: var(--working); }
+.history-item.h-resolved { border-left-color: var(--fixed); }
+
+.history-meta { font-size: 13px; color: var(--steel); }
+.history-note { margin: 3px 0 0; font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* ---------- Calendar (month grid) ---------- */
+
+.cal {
+  background: var(--board);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 14px;
+}
+
+.cal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.cal-title {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 600;
+  font-size: 21px;
+}
+
+.cal-nav {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--ink);
+}
+
+.cal-nav:active { background: var(--wall); }
+
+.cal-dow {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--steel);
+  padding: 4px 0;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal-cell {
+  aspect-ratio: 1;
+  min-height: 40px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+}
+
+.cal-daynum { font-size: 14px; color: var(--ink); }
+.cal-out { background: var(--wall); }
+.cal-out .cal-daynum { color: #A6AEB6; }
+
+.cal-today { border-color: var(--chalk); border-width: 2px; }
+.cal-today .cal-daynum { font-weight: 700; color: var(--chalk-dark); }
+
+.cal-sel { background: var(--ink); }
+.cal-sel .cal-daynum { color: #fff; font-weight: 600; }
+
+.cal-dots { display: flex; gap: 2px; }
+.cal-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--chalk); }
+.cal-sel .cal-dot { background: #fff; }
+
+@media (min-width: 500px) {
+  .cal-cell { min-height: 52px; }
+  .cal-daynum { font-size: 15px; }
+}
+
 </style>
 </head>
 <body>
@@ -2207,10 +2324,10 @@ window.CONFIG = {
       btn.disabled = true;
       btn.textContent = 'Saving…';
 
-      sb.auth.updateUser({ data: { full_name: name } }).then(function (res) {
+      sb.rpc('set_my_display_name', { p_name: name }).then(function (res) {
         btn.disabled = false;
         btn.textContent = 'Save name';
-        if (res.error) return toast(res.error.message);
+        if (res.error) return toast(cleanRpcError(res.error));
         me.name = name;
         toast('Name saved');
       });
@@ -2260,23 +2377,58 @@ window.CONFIG = {
   /* ---------------- schedule ---------------- */
 
   var schedNew = false;
+  var schedView = null;   // { year, month } — month is 0-11
+  var schedSelected = null;
 
-  function addDays(ymd, n) {
-    var d = new Date(ymd + 'T12:00:00');
-    d.setDate(d.getDate() + n);
-    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  function ymd(y, m, d) {
+    return y + '-' + pad(m + 1) + '-' + pad(d);
   }
 
-  function weekday(ymd) {
-    var names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    return names[new Date(ymd + 'T12:00:00').getDay()];
+  function todayParts() {
+    var d = new Date();
+    return { y: d.getFullYear(), m: d.getMonth(), d: d.getDate() };
+  }
+
+  function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
+
+  function monthLabel(y, m) {
+    return ['January','February','March','April','May','June','July','August',
+            'September','October','November','December'][m] + ' ' + y;
+  }
+
+  // Sunday-first 6-row grid, padded with the tail of the previous month and
+  // the head of the next so every week is a full row — the layout people
+  // expect from any calendar app.
+  function monthGrid(y, m) {
+    var first = new Date(y, m, 1).getDay();
+    var len = daysInMonth(y, m);
+    var prevLen = daysInMonth(y, m - 1 < 0 ? 11 : m - 1);
+    var prevY = m === 0 ? y - 1 : y, prevM = m === 0 ? 11 : m - 1;
+    var nextY = m === 11 ? y + 1 : y, nextM = m === 11 ? 0 : m + 1;
+
+    var cells = [];
+    for (var i = 0; i < first; i++) {
+      var pd = prevLen - first + i + 1;
+      cells.push({ date: ymd(prevY, prevM, pd), day: pd, out: true });
+    }
+    for (var d = 1; d <= len; d++) cells.push({ date: ymd(y, m, d), day: d, out: false });
+    var nd = 1;
+    while (cells.length % 7 !== 0 || cells.length < 42) {
+      cells.push({ date: ymd(nextY, nextM, nd), day: nd, out: true });
+      nd++;
+    }
+    return cells;
   }
 
   function renderSchedule() {
     app.innerHTML = '<p class="muted">Loading the schedule…</p>';
 
-    var from = todayISO();
-    var to = addDays(from, 20);
+    var t = todayParts();
+    if (!schedView) schedView = { year: t.y, month: t.m };
+    if (!schedSelected) schedSelected = ymd(t.y, t.m, t.d);
+
+    var cells = monthGrid(schedView.year, schedView.month);
+    var from = cells[0].date, to = cells[cells.length - 1].date;
 
     Promise.all([
       sb.from('schedule').select('*').gte('work_date', from).lte('work_date', to)
@@ -2294,88 +2446,133 @@ window.CONFIG = {
       var byJob = {};
       jobs.forEach(function (j) { byJob[j.id] = j; });
 
-      // Only show days that have something on them, plus today.
-      var days = [];
-      for (var i = 0; i <= 20; i++) {
-        var d = addDays(from, i);
-        var items = rows.filter(function (x) { return x.work_date === d; });
-        if (items.length || i === 0) days.push({ date: d, items: items });
-      }
+      var byDate = {};
+      rows.forEach(function (it) { (byDate[it.work_date] = byDate[it.work_date] || []).push(it); });
+
+      var todayStr = ymd(t.y, t.m, t.d);
+      var selItems = byDate[schedSelected] || [];
 
       app.innerHTML =
         '<div class="jobhead">' +
           '<h1>Schedule</h1>' +
-          '<div class="jobhead-meta">Next three weeks · ' + rows.length +
-            (rows.length === 1 ? ' thing planned' : ' things planned') + '</div>' +
-          (owner
-            ? '<div class="row"><button id="sc-new" class="btn">Add to the schedule</button></div>'
-            : '') +
+          '<div class="jobhead-meta">' + rows.length +
+            (rows.length === 1 ? ' thing planned this month' : ' things planned this month') + '</div>' +
         '</div>' +
 
-        (owner && schedNew
-          ? '<div class="panel" style="margin-top:14px">' +
-              '<h2 style="font-size:22px;margin-bottom:12px">Plan some work</h2>' +
-              '<div class="row">' +
-                '<div class="grow"><label for="sc-date">Day</label>' +
-                  '<input id="sc-date" type="date" value="' + esc(from) + '"></div>' +
-                '<div class="grow"><label for="sc-job">Job</label>' +
-                  '<select id="sc-job">' +
-                    '<option value="">No particular job</option>' +
-                    jobs.filter(function (j) { return j.status === 'Active'; }).map(function (j) {
-                      return '<option value="' + esc(j.id) + '">' + esc(j.name) + '</option>';
-                    }).join('') +
-                  '</select></div>' +
-              '</div>' +
-              '<div class="field"><label for="sc-who">Who</label>' +
-                '<select id="sc-who">' +
-                  '<option value="">Anyone / the whole crew</option>' +
-                  crew.map(function (m) {
-                    return '<option value="' + esc(m.email) + '">' +
-                      esc(m.full_name || m.email.split('@')[0]) + '</option>';
-                  }).join('') +
-                '</select></div>' +
-              '<div class="field"><label for="sc-note">What is the plan?</label>' +
-                '<textarea id="sc-note" style="min-height:80px" ' +
-                  'placeholder="Hang second floor. Bring the lift and 40 sheets of 5/8."></textarea></div>' +
-              '<div class="row" style="margin-top:14px">' +
-                '<button id="sc-save" class="btn grow">Add to schedule</button>' +
-                '<button id="sc-cancel" class="btn btn-quiet">Cancel</button>' +
-              '</div>' +
-            '</div>'
-          : '') +
+        '<div class="cal">' +
+          '<div class="cal-head">' +
+            '<button id="cal-prev" class="cal-nav" aria-label="Previous month">&lsaquo;</button>' +
+            '<span class="cal-title">' + esc(monthLabel(schedView.year, schedView.month)) + '</span>' +
+            '<button id="cal-next" class="cal-nav" aria-label="Next month">&rsaquo;</button>' +
+          '</div>' +
+          '<div class="cal-dow">' +
+            ['S','M','T','W','T','F','S'].map(function (d) { return '<span>' + d + '</span>'; }).join('') +
+          '</div>' +
+          '<div class="cal-grid">' +
+            cells.map(function (c) {
+              var items = byDate[c.date] || [];
+              var cls = 'cal-cell' +
+                (c.out ? ' cal-out' : '') +
+                (c.date === todayStr ? ' cal-today' : '') +
+                (c.date === schedSelected ? ' cal-sel' : '');
+              return '<button type="button" class="' + cls + '" data-date="' + c.date + '">' +
+                '<span class="cal-daynum">' + c.day + '</span>' +
+                (items.length
+                  ? '<span class="cal-dots">' +
+                      items.slice(0, 3).map(function () { return '<span class="cal-dot"></span>'; }).join('') +
+                    '</span>'
+                  : '') +
+              '</button>';
+            }).join('') +
+          '</div>' +
+          '<div class="row" style="margin-top:10px">' +
+            '<button id="cal-today-btn" class="btn-plain">Today</button>' +
+          '</div>' +
+        '</div>' +
 
-        (days.length
-          ? days.map(function (d) {
-              var isToday = d.date === from;
-              return '<div class="section-head"><h2>' +
-                  (isToday ? 'Today' : esc(weekday(d.date))) + '</h2>' +
-                  '<span class="small muted">' + esc(longDate(d.date)) + '</span></div>' +
-                (d.items.length
-                  ? '<ul class="joblist">' + d.items.map(function (it) {
-                      var job = byJob[it.job_id];
-                      return '<li class="jobitem"><div class="jobrow">' +
-                        '<div class="jobrow-top">' +
-                          '<span class="jobrow-name">' +
-                            esc(job ? job.name : 'No job set') + '</span>' +
-                          '<span class="jobrow-when">' +
-                            esc(it.assignee_name || it.assignee_email || 'whole crew') + '</span>' +
-                        '</div>' +
-                        (it.note ? '<div class="jobrow-meta" style="white-space:pre-wrap">' +
-                          esc(it.note) + '</div>' : '') +
-                      '</div>' +
-                      (owner
-                        ? '<button type="button" class="jobact jobdel js-sc-del" data-id="' + esc(it.id) +
-                            '" aria-label="Remove from schedule" title="Remove">' + TRASH_SVG + '</button>'
-                        : '') +
-                      '</li>';
-                    }).join('') + '</ul>'
-                  : '<div class="empty" style="padding:18px"><p style="margin:0">Nothing planned.</p></div>')
-            }).join('')
-          : '<div class="empty"><h2>Nothing scheduled</h2>' +
-            '<p>' + (owner ? 'Use the button above to plan the week.' :
-                             'Your office has not put anything up yet.') + '</p></div>');
+        '<div class="section-head"><h2>' +
+            (schedSelected === todayStr ? 'Today' : esc(weekday(schedSelected))) +
+          '</h2><span class="small muted">' + esc(longDate(schedSelected)) + '</span></div>' +
 
-      on('sc-new', 'click', function () { schedNew = !schedNew; renderSchedule(); });
+        (selItems.length
+          ? '<ul class="joblist">' + selItems.map(function (it) {
+              var job = byJob[it.job_id];
+              return '<li class="jobitem"><div class="jobrow">' +
+                '<div class="jobrow-top">' +
+                  '<span class="jobrow-name">' + esc(job ? job.name : 'No job set') + '</span>' +
+                  '<span class="jobrow-when">' + esc(it.assignee_name || 'whole crew') + '</span>' +
+                '</div>' +
+                (it.note ? '<div class="jobrow-meta" style="white-space:pre-wrap">' + esc(it.note) + '</div>' : '') +
+              '</div>' +
+              (owner
+                ? '<button type="button" class="jobact jobdel js-sc-del" data-id="' + esc(it.id) +
+                    '" aria-label="Remove from schedule" title="Remove">' + TRASH_SVG + '</button>'
+                : '') +
+              '</li>';
+            }).join('') + '</ul>'
+          : '<div class="empty" style="padding:20px"><p style="margin:0">Nothing planned this day.</p></div>') +
+
+        (owner
+          ? (schedNew
+              ? '<div class="panel" style="margin-top:14px">' +
+                  '<h2 style="font-size:22px;margin-bottom:12px">Plan some work</h2>' +
+                  '<div class="row">' +
+                    '<div class="grow"><label for="sc-date">Day</label>' +
+                      '<input id="sc-date" type="date" value="' + esc(schedSelected) + '"></div>' +
+                    '<div class="grow"><label for="sc-job">Job</label>' +
+                      '<select id="sc-job">' +
+                        '<option value="">No particular job</option>' +
+                        jobs.filter(function (j) { return j.status === 'Active'; }).map(function (j) {
+                          return '<option value="' + esc(j.id) + '">' + esc(j.name) + '</option>';
+                        }).join('') +
+                      '</select></div>' +
+                  '</div>' +
+                  '<div class="field"><label for="sc-who">Who</label>' +
+                    '<select id="sc-who">' +
+                      '<option value="">Anyone / the whole crew</option>' +
+                      crew.map(function (m) {
+                        return '<option value="' + esc(m.email) + '">' +
+                          esc(m.full_name || m.email.split('@')[0]) + '</option>';
+                      }).join('') +
+                    '</select></div>' +
+                  '<div class="field"><label for="sc-note">What is the plan?</label>' +
+                    '<textarea id="sc-note" style="min-height:80px" ' +
+                      'placeholder="Hang second floor. Bring the lift and 40 sheets of 5/8."></textarea></div>' +
+                  '<div class="row" style="margin-top:14px">' +
+                    '<button id="sc-save" class="btn grow">Add to schedule</button>' +
+                    '<button id="sc-cancel" class="btn btn-quiet">Cancel</button>' +
+                  '</div>' +
+                '</div>'
+              : '<div class="dock"><div class="dock-inner">' +
+                  '<button id="sc-new" class="btn btn-block">Add to the schedule</button>' +
+                '</div></div>')
+          : '');
+
+      Array.prototype.forEach.call(document.querySelectorAll('.cal-cell'), function (b) {
+        b.addEventListener('click', function () {
+          schedSelected = b.dataset.date;
+          renderSchedule();
+        });
+      });
+
+      on('cal-prev', 'click', function () {
+        schedView.month--;
+        if (schedView.month < 0) { schedView.month = 11; schedView.year--; }
+        renderSchedule();
+      });
+      on('cal-next', 'click', function () {
+        schedView.month++;
+        if (schedView.month > 11) { schedView.month = 0; schedView.year++; }
+        renderSchedule();
+      });
+      on('cal-today-btn', 'click', function () {
+        var n = todayParts();
+        schedView = { year: n.y, month: n.m };
+        schedSelected = ymd(n.y, n.m, n.d);
+        renderSchedule();
+      });
+
+      on('sc-new', 'click', function () { schedNew = true; renderSchedule(); });
       on('sc-cancel', 'click', function () { schedNew = false; renderSchedule(); });
 
       on('sc-save', 'click', function () {
@@ -2410,6 +2607,9 @@ window.CONFIG = {
           btn.textContent = 'Add to schedule';
           if (res.error) return toast('Could not add that: ' + res.error.message);
           schedNew = false;
+          schedSelected = date;
+          var d = new Date(date + 'T12:00:00');
+          schedView = { year: d.getFullYear(), month: d.getMonth() };
           toast('Added to the schedule');
           renderSchedule();
         });
@@ -2779,7 +2979,7 @@ window.CONFIG = {
     Promise.all([
       sb.from('jobs').select('*').eq('id', id).single(),
       sb.from('entries')
-        .select('id,job_id,author_name,author_email,notes,tag,entry_date,created_at,issue_status,fix_notes,resolved_at,resolved_by,resolved_name,entry_photos(id,storage_path)')
+        .select('id,job_id,author_name,author_email,notes,tag,entry_date,created_at,issue_status,resolved_at,resolved_name,entry_photos(id,storage_path),issue_updates(id,status,note,author_name,created_at)')
         .eq('job_id', id)
         .order('entry_date', { ascending: false })
         .order('created_at', { ascending: false }),
@@ -2946,14 +3146,7 @@ window.CONFIG = {
         '</div>' +
         (en.notes ? '<p class="entry-note">' + esc(en.notes) + '</p>' : '') +
 
-        (en.tag === 'issue' && en.fix_notes
-          ? '<div class="fixbox"><strong>' +
-              (en.issue_status === 'resolved' ? 'Fixed' : 'Update') + '</strong>' +
-              (en.resolved_name ? ' · ' + esc(en.resolved_name) : '') +
-              (en.resolved_at ? ' · ' + esc(longDate(en.resolved_at.slice(0, 10))) : '') +
-              '<p style="margin:4px 0 0;white-space:pre-wrap">' + esc(en.fix_notes) + '</p>' +
-            '</div>'
-          : '') +
+        issueHistoryHtml(en) +
         (photos.length ? '<div class="gallery">' + photos.map(function (p) {
           var url = p.url || '';
           return '<button type="button" class="js-zoom" data-url="' + esc(url) + '">' +
@@ -2963,7 +3156,7 @@ window.CONFIG = {
             (mine ? '<button class="btn-mini js-edit" data-id="' + esc(en.id) + '">Edit</button>' : '') +
             (en.tag === 'issue'
               ? '<button class="btn-mini js-issue" data-id="' + esc(en.id) + '">' +
-                  (en.issue_status === 'resolved' ? 'Reopen / update' : 'Update status') + '</button>'
+                  (en.issue_status === 'resolved' ? 'Reopen / update' : 'Add update') + '</button>'
               : '') +
             (mine ? '<button class="btn-mini btn-mini-danger js-del" data-id="' + esc(en.id) + '">Delete</button>' : '') +
           '</div>' : '') +
@@ -3017,11 +3210,14 @@ window.CONFIG = {
 
   function issueFormHtml(en) {
     var st = en.issue_status || 'open';
+    var count = (en.issue_updates || []).length;
 
     return '<li><div class="panel editpanel">' +
-      '<div class="editpanel-head">Issue status</div>' +
+      '<div class="editpanel-head">Add an update</div>' +
       '<p class="small muted" style="margin:-6px 0 12px">Logged by ' + esc(en.author_name) +
-        ' on ' + esc(longDate(en.entry_date)) + '</p>' +
+        ' on ' + esc(longDate(en.entry_date)) +
+        (count ? ' · ' + count + (count === 1 ? ' update so far' : ' updates so far') : '') +
+        '. Updates are added to the record — nothing gets overwritten.</p>' +
 
       '<div class="field">' +
         '<div class="tagpick tagpick-3">' +
@@ -3033,12 +3229,11 @@ window.CONFIG = {
             (st === 'resolved' ? ' checked' : '') + '><label for="ist-resolved">Fixed</label>' +
         '</div></div>' +
 
-      '<div class="field"><label for="ist-notes">What was done about it?</label>' +
-        '<textarea id="ist-notes" placeholder="Plumber moved the rough-in Tuesday. Wall closed and taped.">' +
-          esc(en.fix_notes || '') + '</textarea></div>' +
+      '<div class="field"><label for="ist-notes">What has happened?</label>' +
+        '<textarea id="ist-notes" placeholder="Called the plumber. He is back Wednesday to move the rough-in."></textarea></div>' +
 
       '<div class="row" style="margin-top:14px">' +
-        '<button id="ist-save" class="btn grow" data-id="' + esc(en.id) + '">Save status</button>' +
+        '<button id="ist-save" class="btn grow" data-id="' + esc(en.id) + '">Add update</button>' +
         '<button id="ist-cancel" class="btn btn-quiet">Cancel</button>' +
       '</div>' +
     '</div></li>';
@@ -3048,9 +3243,9 @@ window.CONFIG = {
     var status = (document.querySelector('input[name=istat]:checked') || {}).value || 'open';
     var notes = document.getElementById('ist-notes').value.trim();
 
-    if (status !== 'open' && !notes) {
+    if (!notes) {
       document.getElementById('ist-notes').focus();
-      return toast('Say what was done, so the record means something later.');
+      return toast('Say what has happened, so the history means something later.');
     }
 
     var btn = document.getElementById('ist-save');
@@ -3059,10 +3254,10 @@ window.CONFIG = {
 
     sb.rpc('update_issue', { p_entry: id, p_status: status, p_notes: notes }).then(function (res) {
       btn.disabled = false;
-      btn.textContent = 'Save status';
+      btn.textContent = 'Add update';
       if (res.error) return toast(cleanRpcError(res.error));
       view.issueEditing = null;
-      toast(status === 'resolved' ? 'Marked fixed' : 'Status saved');
+      toast(status === 'resolved' ? 'Marked fixed' : 'Update added');
       renderJob(view.job.id);
     });
   }
@@ -3079,6 +3274,36 @@ window.CONFIG = {
     if (!wrap) return;
     wrap.innerHTML = feedInner();
     wireFeed();
+  }
+
+  // An issue's updates are a record, so they all show, in the order they
+  // happened. Nothing here is editable.
+  function issueHistoryHtml(en) {
+    if (en.tag !== 'issue') return '';
+
+    var ups = (en.issue_updates || []).slice().sort(function (a, b) {
+      return new Date(a.created_at) - new Date(b.created_at);
+    });
+
+    if (!ups.length) return '';
+
+    return '<div class="history">' +
+      '<div class="history-head">' + ups.length +
+        (ups.length === 1 ? ' update' : ' updates') + '</div>' +
+      ups.map(function (u) {
+        var label = u.status === 'resolved' ? 'Fixed'
+                  : u.status === 'working' ? 'Being fixed'
+                  : 'Still open';
+        return '<div class="history-item h-' + esc(u.status) + '">' +
+          '<div class="history-meta">' +
+            '<strong>' + esc(label) + '</strong> · ' + esc(u.author_name || '') +
+            ' · ' + esc(longDate(u.created_at.slice(0, 10))) +
+            ' ' + esc(clockTime(u.created_at)) +
+          '</div>' +
+          (u.note ? '<p class="history-note">' + esc(u.note) + '</p>' : '') +
+        '</div>';
+      }).join('') +
+    '</div>';
   }
 
   function wireFeed() {
@@ -3370,7 +3595,7 @@ window.CONFIG = {
     toast('Building notes file…');
 
     sb.from('entries')
-      .select('author_name,notes,tag,entry_date,created_at,issue_status,fix_notes')
+      .select('id,author_name,notes,tag,entry_date,created_at,issue_status,issue_updates(status,note,author_name,created_at)')
       .eq('job_id', job.id)
       .order('entry_date', { ascending: true })
       .order('created_at', { ascending: true })
@@ -3400,9 +3625,19 @@ window.CONFIG = {
                      : ''));
             L.push('');
             if (en.notes) L.push(en.notes);
-            if (en.tag === 'issue' && en.fix_notes) {
+
+            var ups = (en.issue_updates || []).slice().sort(function (a, b) {
+              return new Date(a.created_at) - new Date(b.created_at);
+            });
+
+            if (ups.length) {
               L.push('');
-              L.push('Resolution: ' + en.fix_notes);
+              ups.forEach(function (u) {
+                var label = u.status === 'resolved' ? 'FIXED'
+                          : u.status === 'working' ? 'BEING FIXED' : 'STILL OPEN';
+                L.push('  [' + label + '] ' + longDate(u.created_at.slice(0, 10)) +
+                       ', ' + (u.author_name || '') + ': ' + u.note);
+              });
             }
             L.push('');
           });
@@ -3485,14 +3720,26 @@ window.CONFIG = {
           lines.forEach(function (ln) { space(16); doc.text(ln, M, y); y += 14; });
         }
 
-        if (en.tag === 'issue' && en.fix_notes) {
-          doc.setFontSize(11);
-          doc.setFont('helvetica', 'bold');
-          space(16); doc.text('Resolution:', M, y); y += 14;
-          doc.setFont('helvetica', 'normal');
-          doc.splitTextToSize(en.fix_notes, CW).forEach(function (ln) {
-            space(16); doc.text(ln, M, y); y += 14;
+        var ups = (en.issue_updates || []).slice().sort(function (a, b) {
+          return new Date(a.created_at) - new Date(b.created_at);
+        });
+
+        if (ups.length) {
+          doc.setFontSize(10);
+          ups.forEach(function (u) {
+            var label = u.status === 'resolved' ? 'Fixed'
+                      : u.status === 'working' ? 'Being fixed' : 'Still open';
+            space(16);
+            doc.setFont('helvetica', 'bold');
+            doc.text(label + ' — ' + (u.author_name || '') + ', ' +
+                     longDate(u.created_at.slice(0, 10)) + ':', M + 14, y);
+            y += 13;
+            doc.setFont('helvetica', 'normal');
+            doc.splitTextToSize(u.note, CW - 14).forEach(function (ln) {
+              space(15); doc.text(ln, M + 14, y); y += 13;
+            });
           });
+          doc.setFontSize(11);
         }
 
         var photos = en.entry_photos || [];
