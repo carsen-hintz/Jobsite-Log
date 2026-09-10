@@ -1749,6 +1749,61 @@ window.CONFIG = {
 
   /* ---------------- team screen ---------------- */
 
+  function seatsFull(used) {
+    return org.seat_limit != null && used >= org.seat_limit;
+  }
+
+  // Invites go through a server-side function, so the seat limit and the
+  // owner check cannot be bypassed from the browser.
+  function sendCrewInvite() {
+    var box = document.getElementById('inv-email');
+    var email = box.value.trim().toLowerCase();
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      box.focus();
+      return toast('Enter their email address.');
+    }
+
+    var btn = document.getElementById('inv-send');
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+
+    sb.functions.invoke('invite-crew', {
+      body: { email: email, role: 'crew', redirectTo: location.origin + location.pathname }
+    }).then(function (res) {
+      btn.disabled = false;
+      btn.textContent = 'Send invite';
+
+      var data = res.data || {};
+
+      // A non-200 reply arrives wrapped, with the useful message in the body.
+      if (res.error) {
+        var ctx = res.error.context;
+        if (ctx && typeof ctx.json === 'function') {
+          return ctx.json().then(function (b) {
+            toast((b && b.error) || res.error.message);
+          }, function () {
+            toast(res.error.message);
+          });
+        }
+        return toast(res.error.message);
+      }
+
+      if (data.error) return toast(data.error);
+      if (!data.ok) return toast('That invite could not be sent.');
+
+      box.value = '';
+      toast(data.emailed
+        ? 'Invite sent to ' + email
+        : 'They already had an account — added to your crew.');
+      loadOrg().then(renderTeam);
+    }).catch(function (err) {
+      btn.disabled = false;
+      btn.textContent = 'Send invite';
+      toast('That invite could not be sent: ' + (err.message || err));
+    });
+  }
+
   function renderTeam() {
     app.innerHTML = '<p class="muted">Loading crew…</p>';
 
@@ -1769,8 +1824,8 @@ window.CONFIG = {
         '</div>' +
 
         '<div class="section-head"><h2>Crew</h2>' +
-          '<span class="small muted">' + members.length +
-          (members.length === 1 ? ' person' : ' people') + '</span></div>' +
+          '<span class="small muted">' + members.length + ' of ' +
+          (org.seat_limit == null ? 'unlimited' : org.seat_limit) + ' seats</span></div>' +
 
         '<ul class="joblist">' + members.map(function (m) {
           var isMe = m.email === me.email;
@@ -1787,6 +1842,25 @@ window.CONFIG = {
         }).join('') + '</ul>' +
 
         (owner ?
+          '<div class="section-head"><h2>Add someone to the crew</h2></div>' +
+          '<div class="panel">' +
+            (seatsFull(members.length)
+              ? '<p style="margin:0 0 4px"><strong>Your crew is full.</strong></p>' +
+                '<p class="small muted" style="margin:0">All ' + org.seat_limit +
+                  ' seats are in use. Remove someone above, or get in touch about adding seats.</p>'
+              : '<div class="field"><label for="inv-email">Their email address</label>' +
+                  '<input id="inv-email" type="email" inputmode="email" autocapitalize="off" ' +
+                    'spellcheck="false" placeholder="dave@example.com"></div>' +
+                '<div class="row" style="margin-top:13px">' +
+                  '<button id="inv-send" class="btn grow">Send invite</button>' +
+                '</div>' +
+                '<p class="small muted" style="margin:11px 0 0">They get an email with a link to set ' +
+                  'their own password. You never handle it. ' +
+                  (org.seat_limit == null
+                    ? ''
+                    : (org.seat_limit - members.length) + ' seat' +
+                      (org.seat_limit - members.length === 1 ? '' : 's') + ' left.') + '</p>') +
+          '</div>' +
           '<div class="section-head"><h2>Company logo</h2></div>' +
           '<div class="panel">' +
             (org.logo_url
@@ -1805,6 +1879,11 @@ window.CONFIG = {
         : '');
 
       on('do-signout', 'click', signOut);
+
+      on('inv-send', 'click', sendCrewInvite);
+      on('inv-email', 'keydown', function (e) {
+        if (e.key === 'Enter') sendCrewInvite();
+      });
 
       on('logo-file', 'change', function (e) {
         var file = (e.target.files || [])[0];
@@ -2552,85 +2631,4 @@ window.CONFIG = {
         if (en.notes) {
           doc.setFontSize(11);
           var lines = doc.splitTextToSize(en.notes, CW);
-          lines.forEach(function (ln) { space(16); doc.text(ln, M, y); y += 14; });
-        }
-
-        var photos = en.entry_photos || [];
-        if (!photos.length) { y += 14; return; }
-        y += 6;
-
-        return photos.reduce(function (c2, p, i) {
-          return c2.then(function () {
-            return imageData(p.url || '').then(function (im) {
-              if (!im) return;
-              var boxW = (CW - 12) / 2;
-              var w = boxW, h = boxW * (im.h / im.w);
-              if (h > 200) { h = 200; w = 200 * (im.w / im.h); }
-              var col = i % 2;
-              if (col === 0) space(h + 12);
-              var x = M + col * (boxW + 12);
-              doc.addImage(im.data, 'JPEG', x, y, w, h);
-              if (col === 1 || i === photos.length - 1) y += h + 12;
-            });
-          });
-        }, Promise.resolve()).then(function () { y += 10; });
-      });
-    }, Promise.resolve());
-
-    step.then(function () {
-      var pages = doc.getNumberOfPages();
-      for (var p = 1; p <= pages; p++) {
-        doc.setPage(p);
-        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(110);
-        doc.text(companyName() + '  —  ' + view.job.name, M, PH - 26);
-        doc.text('Page ' + p + ' of ' + pages, PW - M, PH - 26, { align: 'right' });
-      }
-      var safe = view.job.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
-      doc.save(safe + '-report-' + todayISO() + '.pdf');
-      btn.disabled = false;
-      btn.textContent = 'Client PDF';
-    }).catch(function (err) {
-      btn.disabled = false;
-      btn.textContent = 'Client PDF';
-      toast('PDF failed: ' + (err.message || err));
-    });
-  }
-
-  // Photos are re-drawn small so a 30-entry report stays a reasonable file size.
-  function imageData(url) {
-    return fetch(url).then(function (r) { return r.blob(); }).then(function (blob) {
-      return new Promise(function (resolve) {
-        var objUrl = URL.createObjectURL(blob);
-        var img = new Image();
-        img.onload = function () {
-          var scale = Math.min(1, 900 / Math.max(img.width, img.height));
-          var w = Math.round(img.width * scale), h = Math.round(img.height * scale);
-          var canvas = document.createElement('canvas');
-          canvas.width = w; canvas.height = h;
-          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
-          URL.revokeObjectURL(objUrl);
-          resolve({ data: canvas.toDataURL('image/jpeg', 0.7), w: w, h: h });
-        };
-        img.onerror = function () { URL.revokeObjectURL(objUrl); resolve(null); };
-        img.src = objUrl;
-      });
-    }).catch(function () { return null; });
-  }
-
-  /* ---------------- errors ---------------- */
-
-  function renderError(msg) {
-    app.innerHTML = '<div class="error"><h2 style="font-size:20px;margin-bottom:6px">Could not reach your data</h2>' +
-      '<p class="small" style="margin:0 0 10px">' + esc(msg) + '</p>' +
-      '<p class="small muted" style="margin:0">If this says something about a table or policy, the database script in ' +
-      '<code>db/schema.sql</code> has not been run yet. Step 4 of README.md covers it.</p>' +
-      '<a class="backlink" href="#/">Back to jobs</a></div>';
-  }
-
-  boot();
-
-})();
-
-</script>
-</body>
-</html>
+          
