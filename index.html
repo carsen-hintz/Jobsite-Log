@@ -734,6 +734,54 @@ textarea { min-height: 120px; resize: vertical; }
 .peoplerow-tags { display: flex; gap: 5px; flex-wrap: wrap; }
 .peoplerow-meta { font-size: 14px; color: var(--steel); margin-top: 2px; }
 
+/* ---------- Offline / queued entries banner ---------- */
+
+.offbar {
+  background: #FFF4E5;
+  border-bottom: 1px solid #E0C89A;
+  color: #4A3A1B;
+  font-size: 15px;
+}
+
+.offbar-in {
+  max-width: var(--shell);
+  margin: 0 auto;
+  padding: 11px var(--pad);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.offbar-in .btn-mini { border-color: #C9A96B; white-space: nowrap; }
+
+/* ---------- Tappable address ---------- */
+
+.maplink {
+  color: var(--chalk-dark);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---------- Settings switch row ---------- */
+
+.switchrow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 0;
+  cursor: pointer;
+  font-weight: 400;
+}
+
+.switchrow input {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  margin: 1px 0 0;
+  accent-color: var(--chalk);
+}
+
 </style>
 </head>
 <body>
@@ -749,6 +797,8 @@ textarea { min-height: 120px; resize: vertical; }
     </div>
   </div>
 </header>
+
+<div id="offbar" class="offbar" role="status" hidden></div>
 
 <main id="app" class="app"></main>
 
@@ -914,6 +964,11 @@ window.CONFIG = {
       .catch(function () { return entries; });
   }
 
+  // Opens in whichever maps app the phone prefers.
+  function mapsUrl(address) {
+    return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address);
+  }
+
   function tagChip(tag) {
     return tag === 'issue' ? '<span class="chip chip-issue">Issue</span>' : '';
   }
@@ -921,6 +976,124 @@ window.CONFIG = {
   function on(id, evt, fn) {
     var node = document.getElementById(id);
     if (node) node.addEventListener(evt, fn);
+  }
+
+  /* ---------------- offline queue ---------------- */
+
+  // Entries posted with no signal are kept on the phone, photos and all,
+  // and sent as soon as there is a connection. Photos are Blobs, which is
+  // why this uses IndexedDB rather than localStorage.
+
+  var QDB = 'jobsite-logger-offline';
+  var QSTORE = 'queue';
+  var flushing = false;
+
+  function qOpen() {
+    return new Promise(function (resolve, reject) {
+      if (!window.indexedDB) return reject(new Error('This browser cannot store offline entries.'));
+      var req = indexedDB.open(QDB, 1);
+      req.onupgradeneeded = function () {
+        var db = req.result;
+        if (!db.objectStoreNames.contains(QSTORE)) {
+          db.createObjectStore(QSTORE, { keyPath: 'id', autoIncrement: true });
+        }
+      };
+      req.onsuccess = function () { resolve(req.result); };
+      req.onerror = function () { reject(req.error); };
+    });
+  }
+
+  function qRun(mode, fn) {
+    return qOpen().then(function (db) {
+      return new Promise(function (resolve, reject) {
+        var tx = db.transaction(QSTORE, mode);
+        var store = tx.objectStore(QSTORE);
+        var out = fn(store);
+        tx.oncomplete = function () { resolve(out && out.result !== undefined ? out.result : out); };
+        tx.onerror = function () { reject(tx.error); };
+      });
+    });
+  }
+
+  function qAdd(item) { return qRun('readwrite', function (st) { return st.add(item); }); }
+  function qAll()     { return qRun('readonly',  function (st) { return st.getAll(); }); }
+  function qDrop(id)  { return qRun('readwrite', function (st) { return st.delete(id); }); }
+
+  function qCount() {
+    return qAll().then(function (rows) { return (rows || []).length; }, function () { return 0; });
+  }
+
+  // Sends anything waiting. Stops at the first failure so nothing is lost
+  // and nothing gets posted twice.
+  function flushQueue(quiet) {
+    if (flushing || !navigator.onLine || !me || !org) return Promise.resolve(0);
+    flushing = true;
+
+    return qAll().then(function (rows) {
+      rows = rows || [];
+      if (!rows.length) { flushing = false; return 0; }
+
+      if (!quiet) toast('Sending ' + rows.length + (rows.length === 1 ? ' saved entry…' : ' saved entries…'));
+
+      var done = 0;
+
+      return rows.reduce(function (chain, row) {
+        return chain.then(function (stop) {
+          if (stop) return true;
+
+          return sb.from('entries').insert({
+            job_id: row.job_id,
+            author_name: row.author_name,
+            author_email: row.author_email,
+            notes: row.notes,
+            tag: row.tag,
+            entry_date: row.entry_date
+          }).select().single().then(function (res) {
+            if (res.error) throw res.error;
+            var entry = res.data;
+
+            return uploadPhotos(entry, row.photos || [], null)
+              .then(function () { return notifyEntry(entry.id); })
+              .then(function () { return qDrop(row.id); })
+              .then(function () { done++; return false; });
+          }).catch(function () {
+            return true;   // leave this one and everything after it queued
+          });
+        });
+      }, Promise.resolve(false)).then(function () {
+        flushing = false;
+        if (done && !quiet) toast(done + (done === 1 ? ' entry posted' : ' entries posted'));
+        return done;
+      });
+    }).catch(function () { flushing = false; return 0; });
+  }
+
+  function paintQueueBanner() {
+    var bar = document.getElementById('offbar');
+    if (!bar) return;
+
+    qCount().then(function (n) {
+      var off = !navigator.onLine;
+      if (!n && !off) { bar.hidden = true; bar.innerHTML = ''; return; }
+
+      bar.hidden = false;
+      bar.innerHTML =
+        '<div class="offbar-in">' +
+          '<span>' +
+            (off ? 'No connection. ' : '') +
+            (n
+              ? n + (n === 1 ? ' entry saved on this phone' : ' entries saved on this phone') +
+                (off ? ' — they post when you have signal.' : '')
+              : 'Entries you post now are saved here and sent when you are back online.') +
+          '</span>' +
+          (n && !off ? '<button id="offbar-send" class="btn-mini">Send now</button>' : '') +
+        '</div>';
+
+      var btn = document.getElementById('offbar-send');
+      if (btn) btn.addEventListener('click', function () {
+        flushQueue().then(function () { paintQueueBanner(); route(); });
+      });
+    });
   }
 
   /* ---------------- boot ---------------- */
@@ -986,6 +1159,18 @@ window.CONFIG = {
     lightbox.addEventListener('click', function (e) { if (e.target === lightbox) closeLightbox(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeLightbox(); });
 
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').catch(function () {
+        // Offline opening is a bonus, not a requirement.
+      });
+    }
+
+    window.addEventListener('online', function () {
+      paintQueueBanner();
+      flushQueue().then(function (n) { if (n) route(); });
+    });
+    window.addEventListener('offline', paintQueueBanner);
+
     startSession();
   }
 
@@ -1029,7 +1214,13 @@ window.CONFIG = {
       me = meFromSession(res.data && res.data.session);
       window.addEventListener('hashchange', route);
       if (!me) return route();
-      return loadOrg().then(route);
+      return loadOrg().then(function () {
+        route();
+        flushQueue(true).then(function (n) {
+          paintQueueBanner();
+          if (n) route();
+        });
+      });
     }).catch(function (err) {
       fatal('Signing in', err);
     });
@@ -1067,6 +1258,7 @@ window.CONFIG = {
         seat_limit: row.seat_limit,
         seats_used: row.seats_used,
         access_until: row.access_until || null,
+        email_alerts: !!row.email_alerts,
         logo_path: row.logo_path || null,
         logo_url: row.logo_path
           ? sb.storage.from(LOGO_BUCKET).getPublicUrl(row.logo_path).data.publicUrl
@@ -1086,6 +1278,7 @@ window.CONFIG = {
     var isAdminPage = hash.indexOf('#/admin') === 0;
 
     paintBrand();
+    paintQueueBanner();
 
     // Back only appears where there is somewhere to go back to.
     backBtn.hidden = !me || (!m && !isTeam && !isAdminPage);
@@ -1861,6 +2054,16 @@ window.CONFIG = {
             (isAdmin ? '<a class="btn btn-quiet" href="#/admin">Admin console</a>' : '') + '</div>' +
         '</div>' +
 
+        '<div class="section-head"><h2>Your alerts</h2></div>' +
+        '<div class="panel">' +
+          '<label class="switchrow" for="alerts-on">' +
+            '<input type="checkbox" id="alerts-on"' + (org.email_alerts ? ' checked' : '') + '>' +
+            '<span><strong>Email me when someone posts to a job</strong>' +
+              '<span class="small muted" style="display:block">One email per entry, to ' +
+                esc(me.email) + '. Your own posts do not email you.</span></span>' +
+          '</label>' +
+        '</div>' +
+
         '<div class="section-head"><h2>Crew</h2>' +
           '<span class="small muted">' + members.length + ' of ' +
           (org.seat_limit == null ? 'unlimited' : org.seat_limit) + ' seats</span></div>' +
@@ -1917,6 +2120,18 @@ window.CONFIG = {
         : '');
 
       on('do-signout', 'click', signOut);
+
+      on('alerts-on', 'change', function (e) {
+        var on = e.target.checked;
+        sb.rpc('set_email_alerts', { p_on: on }).then(function (res) {
+          if (res.error) {
+            e.target.checked = !on;
+            return toast(cleanRpcError(res.error));
+          }
+          org.email_alerts = on;
+          toast(on ? 'Alerts on' : 'Alerts off');
+        });
+      });
 
       on('inv-send', 'click', sendCrewInvite);
       on('inv-email', 'keydown', function (e) {
@@ -2001,7 +2216,10 @@ window.CONFIG = {
         '<div class="field"><label for="nj-name">Job name</label>' +
           '<input id="nj-name" type="text" placeholder="Hillcrest Apartments, Bldg C"></div>' +
         '<div class="field"><label for="nj-address">Address</label>' +
-          '<input id="nj-address" type="text" placeholder="412 Hillcrest Dr, Morris MN"></div>' +
+          '<input id="nj-address" type="text" autocomplete="street-address" ' +
+            'placeholder="412 Hillcrest Dr, Morris MN">' +
+          '<p class="small muted" style="margin:6px 0 0">Your phone offers addresses you have used ' +
+            'before. Tap an address on a job to open it in maps.</p></div>' +
         '<div class="field"><label for="nj-client">Client</label>' +
           '<input id="nj-client" type="text" placeholder="Barrett Construction"></div>' +
         '<div class="row" style="margin-top:14px">' +
@@ -2152,7 +2370,10 @@ window.CONFIG = {
       '<div class="jobhead">' +
         '<h1>' + esc(j.name) + '</h1>' +
         '<div class="jobhead-meta">' + esc(j.client_name || 'No client listed') +
-          (j.address ? '<br>' + esc(j.address) : '') + '</div>' +
+          (j.address
+            ? '<br><a class="maplink" target="_blank" rel="noopener" href="' +
+                esc(mapsUrl(j.address)) + '">' + esc(j.address) + '</a>'
+            : '') + '</div>' +
         '<div class="row">' +
           '<button id="toggle-status" class="btn btn-quiet">' +
             (j.status === 'Completed' ? 'Reopen job' : 'Mark job completed') + '</button>' +
@@ -2403,6 +2624,9 @@ window.CONFIG = {
     btn.disabled = true;
     btn.textContent = 'Posting…';
 
+    // No signal: shrink the photos now and keep the lot on the phone.
+    if (!navigator.onLine) return queueEntry(notes, tag, when, btn);
+
     sb.from('entries').insert({
       job_id: view.job.id,
       author_name: me.name,
@@ -2414,15 +2638,62 @@ window.CONFIG = {
       if (res.error) throw res.error;
       var entry = res.data;
       return uploadPhotos(entry, staged, btn).then(function () { return entry; });
-    }).then(function () {
+    }).then(function (entry) {
       toast('Entry posted');
       staged = [];
+      notifyEntry(entry && entry.id);
       renderJob(view.job.id);
     }).catch(function (err) {
+      // A network failure mid-post is exactly what the queue is for.
+      if (!navigator.onLine || /fetch|network|Failed to send/i.test(err.message || '')) {
+        return queueEntry(notes, tag, when, btn);
+      }
       btn.disabled = false;
       btn.textContent = 'Post entry';
       toast('Could not post: ' + (err.message || err));
     });
+  }
+
+  function queueEntry(notes, tag, when, btn) {
+    if (btn) btn.textContent = 'Saving on this phone…';
+
+    // Shrink before storing, so a queued entry takes the same room it would
+    // have taken uploaded.
+    return staged.reduce(function (chain, file) {
+      return chain.then(function (out) {
+        return shrink(file).then(function (blob) { out.push(blob); return out; },
+                                 function () { out.push(file); return out; });
+      });
+    }, Promise.resolve([])).then(function (blobs) {
+      return qAdd({
+        job_id: view.job.id,
+        company_id: org.company_id,
+        author_name: me.name,
+        author_email: me.email,
+        notes: notes,
+        tag: tag,
+        entry_date: when,
+        photos: blobs,
+        saved_at: new Date().toISOString()
+      });
+    }).then(function () {
+      staged = [];
+      toast(navigator.onLine
+        ? 'Saved on this phone — it will post shortly.'
+        : 'Saved on this phone. It posts as soon as you have signal.');
+      paintQueueBanner();
+      renderJob(view.job.id);
+    }).catch(function (err) {
+      if (btn) { btn.disabled = false; btn.textContent = 'Post entry'; }
+      toast('Could not save that entry: ' + (err.message || err));
+    });
+  }
+
+  // Fire and forget: an alert failing must never fail the entry.
+  function notifyEntry(entryId) {
+    if (!entryId || !navigator.onLine) return Promise.resolve();
+    return sb.functions.invoke('notify-entry', { body: { entry_id: entryId } })
+      .then(function () {}, function () {});
   }
 
   function uploadPhotos(entry, files, btn) {
