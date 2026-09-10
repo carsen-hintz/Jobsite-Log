@@ -2391,6 +2391,11 @@ window.CONFIG = {
 
   function daysInMonth(y, m) { return new Date(y, m + 1, 0).getDate(); }
 
+  function weekday(ymdStr) {
+    var names = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    return names[new Date(ymdStr + 'T12:00:00').getDay()];
+  }
+
   function monthLabel(y, m) {
     return ['January','February','March','April','May','June','July','August',
             'September','October','November','December'][m] + ' ' + y;
@@ -2625,7 +2630,7 @@ window.CONFIG = {
           });
         });
       });
-    });
+    }).catch(function (err) { fatal('Loading the schedule', err); });
   }
 
   /* ---------------- crew ---------------- */
