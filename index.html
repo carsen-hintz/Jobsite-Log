@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Jobsite Log</title>
+<title>Jobsite Logger</title>
 <meta name="theme-color" content="#FFFFFF">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="favicon.png" type="image/png" sizes="64x64">
@@ -12,7 +12,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* Jobsite Log — field-first styling.
+/* Jobsite Logger — field-first styling.
    Palette is drawn from the trade: drywall dust, gypsum board, blue chalk line,
    red keel crayon. Squared corners, hairline rules, very large touch targets. */
 
@@ -743,7 +743,7 @@ textarea { min-height: 120px; resize: vertical; }
     <div class="topbar-left">
       <a id="back" class="backbtn" href="#/" hidden>Back</a>
     </div>
-    <a class="brand" href="#/"><img id="brand-logo" alt="" hidden><span id="brand-text">Jobsite Log</span></a>
+    <a class="brand" href="#/"><img id="brand-logo" alt="" hidden><span id="brand-text">Jobsite Logger</span></a>
     <div class="topbar-right">
       <button id="whoami" class="whoami" type="button" hidden aria-label="Settings and account" title="Settings"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     </div>
@@ -784,7 +784,7 @@ window.CONFIG = {
 };
 </script>
 <script>
-/* Jobsite Log — all app logic lives here.
+/* Jobsite Logger — all app logic lives here.
    Below this line is app logic. Your settings are in the SETTINGS block above. */
 
 'use strict';
@@ -1010,7 +1010,7 @@ window.CONFIG = {
     brandLogo.hidden = true;
     brandLogo.removeAttribute('src');
     brandText.hidden = false;
-    brandText.textContent = (org && org.company_name) || 'Jobsite Log';
+    brandText.textContent = (org && org.company_name) || 'Jobsite Logger';
   }
 
   function loadOrg() {
