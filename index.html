@@ -931,8 +931,44 @@ window.CONFIG = {
            c.SUPABASE_ANON_KEY && c.SUPABASE_ANON_KEY.length > 30;
   }
 
+  function fatal(where, err) {
+    var msg = (err && (err.message || err.toString())) || String(err);
+    if (app) {
+      app.innerHTML =
+        '<div class="error" style="margin-top:18px">' +
+          '<h2 style="font-size:20px;margin-bottom:8px">The app could not start</h2>' +
+          '<p class="small" style="margin:0 0 10px"><strong>' + esc(where) + ':</strong> ' + esc(msg) + '</p>' +
+          '<p class="small muted" style="margin:0">Send this message on and it can be fixed. ' +
+            'A refresh sometimes clears it if the connection dropped mid-load.</p>' +
+        '</div>';
+    }
+    if (window.console && console.error) console.error('[jobsite-logger] ' + where, err);
+  }
+
+  window.addEventListener('error', function (e) {
+    if (app && !app.innerHTML) fatal('Script error', e.message || e.error);
+  });
+
   function boot() {
+    try {
+      bootInner();
+    } catch (err) {
+      fatal('Startup', err);
+    }
+  }
+
+  function bootInner() {
     if (!configured()) return renderSetupNeeded();
+
+    if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+      return fatal('Loading', 'The Supabase library did not load. Check the connection, ' +
+        'or whether something on this network blocks cdn.jsdelivr.net.');
+    }
+
+    if (!window.jspdf) {
+      // Not fatal — only the PDF export needs it.
+      if (window.console) console.warn('[jobsite-logger] jsPDF did not load; PDF export will not work.');
+    }
 
     // Invite and reset links arrive as #access_token=...&type=invite. Read that
     // before creating the client, because the client consumes and clears it.
@@ -993,7 +1029,9 @@ window.CONFIG = {
       me = meFromSession(res.data && res.data.session);
       window.addEventListener('hashchange', route);
       if (!me) return route();
-      loadOrg().then(route);
+      return loadOrg().then(route);
+    }).catch(function (err) {
+      fatal('Signing in', err);
     });
   }
 
@@ -2631,4 +2669,85 @@ window.CONFIG = {
         if (en.notes) {
           doc.setFontSize(11);
           var lines = doc.splitTextToSize(en.notes, CW);
-          
+          lines.forEach(function (ln) { space(16); doc.text(ln, M, y); y += 14; });
+        }
+
+        var photos = en.entry_photos || [];
+        if (!photos.length) { y += 14; return; }
+        y += 6;
+
+        return photos.reduce(function (c2, p, i) {
+          return c2.then(function () {
+            return imageData(p.url || '').then(function (im) {
+              if (!im) return;
+              var boxW = (CW - 12) / 2;
+              var w = boxW, h = boxW * (im.h / im.w);
+              if (h > 200) { h = 200; w = 200 * (im.w / im.h); }
+              var col = i % 2;
+              if (col === 0) space(h + 12);
+              var x = M + col * (boxW + 12);
+              doc.addImage(im.data, 'JPEG', x, y, w, h);
+              if (col === 1 || i === photos.length - 1) y += h + 12;
+            });
+          });
+        }, Promise.resolve()).then(function () { y += 10; });
+      });
+    }, Promise.resolve());
+
+    step.then(function () {
+      var pages = doc.getNumberOfPages();
+      for (var p = 1; p <= pages; p++) {
+        doc.setPage(p);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(110);
+        doc.text(companyName() + '  —  ' + view.job.name, M, PH - 26);
+        doc.text('Page ' + p + ' of ' + pages, PW - M, PH - 26, { align: 'right' });
+      }
+      var safe = view.job.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
+      doc.save(safe + '-report-' + todayISO() + '.pdf');
+      btn.disabled = false;
+      btn.textContent = 'Client PDF';
+    }).catch(function (err) {
+      btn.disabled = false;
+      btn.textContent = 'Client PDF';
+      toast('PDF failed: ' + (err.message || err));
+    });
+  }
+
+  // Photos are re-drawn small so a 30-entry report stays a reasonable file size.
+  function imageData(url) {
+    return fetch(url).then(function (r) { return r.blob(); }).then(function (blob) {
+      return new Promise(function (resolve) {
+        var objUrl = URL.createObjectURL(blob);
+        var img = new Image();
+        img.onload = function () {
+          var scale = Math.min(1, 900 / Math.max(img.width, img.height));
+          var w = Math.round(img.width * scale), h = Math.round(img.height * scale);
+          var canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          URL.revokeObjectURL(objUrl);
+          resolve({ data: canvas.toDataURL('image/jpeg', 0.7), w: w, h: h });
+        };
+        img.onerror = function () { URL.revokeObjectURL(objUrl); resolve(null); };
+        img.src = objUrl;
+      });
+    }).catch(function () { return null; });
+  }
+
+  /* ---------------- errors ---------------- */
+
+  function renderError(msg) {
+    app.innerHTML = '<div class="error"><h2 style="font-size:20px;margin-bottom:6px">Could not reach your data</h2>' +
+      '<p class="small" style="margin:0 0 10px">' + esc(msg) + '</p>' +
+      '<p class="small muted" style="margin:0">If this says something about a table or policy, the database script in ' +
+      '<code>db/schema.sql</code> has not been run yet. Step 4 of README.md covers it.</p>' +
+      '<a class="backlink" href="#/">Back to jobs</a></div>';
+  }
+
+  boot();
+
+})();
+
+</script>
+</body>
+</html>
