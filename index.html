@@ -782,6 +782,63 @@ textarea { min-height: 120px; resize: vertical; }
   accent-color: var(--chalk);
 }
 
+/* ---------- Header dropdown menu ---------- */
+
+.menu-wrap { position: relative; }
+
+.menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  min-width: 184px;
+  background: var(--board);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow: 0 10px 26px rgba(23, 32, 42, 0.18);
+  overflow: hidden;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--rule);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ink);
+  padding: 0 16px;
+  min-height: 50px;
+  cursor: pointer;
+}
+
+.menu-item:last-child { border-bottom: none; }
+.menu-item:hover { background: var(--wall); }
+.menu-item:active { background: var(--rule); }
+.menu-item-danger { color: var(--keel); }
+
+/* ---------- Issue states ---------- */
+
+:root { --fixed: #1E7A46; --working: #B06A00; }
+
+.entry.t-fixed { border-left-color: var(--fixed); }
+.chip-fixed   { color: #fff; background: var(--fixed); border-color: var(--fixed); }
+.chip-working { color: #fff; background: var(--working); border-color: var(--working); }
+
+.fixbox {
+  margin-top: 11px;
+  padding: 11px 13px;
+  background: var(--wall);
+  border-left: 3px solid var(--fixed);
+  border-radius: var(--radius);
+  font-size: 15px;
+}
+
+.tagpick-3 label { font-size: 15px; padding: 13px 2px; }
+
 </style>
 </head>
 <body>
@@ -792,8 +849,9 @@ textarea { min-height: 120px; resize: vertical; }
       <a id="back" class="backbtn" href="#/" hidden>Back</a>
     </div>
     <a class="brand" href="#/"><img id="brand-logo" alt="" hidden><span id="brand-text">Jobsite Logger</span></a>
-    <div class="topbar-right">
-      <button id="whoami" class="whoami" type="button" hidden aria-label="Settings and account" title="Settings"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+    <div class="topbar-right menu-wrap">
+      <button id="whoami" class="whoami" type="button" aria-haspopup="true" aria-expanded="false" hidden aria-label="Settings and account" title="Settings"><svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.1"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+      <div id="menu" class="menu" role="menu" hidden></div>
     </div>
   </div>
 </header>
@@ -859,6 +917,7 @@ window.CONFIG = {
   var whoamiBtn = document.getElementById('whoami');
   var backBtn = document.getElementById('back');
   var brandLogo = document.getElementById('brand-logo');
+  var menuEl = document.getElementById('menu');
   var brandText = document.getElementById('brand-text');
   var LOGO_BUCKET = 'company-logos';
   var lightbox = document.getElementById('lightbox');
@@ -873,7 +932,7 @@ window.CONFIG = {
   var editStaged = [];                   // photos added while editing an entry
   var editRemove = {};                   // existing photo ids marked for removal
   var dash = { q: '', status: 'Active' };
-  var view = { entries: [], job: null, q: '', date: '', editing: null };
+  var view = { entries: [], job: null, q: '', date: '', editing: null, issueEditing: null };
   var toastTimer = null;
 
   /* ---------------- small helpers ---------------- */
@@ -969,8 +1028,12 @@ window.CONFIG = {
     return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address);
   }
 
-  function tagChip(tag) {
-    return tag === 'issue' ? '<span class="chip chip-issue">Issue</span>' : '';
+  function tagChip(en) {
+    if (en.tag !== 'issue') return '';
+    var st = en.issue_status || 'open';
+    if (st === 'resolved') return '<span class="chip chip-fixed">Issue · fixed</span>';
+    if (st === 'working') return '<span class="chip chip-working">Issue · being fixed</span>';
+    return '<span class="chip chip-issue">Issue · open</span>';
   }
 
   function on(id, evt, fn) {
@@ -1151,8 +1214,17 @@ window.CONFIG = {
       auth: { detectSessionInUrl: true, flowType: 'implicit', persistSession: true }
     });
 
-    whoamiBtn.addEventListener('click', function () {
-      location.hash = (isAdmin && !org) ? '#/admin' : '#/team';
+    whoamiBtn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      menuEl.hidden ? openMenu() : closeMenu();
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!menuEl.hidden && !menuEl.contains(e.target) && e.target !== whoamiBtn) closeMenu();
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !menuEl.hidden) { closeMenu(); whoamiBtn.focus(); }
     });
 
     document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
@@ -1274,8 +1346,13 @@ window.CONFIG = {
 
     var hash = location.hash || '#/';
     var m = hash.match(/^#\/job\/([0-9a-fA-F-]{6,})/);
-    var isTeam = hash.indexOf('#/team') === 0;
+    var isCrew = hash.indexOf('#/crew') === 0 || hash.indexOf('#/team') === 0;
+    var isProfile = hash.indexOf('#/profile') === 0;
+    var isSched = hash.indexOf('#/schedule') === 0;
     var isAdminPage = hash.indexOf('#/admin') === 0;
+    var isTeam = isCrew || isProfile || isSched;
+
+    closeMenu();
 
     paintBrand();
     paintQueueBanner();
@@ -1300,9 +1377,52 @@ window.CONFIG = {
     if (isAdmin && !org) return renderAdmin();
     if (!org) return renderJoin();
     if (!org.active) return renderSuspended();
-    if (isTeam) return renderTeam();
+    if (isProfile) return renderProfile();
+    if (isSched) return renderSchedule();
+    if (isCrew) return renderCrew();
     if (m) return renderJob(m[1]);
     renderDashboard();
+  }
+
+  /* ---------------- header menu ---------------- */
+
+  function openMenu() {
+    var items = [];
+
+    if (org) {
+      items.push({ label: 'My profile', hash: '#/profile' });
+      items.push({ label: 'Schedule', hash: '#/schedule' });
+      items.push({ label: 'Crew', hash: '#/crew' });
+    }
+    if (isAdmin) items.push({ label: 'Admin console', hash: '#/admin' });
+    items.push({ label: 'Sign out', action: 'out', danger: true });
+
+    menuEl.innerHTML = items.map(function (it, i) {
+      return '<button type="button" role="menuitem" class="menu-item' +
+        (it.danger ? ' menu-item-danger' : '') + '" data-i="' + i + '">' +
+        esc(it.label) + '</button>';
+    }).join('');
+
+    Array.prototype.forEach.call(menuEl.querySelectorAll('.menu-item'), function (b) {
+      b.addEventListener('click', function () {
+        var it = items[Number(b.dataset.i)];
+        closeMenu();
+        if (it.action === 'out') return signOut();
+        location.hash = it.hash;
+        route();
+      });
+    });
+
+    menuEl.hidden = false;
+    whoamiBtn.setAttribute('aria-expanded', 'true');
+    var first = menuEl.querySelector('.menu-item');
+    if (first) first.focus();
+  }
+
+  function closeMenu() {
+    menuEl.hidden = true;
+    menuEl.innerHTML = '';
+    whoamiBtn.setAttribute('aria-expanded', 'false');
   }
 
   /* ---------------- setup screen ---------------- */
@@ -1940,7 +2060,7 @@ window.CONFIG = {
     }).then(function () {
       paintBrand();
       toast('Logo updated');
-      renderTeam();
+      renderCrew();
     }).catch(function (err) {
       toast('Could not upload the logo: ' + (err.message || err));
     });
@@ -2027,7 +2147,7 @@ window.CONFIG = {
       toast(data.emailed
         ? 'Invite sent to ' + email
         : 'They already had an account — added to your crew.');
-      loadOrg().then(renderTeam);
+      loadOrg().then(renderCrew);
     }).catch(function (err) {
       btn.disabled = false;
       btn.textContent = 'Send invite';
@@ -2035,140 +2155,392 @@ window.CONFIG = {
     });
   }
 
-  function renderTeam() {
-    app.innerHTML = '<p class="muted">Loading crew…</p>';
+  /* ---------------- my profile ---------------- */
+
+  function renderProfile() {
+    app.innerHTML =
+      '<div class="jobhead">' +
+        '<h1>My profile</h1>' +
+        '<div class="jobhead-meta">' + esc(org.company_name) +
+          ' · ' + (org.role === 'owner' ? 'account owner' : 'crew') + '</div>' +
+      '</div>' +
+
+      '<div class="section-head"><h2>Your details</h2></div>' +
+      '<div class="panel">' +
+        '<div class="field"><label for="pf-name">Name shown on your entries</label>' +
+          '<input id="pf-name" type="text" autocomplete="name" value="' + esc(me.name || '') + '"></div>' +
+        '<div class="field"><label>Email</label>' +
+          '<p class="small muted" style="margin:0">' + esc(me.email) +
+            ' — ask the office if this needs changing.</p></div>' +
+        '<div class="row" style="margin-top:14px">' +
+          '<button id="pf-save" class="btn grow">Save name</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div class="section-head"><h2>Alerts</h2></div>' +
+      '<div class="panel">' +
+        '<label class="switchrow" for="alerts-on">' +
+          '<input type="checkbox" id="alerts-on"' + (org.email_alerts ? ' checked' : '') + '>' +
+          '<span><strong>Email me when someone posts to a job</strong>' +
+            '<span class="small muted" style="display:block">One email per entry, to ' +
+              esc(me.email) + '. Your own posts never email you.</span></span>' +
+        '</label>' +
+      '</div>' +
+
+      '<div class="section-head"><h2>Password</h2></div>' +
+      '<div class="panel">' +
+        '<div class="field"><label for="pf-pass">New password</label>' +
+          '<input id="pf-pass" type="password" autocomplete="new-password" placeholder="••••••••"></div>' +
+        '<p class="small muted" style="margin:-4px 0 12px">At least 8 characters.</p>' +
+        '<div class="field"><label for="pf-pass2">Confirm new password</label>' +
+          '<input id="pf-pass2" type="password" autocomplete="new-password" placeholder="••••••••"></div>' +
+        '<div class="row" style="margin-top:14px">' +
+          '<button id="pf-pass-save" class="btn btn-quiet grow">Change password</button>' +
+        '</div>' +
+      '</div>';
+
+    on('pf-save', 'click', function () {
+      var name = document.getElementById('pf-name').value.trim();
+      if (name.length < 2) return toast('Enter your name.');
+
+      var btn = document.getElementById('pf-save');
+      btn.disabled = true;
+      btn.textContent = 'Saving…';
+
+      sb.auth.updateUser({ data: { full_name: name } }).then(function (res) {
+        btn.disabled = false;
+        btn.textContent = 'Save name';
+        if (res.error) return toast(res.error.message);
+        me.name = name;
+        toast('Name saved');
+      });
+    });
+
+    on('alerts-on', 'change', function (e) {
+      var on = e.target.checked;
+      sb.rpc('set_email_alerts', { p_on: on }).then(function (res) {
+        if (res.error) {
+          e.target.checked = !on;
+          return toast(cleanRpcError(res.error));
+        }
+        org.email_alerts = on;
+        toast(on ? 'Alerts on' : 'Alerts off');
+      });
+    });
+
+    on('pf-pass-save', 'click', function () {
+      var a = document.getElementById('pf-pass').value;
+      var b = document.getElementById('pf-pass2').value;
+
+      if (a.length < 8) return toast('Use a password of at least 8 characters.');
+      if (a !== b) {
+        document.getElementById('pf-pass2').focus();
+        return toast('The two passwords do not match.');
+      }
+
+      var btn = document.getElementById('pf-pass-save');
+      btn.disabled = true;
+      btn.textContent = 'Changing…';
+
+      sb.auth.updateUser({ password: a }).then(function (res) {
+        btn.disabled = false;
+        btn.textContent = 'Change password';
+        if (res.error) {
+          var m = res.error.message || '';
+          if (/same.*password/i.test(m)) return toast('That is already your password.');
+          return toast(m);
+        }
+        document.getElementById('pf-pass').value = '';
+        document.getElementById('pf-pass2').value = '';
+        toast('Password changed');
+      });
+    });
+  }
+
+  /* ---------------- schedule ---------------- */
+
+  var schedNew = false;
+
+  function addDays(ymd, n) {
+    var d = new Date(ymd + 'T12:00:00');
+    d.setDate(d.getDate() + n);
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  function weekday(ymd) {
+    var names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return names[new Date(ymd + 'T12:00:00').getDay()];
+  }
+
+  function renderSchedule() {
+    app.innerHTML = '<p class="muted">Loading the schedule…</p>';
+
+    var from = todayISO();
+    var to = addDays(from, 20);
 
     Promise.all([
-      sb.from('memberships').select('user_id,email,full_name,role,created_at').order('created_at'),
-      Promise.resolve({ data: [] })
+      sb.from('schedule').select('*').gte('work_date', from).lte('work_date', to)
+        .order('work_date').order('created_at'),
+      sb.from('jobs').select('id,name,status').order('name'),
+      sb.from('memberships').select('email,full_name').order('created_at')
     ]).then(function (r) {
-      var members = (r[0].data) || [];
+      if (r[0].error) return renderError(r[0].error.message);
+
+      var rows = r[0].data || [];
+      var jobs = r[1].data || [];
+      var crew = r[2].data || [];
       var owner = org.role === 'owner';
+
+      var byJob = {};
+      jobs.forEach(function (j) { byJob[j.id] = j; });
+
+      // Only show days that have something on them, plus today.
+      var days = [];
+      for (var i = 0; i <= 20; i++) {
+        var d = addDays(from, i);
+        var items = rows.filter(function (x) { return x.work_date === d; });
+        if (items.length || i === 0) days.push({ date: d, items: items });
+      }
 
       app.innerHTML =
         '<div class="jobhead">' +
-          '<h1>' + esc(org.company_name) + '</h1>' +
-          '<div class="jobhead-meta">You are signed in as ' + esc(me.email) +
-            ' · ' + (owner ? 'account owner' : 'crew') + '</div>' +
-          '<div class="row"><button id="do-signout" class="btn btn-quiet">Sign out</button>' +
-            (isAdmin ? '<a class="btn btn-quiet" href="#/admin">Admin console</a>' : '') + '</div>' +
+          '<h1>Schedule</h1>' +
+          '<div class="jobhead-meta">Next three weeks · ' + rows.length +
+            (rows.length === 1 ? ' thing planned' : ' things planned') + '</div>' +
+          (owner
+            ? '<div class="row"><button id="sc-new" class="btn">Add to the schedule</button></div>'
+            : '') +
         '</div>' +
 
-        '<div class="section-head"><h2>Your alerts</h2></div>' +
-        '<div class="panel">' +
-          '<label class="switchrow" for="alerts-on">' +
-            '<input type="checkbox" id="alerts-on"' + (org.email_alerts ? ' checked' : '') + '>' +
-            '<span><strong>Email me when someone posts to a job</strong>' +
-              '<span class="small muted" style="display:block">One email per entry, to ' +
-                esc(me.email) + '. Your own posts do not email you.</span></span>' +
-          '</label>' +
-        '</div>' +
+        (owner && schedNew
+          ? '<div class="panel" style="margin-top:14px">' +
+              '<h2 style="font-size:22px;margin-bottom:12px">Plan some work</h2>' +
+              '<div class="row">' +
+                '<div class="grow"><label for="sc-date">Day</label>' +
+                  '<input id="sc-date" type="date" value="' + esc(from) + '"></div>' +
+                '<div class="grow"><label for="sc-job">Job</label>' +
+                  '<select id="sc-job">' +
+                    '<option value="">No particular job</option>' +
+                    jobs.filter(function (j) { return j.status === 'Active'; }).map(function (j) {
+                      return '<option value="' + esc(j.id) + '">' + esc(j.name) + '</option>';
+                    }).join('') +
+                  '</select></div>' +
+              '</div>' +
+              '<div class="field"><label for="sc-who">Who</label>' +
+                '<select id="sc-who">' +
+                  '<option value="">Anyone / the whole crew</option>' +
+                  crew.map(function (m) {
+                    return '<option value="' + esc(m.email) + '">' +
+                      esc(m.full_name || m.email.split('@')[0]) + '</option>';
+                  }).join('') +
+                '</select></div>' +
+              '<div class="field"><label for="sc-note">What is the plan?</label>' +
+                '<textarea id="sc-note" style="min-height:80px" ' +
+                  'placeholder="Hang second floor. Bring the lift and 40 sheets of 5/8."></textarea></div>' +
+              '<div class="row" style="margin-top:14px">' +
+                '<button id="sc-save" class="btn grow">Add to schedule</button>' +
+                '<button id="sc-cancel" class="btn btn-quiet">Cancel</button>' +
+              '</div>' +
+            '</div>'
+          : '') +
 
-        '<div class="section-head"><h2>Crew</h2>' +
-          '<span class="small muted">' + members.length + ' of ' +
-          (org.seat_limit == null ? 'unlimited' : org.seat_limit) + ' seats</span></div>' +
+        (days.length
+          ? days.map(function (d) {
+              var isToday = d.date === from;
+              return '<div class="section-head"><h2>' +
+                  (isToday ? 'Today' : esc(weekday(d.date))) + '</h2>' +
+                  '<span class="small muted">' + esc(longDate(d.date)) + '</span></div>' +
+                (d.items.length
+                  ? '<ul class="joblist">' + d.items.map(function (it) {
+                      var job = byJob[it.job_id];
+                      return '<li class="jobitem"><div class="jobrow">' +
+                        '<div class="jobrow-top">' +
+                          '<span class="jobrow-name">' +
+                            esc(job ? job.name : 'No job set') + '</span>' +
+                          '<span class="jobrow-when">' +
+                            esc(it.assignee_name || it.assignee_email || 'whole crew') + '</span>' +
+                        '</div>' +
+                        (it.note ? '<div class="jobrow-meta" style="white-space:pre-wrap">' +
+                          esc(it.note) + '</div>' : '') +
+                      '</div>' +
+                      (owner
+                        ? '<button type="button" class="jobact jobdel js-sc-del" data-id="' + esc(it.id) +
+                            '" aria-label="Remove from schedule" title="Remove">' + TRASH_SVG + '</button>'
+                        : '') +
+                      '</li>';
+                    }).join('') + '</ul>'
+                  : '<div class="empty" style="padding:18px"><p style="margin:0">Nothing planned.</p></div>')
+            }).join('')
+          : '<div class="empty"><h2>Nothing scheduled</h2>' +
+            '<p>' + (owner ? 'Use the button above to plan the week.' :
+                             'Your office has not put anything up yet.') + '</p></div>');
 
-        '<ul class="joblist">' + members.map(function (m) {
-          var isMe = m.email === me.email;
-          return '<li class="jobitem"><div class="jobrow">' +
-            '<div class="jobrow-top"><span class="jobrow-name">' +
-              esc(m.full_name || m.email.split('@')[0]) + (isMe ? ' (you)' : '') + '</span>' +
-              '<span class="jobrow-when">' + esc(m.role) + '</span></div>' +
-            '<div class="jobrow-meta">' + esc(m.email) + '</div>' +
-          '</div>' +
-          (owner && !isMe ? '<button type="button" class="jobact jobdel js-remove" data-id="' + esc(m.user_id) +
-            '" data-name="' + esc(m.full_name || m.email) + '" aria-label="Remove ' +
-            esc(m.full_name || m.email) + '" title="Remove from crew">' + TRASH_SVG + '</button>' : '') +
-          '</li>';
-        }).join('') + '</ul>' +
+      on('sc-new', 'click', function () { schedNew = !schedNew; renderSchedule(); });
+      on('sc-cancel', 'click', function () { schedNew = false; renderSchedule(); });
 
-        (owner ?
-          '<div class="section-head"><h2>Add someone to the crew</h2></div>' +
-          '<div class="panel">' +
-            (seatsFull(members.length)
-              ? '<p style="margin:0 0 4px"><strong>Your crew is full.</strong></p>' +
-                '<p class="small muted" style="margin:0">All ' + org.seat_limit +
-                  ' seats are in use. Remove someone above, or get in touch about adding seats.</p>'
-              : '<div class="field"><label for="inv-email">Their email address</label>' +
-                  '<input id="inv-email" type="email" inputmode="email" autocapitalize="off" ' +
-                    'spellcheck="false" placeholder="dave@example.com"></div>' +
-                '<div class="row" style="margin-top:13px">' +
-                  '<button id="inv-send" class="btn grow">Send invite</button>' +
-                '</div>' +
-                '<p class="small muted" style="margin:11px 0 0">They get an email with a link to set ' +
-                  'their own password. You never handle it. ' +
-                  (org.seat_limit == null
-                    ? ''
-                    : (org.seat_limit - members.length) + ' seat' +
-                      (org.seat_limit - members.length === 1 ? '' : 's') + ' left.') + '</p>') +
-          '</div>' +
-          '<div class="section-head"><h2>Company logo</h2></div>' +
-          '<div class="panel">' +
-            (org.logo_url
-              ? '<div class="logopreview"><img src="' + esc(org.logo_url) + '" alt="' +
-                  esc(org.company_name) + ' logo">' +
-                  '<button id="do-logo-clear" class="btn-mini btn-mini-danger">Remove</button></div>'
-              : '<p class="small muted" style="margin:0 0 12px">No logo yet — your company name shows at the top instead.</p>') +
-            '<div class="filedrop">' +
-              '<input id="logo-file" type="file" accept="image/*">' +
-              '<label class="filedrop-label" for="logo-file">' +
-                (org.logo_url ? 'Choose a different logo' : 'Choose a logo') + '</label>' +
-            '</div>' +
-            '<p class="small muted" style="margin:10px 0 0">PNG, JPG or WebP. A wide logo works best, and a ' +
-            'PNG with a transparent or white background looks cleanest against the white bar.</p>' +
-          '</div>'
-        : '');
+      on('sc-save', 'click', function () {
+        var date = document.getElementById('sc-date').value;
+        var jobId = document.getElementById('sc-job').value;
+        var whoEmail = document.getElementById('sc-who').value;
+        var note = document.getElementById('sc-note').value.trim();
 
-      on('do-signout', 'click', signOut);
+        if (!date) return toast('Pick a day.');
+        if (!jobId && !note) return toast('Pick a job, or say what the plan is.');
 
-      on('alerts-on', 'change', function (e) {
-        var on = e.target.checked;
-        sb.rpc('set_email_alerts', { p_on: on }).then(function (res) {
-          if (res.error) {
-            e.target.checked = !on;
-            return toast(cleanRpcError(res.error));
-          }
-          org.email_alerts = on;
-          toast(on ? 'Alerts on' : 'Alerts off');
+        var whoName = '';
+        if (whoEmail) {
+          var found = crew.filter(function (m) { return m.email === whoEmail; })[0];
+          whoName = (found && found.full_name) || whoEmail.split('@')[0];
+        }
+
+        var btn = document.getElementById('sc-save');
+        btn.disabled = true;
+        btn.textContent = 'Adding…';
+
+        sb.from('schedule').insert({
+          company_id: org.company_id,
+          job_id: jobId || null,
+          work_date: date,
+          assignee_email: whoEmail,
+          assignee_name: whoName,
+          note: note,
+          created_by: me.email
+        }).then(function (res) {
+          btn.disabled = false;
+          btn.textContent = 'Add to schedule';
+          if (res.error) return toast('Could not add that: ' + res.error.message);
+          schedNew = false;
+          toast('Added to the schedule');
+          renderSchedule();
         });
       });
 
-      on('inv-send', 'click', sendCrewInvite);
-      on('inv-email', 'keydown', function (e) {
-        if (e.key === 'Enter') sendCrewInvite();
-      });
-
-      on('logo-file', 'change', function (e) {
-        var file = (e.target.files || [])[0];
-        e.target.value = '';
-        if (file) uploadLogo(file);
-      });
-
-      on('do-logo-clear', 'click', function () {
-        if (!confirm('Remove the logo? Your company name will show at the top instead.')) return;
-        var old = org.logo_path;
-        sb.rpc('set_company_logo', { p_path: null }).then(function (res) {
-          if (res.error) return toast(cleanRpcError(res.error));
-          if (old) sb.storage.from(LOGO_BUCKET).remove([old]);
-          return loadOrg().then(function () {
-            paintBrand();
-            toast('Logo removed');
-            renderTeam();
-          });
-        });
-      });
-
-      Array.prototype.forEach.call(document.querySelectorAll('.js-remove'), function (b) {
+      Array.prototype.forEach.call(document.querySelectorAll('.js-sc-del'), function (b) {
         b.addEventListener('click', function () {
-          if (!confirm('Remove ' + b.dataset.name + ' from the crew?\n\nTheir past entries and photos stay in the log. They lose access immediately.')) return;
-          sb.rpc('remove_member', { p_user: b.dataset.id }).then(function (res) {
-            if (res.error) return toast(cleanRpcError(res.error));
+          if (!confirm('Take this off the schedule?')) return;
+          sb.from('schedule').delete().eq('id', b.dataset.id).then(function (res) {
+            if (res.error) return toast('Could not remove that: ' + res.error.message);
             toast('Removed');
-            renderTeam();
+            renderSchedule();
           });
         });
       });
     });
+  }
+
+  /* ---------------- crew ---------------- */
+
+  function renderCrew() {
+    app.innerHTML = '<p class="muted">Loading crew…</p>';
+
+    sb.from('memberships')
+      .select('user_id,email,full_name,role,created_at')
+      .order('created_at')
+      .then(function (r) {
+        var members = (r.data) || [];
+        var owner = org.role === 'owner';
+        var free = org.seat_limit == null ? null : org.seat_limit - members.length;
+
+        app.innerHTML =
+          '<div class="jobhead">' +
+            '<h1>' + esc(org.company_name) + '</h1>' +
+            '<div class="jobhead-meta">' + members.length + ' of ' +
+              (org.seat_limit == null ? 'unlimited' : org.seat_limit) + ' seats used' +
+              (free != null && free > 0
+                ? ' · ' + free + (free === 1 ? ' seat free' : ' seats free')
+                : '') + '</div>' +
+          '</div>' +
+
+          '<div class="section-head"><h2>Crew</h2></div>' +
+
+          '<ul class="joblist">' + members.map(function (m) {
+            var isMe = m.email === me.email;
+            return '<li class="jobitem"><div class="jobrow">' +
+              '<div class="jobrow-top"><span class="jobrow-name">' +
+                esc(m.full_name || m.email.split('@')[0]) + (isMe ? ' (you)' : '') + '</span>' +
+                '<span class="jobrow-when">' + esc(m.role) + '</span></div>' +
+              '<div class="jobrow-meta">' + esc(m.email) + '</div>' +
+            '</div>' +
+            (owner && !isMe
+              ? '<button type="button" class="jobact jobdel js-remove" data-id="' + esc(m.user_id) +
+                  '" data-name="' + esc(m.full_name || m.email) + '" aria-label="Remove ' +
+                  esc(m.full_name || m.email) + '" title="Remove from crew">' + TRASH_SVG + '</button>'
+              : '') +
+            '</li>';
+          }).join('') + '</ul>' +
+
+          (owner
+            ? '<div class="section-head"><h2>Add someone to the crew</h2></div>' +
+              '<div class="panel">' +
+                (seatsFull(members.length)
+                  ? '<p style="margin:0 0 4px"><strong>Your crew is full.</strong></p>' +
+                    '<p class="small muted" style="margin:0">All ' + org.seat_limit +
+                      ' seats are in use. Remove someone above, or get in touch about adding seats.</p>'
+                  : '<div class="field"><label for="inv-email">Their email address</label>' +
+                      '<input id="inv-email" type="email" inputmode="email" autocapitalize="off" ' +
+                        'spellcheck="false" placeholder="dave@example.com"></div>' +
+                    '<div class="row" style="margin-top:13px">' +
+                      '<button id="inv-send" class="btn grow">Send invite</button>' +
+                    '</div>' +
+                    '<p class="small muted" style="margin:11px 0 0">They get an email with a link to ' +
+                      'set their own password. You never handle it.</p>') +
+              '</div>' +
+
+              '<div class="section-head"><h2>Company logo</h2></div>' +
+              '<div class="panel">' +
+                (org.logo_url
+                  ? '<div class="logopreview"><img src="' + esc(org.logo_url) + '" alt="' +
+                      esc(org.company_name) + ' logo">' +
+                      '<button id="do-logo-clear" class="btn-mini btn-mini-danger">Remove</button></div>'
+                  : '<p class="small muted" style="margin:0 0 12px">No logo yet — your company name ' +
+                    'shows at the top instead.</p>') +
+                '<div class="filedrop">' +
+                  '<input id="logo-file" type="file" accept="image/*">' +
+                  '<label class="filedrop-label" for="logo-file">' +
+                    (org.logo_url ? 'Choose a different logo' : 'Choose a logo') + '</label>' +
+                '</div>' +
+                '<p class="small muted" style="margin:10px 0 0">PNG, JPG or WebP. A wide logo works ' +
+                  'best, and a PNG with a transparent or white background looks cleanest against ' +
+                  'the white bar.</p>' +
+              '</div>'
+            : '');
+
+        on('inv-send', 'click', sendCrewInvite);
+        on('inv-email', 'keydown', function (e) {
+          if (e.key === 'Enter') sendCrewInvite();
+        });
+
+        on('logo-file', 'change', function (e) {
+          var file = (e.target.files || [])[0];
+          e.target.value = '';
+          if (file) uploadLogo(file);
+        });
+
+        on('do-logo-clear', 'click', function () {
+          if (!confirm('Remove the logo? Your company name will show at the top instead.')) return;
+          var old = org.logo_path;
+          sb.rpc('set_company_logo', { p_path: null }).then(function (res) {
+            if (res.error) return toast(cleanRpcError(res.error));
+            if (old) sb.storage.from(LOGO_BUCKET).remove([old]);
+            return loadOrg().then(function () {
+              paintBrand();
+              toast('Logo removed');
+              renderCrew();
+            });
+          });
+        });
+
+        Array.prototype.forEach.call(document.querySelectorAll('.js-remove'), function (b) {
+          b.addEventListener('click', function () {
+            if (!confirm('Remove ' + b.dataset.name + ' from the crew?\n\nTheir past entries and photos stay in the log. They lose access immediately.')) return;
+            sb.rpc('remove_member', { p_user: b.dataset.id }).then(function (res) {
+              if (res.error) return toast(cleanRpcError(res.error));
+              toast('Removed');
+              loadOrg().then(renderCrew);
+            });
+          });
+        });
+      });
   }
 
   /* ---------------- dashboard ---------------- */
@@ -2183,6 +2555,15 @@ window.CONFIG = {
       });
   }
 
+  var QUIET_DAYS = 3;      // no entry in this many days = worth a look
+  var STALE_DAYS = 90;     // nothing for this long = time to archive it
+
+  function daysSince(iso) {
+    var t = new Date(iso).getTime();
+    if (isNaN(t)) return 0;
+    return Math.floor((Date.now() - t) / 86400000);
+  }
+
   function paintDashboard(jobs) {
     var q = dash.q.toLowerCase();
     var shown = jobs.filter(function (j) {
@@ -2193,6 +2574,20 @@ window.CONFIG = {
 
     var counts = { active: 0, completed: 0 };
     jobs.forEach(function (j) { j.status === 'Completed' ? counts.completed++ : counts.active++; });
+
+    // Three buckets. Quiet first because that is what needs a phone call,
+    // then everything else newest first, then the ones worth clearing out.
+    var stale = [], quiet = [], rest = [];
+    shown.forEach(function (j) {
+      var age = daysSince(j.updated_at);
+      if (age >= STALE_DAYS) stale.push(j);
+      else if (j.status === 'Active' && age >= QUIET_DAYS) quiet.push(j);
+      else rest.push(j);
+    });
+
+    function group(list) {
+      return '<ul class="joblist">' + list.map(jobRowHtml).join('') + '</ul>';
+    }
 
     app.innerHTML =
       '<div class="row" style="margin-bottom:4px">' +
@@ -2206,10 +2601,36 @@ window.CONFIG = {
           '</select></div>' +
       '</div>' +
 
-      '<div class="section-head"><h2>' + (dash.status === 'All' ? 'All jobs' : dash.status + ' jobs') + '</h2>' +
-        '<span class="small muted">Newest activity first</span></div>' +
+      (quiet.length
+        ? '<div class="section-head"><h2>Nothing posted lately</h2>' +
+            '<span class="small muted">' + quiet.length + '</span></div>' +
+          '<p class="small muted" style="margin:-4px 0 10px">No entry in ' + QUIET_DAYS +
+            ' days or more. Either the crew is off it, or nobody is logging.</p>' +
+          group(quiet)
+        : '') +
 
-      (shown.length ? '<ul class="joblist">' + shown.map(jobRowHtml).join('') + '</ul>' : emptyJobsHtml(jobs.length)) +
+      (rest.length
+        ? '<div class="section-head"><h2>' +
+            (dash.status === 'All' ? 'All jobs' : dash.status + ' jobs') + '</h2>' +
+            '<span class="small muted">Newest activity first</span></div>' +
+          group(rest)
+        : '') +
+
+      (stale.length
+        ? '<div class="section-head"><h2>Worth archiving</h2>' +
+            '<span class="small muted">' + stale.length + '</span></div>' +
+          '<div class="panel" style="border-left:5px solid var(--steel);margin-bottom:10px">' +
+            '<p class="small" style="margin:0 0 6px"><strong>Nothing on these for ' + STALE_DAYS +
+              '+ days.</strong></p>' +
+            '<p class="small muted" style="margin:0">Save the notes and the client PDF onto your own ' +
+              'computer, then delete the job here. That keeps your photo storage down and leaves you ' +
+              'holding the record — worth doing while the job is still fresh enough to answer ' +
+              'questions about.</p>' +
+          '</div>' +
+          group(stale)
+        : '') +
+
+      (!shown.length ? emptyJobsHtml(jobs.length) : '') +
 
       '<div id="newjob" class="panel" hidden style="margin-top:18px">' +
         '<h2 style="font-size:22px;margin-bottom:12px">Add a job</h2>' +
@@ -2278,7 +2699,16 @@ window.CONFIG = {
         '</div>' +
         '<div class="jobrow-meta">' + esc(j.client_name || 'No client listed') +
           (j.address ? ' · ' + esc(j.address) : '') + '</div>' +
-        (j.status === 'Completed' ? '<div style="margin-top:7px"><span class="chip chip-done">Completed</span></div>' : '') +
+        (function () {
+        var age = daysSince(j.updated_at);
+        var chips = [];
+        if (j.status === 'Completed') chips.push('<span class="chip chip-done">Completed</span>');
+        if (age >= STALE_DAYS) chips.push('<span class="chip">' + age + ' days quiet</span>');
+        else if (j.status === 'Active' && age >= QUIET_DAYS) {
+          chips.push('<span class="chip chip-issue">' + age + ' days since an entry</span>');
+        }
+        return chips.length ? '<div style="margin-top:7px">' + chips.join(' ') + '</div>' : '';
+      })() +
       '</a>' +
       '<button type="button" class="jobact jobtxt js-jobtxt" data-id="' + esc(j.id) +
         '" aria-label="Save notes for ' + esc(j.name) + '" title="Save notes (.txt)">' + NOTES_SVG + '</button>' +
@@ -2349,15 +2779,19 @@ window.CONFIG = {
     Promise.all([
       sb.from('jobs').select('*').eq('id', id).single(),
       sb.from('entries')
-        .select('id,job_id,author_name,author_email,notes,tag,entry_date,created_at,entry_photos(id,storage_path)')
+        .select('id,job_id,author_name,author_email,notes,tag,entry_date,created_at,issue_status,fix_notes,resolved_at,resolved_by,resolved_name,entry_photos(id,storage_path)')
         .eq('job_id', id)
         .order('entry_date', { ascending: false })
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: false }),
+      sb.from('schedule').select('work_date,assignee_name,assignee_email,note')
+        .eq('job_id', id).gte('work_date', todayISO())
+        .order('work_date').limit(6)
     ]).then(function (r) {
       if (r[0].error) return renderError('That job could not be loaded. ' + r[0].error.message);
       if (r[1].error) return renderError(r[1].error.message);
       view.job = r[0].data;
       view.entries = r[1].data || [];
+      view.upcoming = (r[2] && r[2].data) || [];
       view.q = ''; view.date = '';
       signPhotos(view.entries).then(paintJob);
     });
@@ -2402,6 +2836,15 @@ window.CONFIG = {
           '<button id="c-cancel" class="btn btn-quiet">Cancel</button>' +
         '</div>' +
       '</div>' +
+
+      (view.upcoming.length
+        ? '<div class="section-head"><h2>Coming up</h2></div>' +
+          '<ul class="codelist">' + view.upcoming.map(function (it) {
+            return '<li><span class="grow"><strong>' + esc(longDate(it.work_date)) + '</strong>' +
+              (it.note ? ' — ' + esc(it.note) : '') + '</span>' +
+              '<span class="chip">' + esc(it.assignee_name || 'whole crew') + '</span></li>';
+          }).join('') + '</ul>'
+        : '') +
 
       '<div class="section-head"><h2>Daily log</h2>' +
         '<span class="small muted">' + view.entries.length +
@@ -2477,7 +2920,9 @@ window.CONFIG = {
         '<p>Clear the search box or the date to see the whole log again.</p></div>';
     }
     return '<ul class="feed">' + list.map(function (en) {
-      return view.editing === en.id ? entryEditHtml(en) : entryHtml(en);
+      if (view.editing === en.id) return entryEditHtml(en);
+      if (view.issueEditing === en.id) return issueFormHtml(en);
+      return entryHtml(en);
     }).join('') + '</ul>';
   }
 
@@ -2486,24 +2931,41 @@ window.CONFIG = {
     var photos = en.entry_photos || [];
     var mine = me && en.author_email === me.email;
 
-    return '<li><article class="entry t-' + esc(en.tag || 'note') + '">' +
+    var cls = en.tag === 'issue'
+      ? (en.issue_status === 'resolved' ? 't-fixed' : 't-issue')
+      : 't-note';
+
+    return '<li><article class="entry ' + cls + '">' +
       '<div class="entry-date"><span class="entry-day">' + esc(d.day) + '</span>' +
         '<span class="entry-mon">' + esc(d.mon) + '</span></div>' +
       '<div class="entry-body">' +
         '<div class="entry-head">' +
           '<span class="entry-who">' + esc(en.author_name) + '</span>' +
           '<span class="entry-time">' + esc(clockTime(en.created_at)) + '</span>' +
-          tagChip(en.tag) +
+          tagChip(en) +
         '</div>' +
         (en.notes ? '<p class="entry-note">' + esc(en.notes) + '</p>' : '') +
+
+        (en.tag === 'issue' && en.fix_notes
+          ? '<div class="fixbox"><strong>' +
+              (en.issue_status === 'resolved' ? 'Fixed' : 'Update') + '</strong>' +
+              (en.resolved_name ? ' · ' + esc(en.resolved_name) : '') +
+              (en.resolved_at ? ' · ' + esc(longDate(en.resolved_at.slice(0, 10))) : '') +
+              '<p style="margin:4px 0 0;white-space:pre-wrap">' + esc(en.fix_notes) + '</p>' +
+            '</div>'
+          : '') +
         (photos.length ? '<div class="gallery">' + photos.map(function (p) {
           var url = p.url || '';
           return '<button type="button" class="js-zoom" data-url="' + esc(url) + '">' +
             '<img loading="lazy" src="' + esc(url) + '" alt="Photo from ' + esc(longDate(en.entry_date)) + '"></button>';
         }).join('') + '</div>' : '') +
-        (mine ? '<div class="entry-actions">' +
-            '<button class="btn-mini js-edit" data-id="' + esc(en.id) + '">Edit</button>' +
-            '<button class="btn-mini btn-mini-danger js-del" data-id="' + esc(en.id) + '">Delete</button>' +
+        ((mine || en.tag === 'issue') ? '<div class="entry-actions">' +
+            (mine ? '<button class="btn-mini js-edit" data-id="' + esc(en.id) + '">Edit</button>' : '') +
+            (en.tag === 'issue'
+              ? '<button class="btn-mini js-issue" data-id="' + esc(en.id) + '">' +
+                  (en.issue_status === 'resolved' ? 'Reopen / update' : 'Update status') + '</button>'
+              : '') +
+            (mine ? '<button class="btn-mini btn-mini-danger js-del" data-id="' + esc(en.id) + '">Delete</button>' : '') +
           '</div>' : '') +
       '</div>' +
     '</article></li>';
@@ -2553,8 +3015,61 @@ window.CONFIG = {
     '</div></li>';
   }
 
+  function issueFormHtml(en) {
+    var st = en.issue_status || 'open';
+
+    return '<li><div class="panel editpanel">' +
+      '<div class="editpanel-head">Issue status</div>' +
+      '<p class="small muted" style="margin:-6px 0 12px">Logged by ' + esc(en.author_name) +
+        ' on ' + esc(longDate(en.entry_date)) + '</p>' +
+
+      '<div class="field">' +
+        '<div class="tagpick tagpick-3">' +
+          '<input type="radio" name="istat" id="ist-open" value="open"' +
+            (st === 'open' ? ' checked' : '') + '><label for="ist-open">Open</label>' +
+          '<input type="radio" name="istat" id="ist-working" value="working"' +
+            (st === 'working' ? ' checked' : '') + '><label for="ist-working">Being fixed</label>' +
+          '<input type="radio" name="istat" id="ist-resolved" value="resolved"' +
+            (st === 'resolved' ? ' checked' : '') + '><label for="ist-resolved">Fixed</label>' +
+        '</div></div>' +
+
+      '<div class="field"><label for="ist-notes">What was done about it?</label>' +
+        '<textarea id="ist-notes" placeholder="Plumber moved the rough-in Tuesday. Wall closed and taped.">' +
+          esc(en.fix_notes || '') + '</textarea></div>' +
+
+      '<div class="row" style="margin-top:14px">' +
+        '<button id="ist-save" class="btn grow" data-id="' + esc(en.id) + '">Save status</button>' +
+        '<button id="ist-cancel" class="btn btn-quiet">Cancel</button>' +
+      '</div>' +
+    '</div></li>';
+  }
+
+  function saveIssueStatus(id) {
+    var status = (document.querySelector('input[name=istat]:checked') || {}).value || 'open';
+    var notes = document.getElementById('ist-notes').value.trim();
+
+    if (status !== 'open' && !notes) {
+      document.getElementById('ist-notes').focus();
+      return toast('Say what was done, so the record means something later.');
+    }
+
+    var btn = document.getElementById('ist-save');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    sb.rpc('update_issue', { p_entry: id, p_status: status, p_notes: notes }).then(function (res) {
+      btn.disabled = false;
+      btn.textContent = 'Save status';
+      if (res.error) return toast(cleanRpcError(res.error));
+      view.issueEditing = null;
+      toast(status === 'resolved' ? 'Marked fixed' : 'Status saved');
+      renderJob(view.job.id);
+    });
+  }
+
   function clearEditState() {
     view.editing = null;
+    view.issueEditing = null;
     editStaged = [];
     editRemove = {};
   }
@@ -2582,6 +3097,21 @@ window.CONFIG = {
         if (box) box.focus();
       });
     });
+    Array.prototype.forEach.call(document.querySelectorAll('.js-issue'), function (b) {
+      b.addEventListener('click', function () {
+        clearEditState();
+        view.issueEditing = b.dataset.id;
+        refreshFeed();
+        var box = document.getElementById('ist-notes');
+        if (box) box.focus();
+      });
+    });
+
+    on('ist-cancel', 'click', function () { clearEditState(); refreshFeed(); });
+
+    var istSave = document.getElementById('ist-save');
+    if (istSave) istSave.addEventListener('click', function () { saveIssueStatus(istSave.dataset.id); });
+
     Array.prototype.forEach.call(document.querySelectorAll('.js-photo-toggle'), function (b) {
       b.addEventListener('click', function () {
         var id = b.dataset.id;
@@ -2840,7 +3370,7 @@ window.CONFIG = {
     toast('Building notes file…');
 
     sb.from('entries')
-      .select('author_name,notes,tag,entry_date,created_at')
+      .select('author_name,notes,tag,entry_date,created_at,issue_status,fix_notes')
       .eq('job_id', job.id)
       .order('entry_date', { ascending: true })
       .order('created_at', { ascending: true })
@@ -2864,9 +3394,16 @@ window.CONFIG = {
           list.forEach(function (en) {
             L.push('----------------------------------------');
             L.push(longDate(en.entry_date) + '   ' + en.author_name + '   ' +
-                   clockTime(en.created_at) + (en.tag === 'issue' ? '   [ISSUE]' : ''));
+                   clockTime(en.created_at) +
+                   (en.tag === 'issue'
+                     ? '   [ISSUE - ' + String(en.issue_status || 'open').toUpperCase() + ']'
+                     : ''));
             L.push('');
             if (en.notes) L.push(en.notes);
+            if (en.tag === 'issue' && en.fix_notes) {
+              L.push('');
+              L.push('Resolution: ' + en.fix_notes);
+            }
             L.push('');
           });
         }
@@ -2933,7 +3470,12 @@ window.CONFIG = {
         doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
         doc.text(longDate(en.entry_date), M, y);
         doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
-        var right = en.author_name + (en.tag && en.tag !== 'note' ? '  ·  ' + en.tag.toUpperCase() : '');
+        var right = en.author_name;
+        if (en.tag === 'issue') {
+          right += '  ·  ISSUE' +
+            (en.issue_status === 'resolved' ? ' (FIXED)' :
+             en.issue_status === 'working' ? ' (BEING FIXED)' : ' (OPEN)');
+        }
         doc.text(right, PW - M, y, { align: 'right' });
         y += 16;
 
@@ -2941,6 +3483,16 @@ window.CONFIG = {
           doc.setFontSize(11);
           var lines = doc.splitTextToSize(en.notes, CW);
           lines.forEach(function (ln) { space(16); doc.text(ln, M, y); y += 14; });
+        }
+
+        if (en.tag === 'issue' && en.fix_notes) {
+          doc.setFontSize(11);
+          doc.setFont('helvetica', 'bold');
+          space(16); doc.text('Resolution:', M, y); y += 14;
+          doc.setFont('helvetica', 'normal');
+          doc.splitTextToSize(en.fix_notes, CW).forEach(function (ln) {
+            space(16); doc.text(ln, M, y); y += 14;
+          });
         }
 
         var photos = en.entry_photos || [];
