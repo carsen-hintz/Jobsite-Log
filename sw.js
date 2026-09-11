@@ -8,7 +8,7 @@
  * activate, so a version bump is what forces every phone to take the update.
  */
 
-const CACHE = 'jobsite-logger-v12';
+const CACHE = 'jobsite-logger-v13';
 
 const SHELL = [
   './',
