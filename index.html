@@ -14,30 +14,45 @@
 <style>
 /* Jobsite Logger — refined product styling.
    Same brand blue as the icon, emails and landing page throughout — that
-   consistency matters more than any single hue. Everything else is a
-   calmer, cooler neutral palette, soft elevation instead of flat borders,
-   rounded surfaces sized to what they hold, and smooth hover/focus states,
-   so the tool reads as considered software rather than a job-site sign. */
+   consistency matters more than any single hue. Everything else sits on a
+   warm neutral paper tone rather than cool office grey, with generously
+   rounded surfaces, soft elevation, small blue kicker labels for context,
+   and smooth hover/focus states — considered software, not a job-site sign. */
 
 :root {
-  --wall: #F4F6F8;
+  --wall: #F7F3E9;
   --board: #FFFFFF;
-  --ink: #101828;
-  --steel: #667085;
-  --rule: #E3E8EF;
+  --ink: #1A1815;
+  --steel: #7A7263;
+  --rule: #EAE3D3;
   --chalk: #1F4FD8;
   --chalk-dark: #15317E;
   --keel: #DC2626;
+  --keel-soft-bg: #FDEAE8;
   --fixed: #059669;
   --working: #D97706;
-  --radius: 10px;
-  --radius-sm: 7px;
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
-  --shadow-md: 0 4px 10px rgba(16, 24, 40, 0.10), 0 2px 4px rgba(16, 24, 40, 0.06);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-pill: 999px;
+  --shadow: 0 1px 2px rgba(26, 24, 21, 0.04), 0 1px 3px rgba(26, 24, 21, 0.06);
+  --shadow-md: 0 4px 10px rgba(26, 24, 21, 0.10), 0 2px 4px rgba(26, 24, 21, 0.06);
   --ease: 150ms ease;
   --tap: 52px;
   --pad: 16px;
   --shell: 680px;
+}
+
+/* A small blue category label above a heading — "CREW", "JOB" — the kind
+   of context tag that tells you what you're looking at before you've even
+   read the name below it. */
+.kicker {
+  display: block;
+  color: var(--chalk);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
 }
 
 * { box-sizing: border-box; }
@@ -109,15 +124,18 @@ a { color: var(--chalk-dark); }
   align-items: center;
   gap: 5px;
   min-height: 38px;
-  padding: 0 12px 0 9px;
+  padding: 0 14px 0 10px;
   border: 1px solid var(--rule);
-  border-radius: var(--radius);
+  border-radius: var(--radius-pill);
   color: var(--ink);
   text-decoration: none;
   font-size: 15px;
   font-weight: 500;
   white-space: nowrap;
+  transition: background-color var(--ease), border-color var(--ease);
 }
+
+.backbtn:hover { background: var(--wall); border-color: var(--steel); }
 
 .backbtn::before {
   content: "‹";
@@ -268,7 +286,7 @@ textarea { min-height: 120px; resize: vertical; }
   color: #fff;
   cursor: pointer;
   text-decoration: none;
-  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+  box-shadow: 0 1px 2px rgba(26, 24, 21, 0.08);
   transition: background-color var(--ease), border-color var(--ease),
               box-shadow var(--ease), transform 80ms ease;
 }
@@ -374,7 +392,7 @@ textarea { min-height: 120px; resize: vertical; }
   align-self: stretch;
   border: none;
   background: none;
-  color: #98A2B3;
+  color: #ADA495;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -570,7 +588,7 @@ textarea { min-height: 120px; resize: vertical; }
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(16, 24, 40, 0.94);
+  background: rgba(26, 24, 21, 0.94);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -596,7 +614,32 @@ textarea { min-height: 120px; resize: vertical; }
 
 /* ---------- Sign-in / setup ---------- */
 
-.gate { max-width: 420px; margin: 8vh auto 0; }
+.gate {
+  max-width: 420px;
+  margin: 8vh auto 0;
+  border-top: 4px solid var(--chalk);
+}
+
+/* A quieter, tinted way to offer a destructive action than a bare red
+   text link — used where removing something is routine, not alarming
+   (swapping out a logo), as opposed to the plain-text .btn-mini-danger
+   used inline in dense lists like the daily feed. */
+.btn-soft-danger {
+  background: var(--keel-soft-bg);
+  border: 1px solid transparent;
+  color: var(--keel);
+  border-radius: var(--radius-pill);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 0 16px;
+  min-height: 38px;
+  cursor: pointer;
+  transition: background-color var(--ease);
+}
+
+.btn-soft-danger:hover { background: #FBDAD7; }
+
 .gate h1 { font-size: 32px; margin-bottom: 4px; }
 .gate p { color: var(--steel); margin: 0 0 18px; }
 
@@ -948,7 +991,7 @@ textarea { min-height: 120px; resize: vertical; }
 .viewswitch-btn.is-on {
   background: #fff;
   color: var(--ink);
-  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.14);
+  box-shadow: 0 1px 3px rgba(26, 24, 21, 0.14);
 }
 
 /* ---------- Calendar shell ---------- */
@@ -1031,9 +1074,9 @@ textarea { min-height: 120px; resize: vertical; }
 
 .cal-daynum { font-size: 14px; color: var(--ink); }
 .cal-out { background: none; }
-.cal-out .cal-daynum { color: #C4CAD4; }
+.cal-out .cal-daynum { color: #D6CFBE; }
 
-.cal-today:not(.cal-sel) { background: #E8EDFB; }
+.cal-today:not(.cal-sel) { background: #E9EEFB; }
 .cal-today .cal-daynum { font-weight: 700; color: var(--chalk-dark); }
 
 .cal-sel { background: var(--ink) !important; }
@@ -1143,7 +1186,7 @@ textarea { min-height: 120px; resize: vertical; }
   letter-spacing: 0.01em;
 }
 .cal-weekmore { font-size: 12px; color: var(--steel); padding-left: 2px; }
-.cal-weeknone { font-size: 14px; color: #98A2B3; padding: 6px 2px; }
+.cal-weeknone { font-size: 14px; color: #ADA495; padding: 6px 2px; }
 
 @media (min-width: 500px) {
   .cal-cell { min-height: 54px; }
@@ -1768,6 +1811,7 @@ window.CONFIG = {
   function renderAuth() {
     app.innerHTML =
       '<div class="gate panel">' +
+        '<span class="kicker">Crew log</span>' +
         '<h1>Sign in</h1>' +
         '<p>Use the email and password you were given.</p>' +
         '<div class="field"><label for="in-email">Email</label>' +
@@ -3007,6 +3051,7 @@ window.CONFIG = {
 
         app.innerHTML =
           '<div class="jobhead">' +
+            '<span class="kicker">Crew</span>' +
             '<h1>' + esc(org.company_name) + '</h1>' +
             '<div class="jobhead-meta">' + members.length + ' of ' +
               (org.seat_limit == null ? 'unlimited' : org.seat_limit) + ' seats used' +
@@ -3055,7 +3100,7 @@ window.CONFIG = {
                 (org.logo_url
                   ? '<div class="logopreview"><img src="' + esc(org.logo_url) + '" alt="' +
                       esc(org.company_name) + ' logo">' +
-                      '<button id="do-logo-clear" class="btn-mini btn-mini-danger">Remove</button></div>'
+                      '<button id="do-logo-clear" class="btn-soft-danger">Remove</button></div>'
                   : '<p class="small muted" style="margin:0 0 12px">No logo yet — your company name ' +
                     'shows at the top instead.</p>') +
                 '<div class="filedrop">' +
@@ -3366,6 +3411,7 @@ window.CONFIG = {
 
     app.innerHTML =
       '<div class="jobhead">' +
+        '<span class="kicker">' + (j.status === 'Completed' ? 'Completed job' : 'Active job') + '</span>' +
         '<h1>' + esc(j.name) + '</h1>' +
         '<div class="jobhead-meta">' + esc(j.client_name || 'No client listed') +
           (j.address
