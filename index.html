@@ -994,67 +994,82 @@ textarea { min-height: 120px; resize: vertical; }
 .cal-week {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 
-.cal-weekcol {
-  display: grid;
-  grid-template-columns: 52px 1fr;
-  align-items: start;
-  gap: 10px;
+.cal-weekrow {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
   width: 100%;
   border: 1px solid var(--rule);
   border-radius: var(--radius);
   background: #fff;
-  padding: 10px;
+  padding: 12px;
   text-align: left;
   cursor: pointer;
   font: inherit;
+  min-height: 58px;
 }
 
-.cal-weekcol.cal-today { border-color: var(--chalk); }
-.cal-weekcol.cal-sel { background: var(--ink); border-color: var(--ink); }
-.cal-weekcol.cal-sel .cal-weekdow,
-.cal-weekcol.cal-sel .cal-weeknum { color: #fff; }
-.cal-weekcol.cal-sel .cal-weekbar { background: #ffffff22; color: #fff; }
-.cal-weekcol.cal-sel .cal-weekmore { color: #C9D3DD; }
+.cal-weekrow.cal-today { border-color: var(--chalk); border-width: 2px; }
+
+/* Selection reads as a left accent bar, not an inverted block — so it
+   never competes visually with the "today" outline on the same row. */
+.cal-weekrow.cal-sel {
+  background: var(--wall);
+  box-shadow: inset 4px 0 0 var(--ink);
+}
+
+.cal-weekleft {
+  flex: 0 0 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
 
 .cal-weekdow {
-  display: block;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.03em;
+  letter-spacing: 0.02em;
   color: var(--steel);
+  white-space: nowrap;
 }
 
+.cal-today .cal-weekdow { color: var(--chalk-dark); }
+
 .cal-weeknum {
-  display: block;
   font-family: "Barlow Condensed", sans-serif;
   font-weight: 700;
-  font-size: 26px;
+  font-size: 24px;
   color: var(--ink);
   line-height: 1;
 }
 
 .cal-weekitems {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 0;
+  gap: 5px;
+  padding-top: 2px;
 }
 
 .cal-weekbar {
   background: var(--wall);
   border-radius: 1px;
-  padding: 5px 8px;
+  padding: 6px 9px;
   font-size: 14px;
   color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+  line-height: 1.35;
 }
 
-.cal-weekmore { font-size: 12px; color: var(--steel); }
+.cal-weekwho { color: var(--steel); font-weight: 500; }
+.cal-weekmore { font-size: 12px; color: var(--steel); padding-left: 2px; }
+.cal-weeknone { font-size: 14px; color: #A6AEB6; padding: 6px 2px; }
 
 @media (min-width: 500px) {
   .cal-cell { min-height: 54px; }
@@ -2677,26 +2692,33 @@ window.CONFIG = {
       '</div>';
   }
 
-  // Seven day-columns, each showing its date and every item on it as a
-  // small labelled bar — the closest a phone screen gets to a real week
-  // view without needing to scroll sideways.
+  // Seven day-rows. Full item text wraps rather than truncating, empty
+  // days say so explicitly, and only ever one row reads as selected.
   function calWeekHtml(byDate, todayStr, byJob) {
     var cells = weekCells(schedSelected);
     return '<div class="cal-week">' +
       cells.map(function (c) {
         var items = byDate[c.date] || [];
-        var cls = 'cal-weekcol' +
-          (c.date === todayStr ? ' cal-today' : '') +
-          (c.date === schedSelected ? ' cal-sel' : '');
+        var isToday = c.date === todayStr;
+        var isSel = c.date === schedSelected;
+        var cls = 'cal-weekrow' + (isToday ? ' cal-today' : '') + (isSel ? ' cal-sel' : '');
+
         return '<button type="button" class="' + cls + '" data-date="' + c.date + '">' +
-          '<span class="cal-weekdow">' + weekdayShort(c.date) + '</span>' +
-          '<span class="cal-weeknum">' + parseYmd(c.date).getDate() + '</span>' +
+          '<span class="cal-weekleft">' +
+            '<span class="cal-weekdow">' + weekdayShort(c.date) + (isToday ? ' · today' : '') + '</span>' +
+            '<span class="cal-weeknum">' + parseYmd(c.date).getDate() + '</span>' +
+          '</span>' +
           '<span class="cal-weekitems">' +
-            items.slice(0, 4).map(function (it) {
-              var job = byJob[it.job_id];
-              return '<span class="cal-weekbar">' + esc(job ? job.name : (it.note || 'Planned')) + '</span>';
-            }).join('') +
-            (items.length > 4 ? '<span class="cal-weekmore">+' + (items.length - 4) + ' more</span>' : '') +
+            (items.length
+              ? items.slice(0, 4).map(function (it) {
+                  var job = byJob[it.job_id];
+                  var label = job ? job.name : (it.note || 'Planned');
+                  return '<span class="cal-weekbar">' + esc(label) +
+                    (it.assignee_name ? ' <span class="cal-weekwho">· ' + esc(it.assignee_name) + '</span>' : '') +
+                  '</span>';
+                }).join('') +
+                (items.length > 4 ? '<span class="cal-weekmore">+' + (items.length - 4) + ' more</span>' : '')
+              : '<span class="cal-weeknone">Nothing planned</span>') +
           '</span>' +
         '</button>';
       }).join('') +
@@ -3672,10 +3694,27 @@ window.CONFIG = {
   }
 
   // Fire and forget: an alert failing must never fail the entry.
+  // Fire and forget for the person posting — a failed alert must never
+  // block or roll back their entry. But "forget" should not mean "and
+  // nobody can ever find out why", so failures are still logged.
   function notifyEntry(entryId) {
-    if (!entryId || !navigator.onLine) return Promise.resolve();
+    if (!entryId) return Promise.resolve();
+    if (!navigator.onLine) {
+      if (window.console) console.warn('[jobsite-logger] Skipped entry alert: offline.');
+      return Promise.resolve();
+    }
     return sb.functions.invoke('notify-entry', { body: { entry_id: entryId } })
-      .then(function () {}, function () {});
+      .then(function (res) {
+        if (res && res.error) {
+          console.error('[jobsite-logger] notify-entry call failed:', res.error);
+        } else if (res && res.data && res.data.error) {
+          console.error('[jobsite-logger] notify-entry rejected:', res.data.error);
+        } else if (window.console && res && res.data) {
+          console.info('[jobsite-logger] notify-entry:', res.data);
+        }
+      }, function (err) {
+        console.error('[jobsite-logger] notify-entry request never completed:', err);
+      });
   }
 
   function uploadPhotos(entry, files, btn) {
