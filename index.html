@@ -2036,7 +2036,8 @@ window.CONFIG = {
     Promise.all([
       sb.rpc('admin_list_companies'),
       sb.rpc('admin_list_users'),
-      sb.rpc('admin_company_options')
+      sb.rpc('admin_company_options'),
+      sb.rpc('admin_list_admins')
     ]).then(function (r) {
       if (r[0].error) {
         return renderError('Admin data could not be loaded. ' + r[0].error.message);
@@ -2045,6 +2046,7 @@ window.CONFIG = {
       var list = r[0].data || [];
       var users = (r[1] && r[1].data) || [];
       var options = (r[2] && r[2].data) || [];
+      var admins = (r[3] && r[3].data) || [];
       var unassigned = users.filter(function (u) { return !u.company_id; });
       var now = new Date();
 
@@ -2125,6 +2127,43 @@ window.CONFIG = {
                 return peopleRowHtml(u, options);
               }).join('') + '</ul>'
             : '<p class="small muted" style="margin:0">No accounts yet.</p>') +
+        '</div>' +
+
+        '<div class="section-head"><h2>Admins</h2>' +
+          '<span class="small muted">' + admins.length +
+            (admins.length === 1 ? ' person' : ' people') + ' can reach this console</span></div>' +
+
+        (admins.length <= 1
+          ? '<div class="panel" style="border-left:5px solid var(--keel)">' +
+              '<p style="margin:0 0 6px"><strong>Only one admin.</strong></p>' +
+              '<p class="small muted" style="margin:0">If this account loses access — the password is ' +
+                'lost, the email is compromised, or you simply cannot sign in — there is no other way ' +
+                'into this console. Add a second admin below.</p>' +
+            '</div>'
+          : '') +
+
+        '<div class="panel" style="margin-top:10px">' +
+          '<ul class="peoplelist">' + admins.map(function (a) {
+            var isMe = a.email.toLowerCase() === (me && me.email || '').toLowerCase();
+            return '<li class="peoplerow">' +
+              '<div class="peoplerow-top">' +
+                '<span class="peoplerow-name">' + esc(a.email) + (isMe ? ' (you)' : '') + '</span>' +
+              '</div>' +
+              (admins.length > 1
+                ? '<div class="row" style="margin-top:9px">' +
+                    '<button class="btn-mini btn-mini-danger js-admin-remove" data-id="' + esc(a.user_id) +
+                      '" data-email="' + esc(a.email) + '">Remove admin access</button>' +
+                  '</div>'
+                : '') +
+            '</li>';
+          }).join('') + '</ul>' +
+
+          '<div class="field" style="margin-top:14px"><label for="adm-email">Add an admin</label>' +
+            '<input id="adm-email" type="email" inputmode="email" autocapitalize="off" ' +
+              'spellcheck="false" placeholder="the account\u2019s email"></div>' +
+          '<p class="small muted" style="margin:6px 0 12px">The account has to already exist in ' +
+            'Supabase under Authentication \u2192 Users. This does not create one.</p>' +
+          '<button id="adm-add" class="btn btn-quiet">Add admin</button>' +
         '</div>';
 
       wireAdmin();
@@ -2252,6 +2291,38 @@ window.CONFIG = {
 
   function wireAdmin() {
     on('adm-refresh', 'click', renderAdmin);
+
+    on('adm-add', 'click', function () {
+      var box = document.getElementById('adm-email');
+      var email = box.value.trim().toLowerCase();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        box.focus();
+        return toast('Enter a valid email address.');
+      }
+
+      var btn = document.getElementById('adm-add');
+      btn.disabled = true;
+      btn.textContent = 'Adding…';
+
+      sb.rpc('admin_add_admin', { p_email: email }).then(function (res) {
+        btn.disabled = false;
+        btn.textContent = 'Add admin';
+        if (res.error) return toast(cleanRpcError(res.error));
+        toast('Added — ' + email + ' can now reach this console.');
+        renderAdmin();
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('.js-admin-remove'), function (b) {
+      b.addEventListener('click', function () {
+        if (!confirm('Remove admin access for ' + b.dataset.email + '?\n\nThey keep any crew account they have, but lose the console.')) return;
+        sb.rpc('admin_remove_admin', { p_user: b.dataset.id }).then(function (res) {
+          if (res.error) return toast(cleanRpcError(res.error));
+          toast('Admin access removed');
+          renderAdmin();
+        });
+      });
+    });
 
     Array.prototype.forEach.call(document.querySelectorAll('.js-assign'), function (b) {
       b.addEventListener('click', function () {
