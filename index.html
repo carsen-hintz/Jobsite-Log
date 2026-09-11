@@ -12,26 +12,43 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-/* Jobsite Logger — field-first styling.
-   Palette is drawn from the trade: drywall dust, gypsum board, blue chalk line,
-   red keel crayon. Squared corners, hairline rules, very large touch targets. */
+/* Jobsite Logger — refined product styling.
+   Same brand blue as the icon, emails and landing page throughout — that
+   consistency matters more than any single hue. Everything else is a
+   calmer, cooler neutral palette, soft elevation instead of flat borders,
+   rounded surfaces sized to what they hold, and smooth hover/focus states,
+   so the tool reads as considered software rather than a job-site sign. */
 
 :root {
-  --wall: #E7E9EB;
+  --wall: #F4F6F8;
   --board: #FFFFFF;
-  --ink: #17202A;
-  --steel: #5F6C79;
-  --rule: #CBD1D6;
+  --ink: #101828;
+  --steel: #667085;
+  --rule: #E3E8EF;
   --chalk: #1F4FD8;
-  --chalk-dark: #163BA6;
-  --keel: #C2321B;
-  --radius: 2px;
+  --chalk-dark: #15317E;
+  --keel: #DC2626;
+  --fixed: #059669;
+  --working: #D97706;
+  --radius: 10px;
+  --radius-sm: 7px;
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 1px 3px rgba(16, 24, 40, 0.06);
+  --shadow-md: 0 4px 10px rgba(16, 24, 40, 0.10), 0 2px 4px rgba(16, 24, 40, 0.06);
+  --ease: 150ms ease;
   --tap: 52px;
   --pad: 16px;
   --shell: 680px;
 }
 
 * { box-sizing: border-box; }
+
+/* Soft elevation on every card-like surface, on top of whatever border
+   each already defines. A hairline border plus a quiet shadow is what
+   separates "boxed with CSS" from "has a real surface". */
+.panel, .jobitem, .jobhead, .empty, .entry, .adminrow, .editpanel, .cal,
+.logopreview, .error {
+  box-shadow: var(--shadow);
+}
 
 /* The app hides panels with the hidden attribute; class rules below set
    display, so this has to win. */
@@ -207,15 +224,29 @@ label {
   margin-bottom: 5px;
 }
 
-input[type=text], input[type=email], input[type=date], input[type=password], select, textarea {
+input[type=text], input[type=email], input[type=date], input[type=time],
+input[type=password], select, textarea {
   width: 100%;
   font: inherit;
   color: var(--ink);
   background: #fff;
-  border: 1px solid var(--steel);
+  border: 1px solid var(--rule);
   border-radius: var(--radius);
   padding: 13px 12px;
   min-height: var(--tap);
+  transition: border-color var(--ease), box-shadow var(--ease);
+}
+
+input[type=text]:hover, input[type=email]:hover, input[type=date]:hover,
+input[type=time]:hover, input[type=password]:hover, select:hover, textarea:hover {
+  border-color: var(--steel);
+}
+
+input[type=text]:focus, input[type=email]:focus, input[type=date]:focus,
+input[type=time]:focus, input[type=password]:focus, select:focus, textarea:focus {
+  border-color: var(--chalk);
+  box-shadow: 0 0 0 3px rgba(31, 79, 216, 0.12);
+  outline: none;
 }
 
 textarea { min-height: 120px; resize: vertical; }
@@ -237,17 +268,25 @@ textarea { min-height: 120px; resize: vertical; }
   color: #fff;
   cursor: pointer;
   text-decoration: none;
+  box-shadow: 0 1px 2px rgba(16, 24, 40, 0.08);
+  transition: background-color var(--ease), border-color var(--ease),
+              box-shadow var(--ease), transform 80ms ease;
 }
 
-.btn:active { background: var(--chalk-dark); }
-.btn[disabled] { opacity: 0.55; cursor: default; }
+.btn:hover { background: var(--chalk-dark); }
+.btn:active { background: var(--chalk-dark); transform: translateY(1px); box-shadow: none; }
+.btn[disabled] { opacity: 0.55; cursor: default; transform: none; }
 .btn-block { width: 100%; }
 
 .btn-quiet {
   background: var(--board);
   color: var(--ink);
-  border-color: var(--steel);
+  border-color: var(--rule);
+  box-shadow: none;
 }
+
+.btn-quiet:hover { background: var(--wall); border-color: var(--steel); }
+.btn-quiet:active { background: var(--rule); }
 
 .btn-plain {
   background: none;
@@ -259,7 +298,11 @@ textarea { min-height: 120px; resize: vertical; }
   min-height: 44px;
   cursor: pointer;
   text-align: left;
+  border-radius: var(--radius-sm);
+  transition: color var(--ease);
 }
+
+.btn-plain:hover { color: var(--chalk); }
 
 .btn-danger { background: none; border: none; color: var(--keel); font: inherit; font-size: 14px; cursor: pointer; padding: 8px 0; min-height: 40px; }
 
@@ -297,7 +340,7 @@ textarea { min-height: 120px; resize: vertical; }
   font-size: 13px;
   font-weight: 600;
   padding: 3px 8px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   border: 1px solid var(--rule);
   color: var(--steel);
   background: #fff;
@@ -318,7 +361,10 @@ textarea { min-height: 120px; resize: vertical; }
   border: 1px solid var(--rule);
   border-left: 4px solid var(--chalk);
   border-radius: var(--radius);
+  transition: box-shadow var(--ease);
 }
+
+.jobitem:hover { box-shadow: var(--shadow-md); }
 
 .jobitem.is-completed { border-left-color: var(--steel); }
 
@@ -328,7 +374,7 @@ textarea { min-height: 120px; resize: vertical; }
   align-self: stretch;
   border: none;
   background: none;
-  color: #A6AEB6;
+  color: #98A2B3;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -341,7 +387,7 @@ textarea { min-height: 120px; resize: vertical; }
 .jobtxt:active { color: #fff; background: var(--chalk); }
 
 .jobdel {
-  border-radius: 0 var(--radius) var(--radius) 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 
 .jobdel:hover { color: var(--keel); }
@@ -405,12 +451,15 @@ textarea { min-height: 120px; resize: vertical; }
 .gallery button {
   padding: 0;
   border: 1px solid var(--rule);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   background: var(--wall);
   aspect-ratio: 1;
   overflow: hidden;
   cursor: pointer;
+  transition: box-shadow var(--ease);
 }
+
+.gallery button:hover { box-shadow: 0 0 0 2px var(--chalk); }
 
 .gallery img { width: 100%; height: 100%; object-fit: cover; display: block; }
 
@@ -473,7 +522,7 @@ textarea { min-height: 120px; resize: vertical; }
 }
 
 .thumbs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-.thumbs img { width: 64px; height: 64px; object-fit: cover; border: 1px solid var(--rule); border-radius: var(--radius); }
+.thumbs img { width: 64px; height: 64px; object-fit: cover; border: 1px solid var(--rule); border-radius: var(--radius-sm); }
 
 /* ---------- Empty + loading states ---------- */
 
@@ -512,7 +561,7 @@ textarea { min-height: 120px; resize: vertical; }
   border-radius: var(--radius);
   font-size: 15px;
   max-width: calc(100% - 32px);
-  box-shadow: 0 6px 20px rgba(23, 32, 42, 0.28);
+  box-shadow: var(--shadow-md);
 }
 
 /* ---------- Lightbox ---------- */
@@ -521,7 +570,7 @@ textarea { min-height: 120px; resize: vertical; }
   position: fixed;
   inset: 0;
   z-index: 50;
-  background: rgba(23, 32, 42, 0.94);
+  background: rgba(16, 24, 40, 0.94);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -553,7 +602,7 @@ textarea { min-height: 120px; resize: vertical; }
 
 .setup ol { padding-left: 22px; }
 .setup li { margin-bottom: 8px; }
-.setup code { background: var(--wall); padding: 1px 5px; border-radius: var(--radius); font-size: 15px; overflow-wrap: anywhere; }
+.setup code { background: var(--wall); padding: 1px 5px; border-radius: var(--radius-sm); font-size: 15px; overflow-wrap: anywhere; }
 
 /* ---------- Entry author actions + edit form ---------- */
 
@@ -566,7 +615,7 @@ textarea { min-height: 120px; resize: vertical; }
 .btn-mini {
   background: none;
   border: 1px solid var(--rule);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   color: var(--ink);
   font: inherit;
   font-size: 14px;
@@ -574,10 +623,13 @@ textarea { min-height: 120px; resize: vertical; }
   padding: 0 12px;
   min-height: 38px;
   cursor: pointer;
+  transition: background-color var(--ease), border-color var(--ease);
 }
 
+.btn-mini:hover { background: var(--wall); border-color: var(--steel); }
 .btn-mini-danger { color: var(--keel); }
-.btn-mini:active { background: var(--wall); }
+.btn-mini-danger:hover { background: #FEF2F2; border-color: var(--keel); }
+.btn-mini:active { background: var(--rule); }
 
 .editpanel { border-left: 5px solid var(--chalk); }
 
@@ -592,7 +644,7 @@ textarea { min-height: 120px; resize: vertical; }
   position: relative;
   padding: 0;
   border: 1px solid var(--rule);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   background: var(--wall);
   width: 64px;
   height: 64px;
@@ -664,7 +716,7 @@ textarea { min-height: 120px; resize: vertical; }
   letter-spacing: 0.08em;
   background: var(--wall);
   border: 1px solid var(--rule);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   padding: 4px 10px;
 }
 
@@ -692,7 +744,8 @@ textarea { min-height: 120px; resize: vertical; }
 }
 
 .adminrow > summary::-webkit-details-marker { display: none; }
-.adminrow > summary:hover { background: #FAFBFB; }
+.adminrow > summary { transition: background-color var(--ease); }
+.adminrow > summary:hover { background: var(--wall); }
 
 .adminrow-name {
   font-family: "Barlow Condensed", sans-serif;
@@ -795,7 +848,7 @@ textarea { min-height: 120px; resize: vertical; }
   background: var(--board);
   border: 1px solid var(--rule);
   border-radius: var(--radius);
-  box-shadow: 0 10px 26px rgba(23, 32, 42, 0.18);
+  box-shadow: var(--shadow-md);
   overflow: hidden;
 }
 
@@ -821,8 +874,6 @@ textarea { min-height: 120px; resize: vertical; }
 .menu-item-danger { color: var(--keel); }
 
 /* ---------- Issue states ---------- */
-
-:root { --fixed: #1E7A46; --working: #B06A00; }
 
 .entry.t-fixed { border-left-color: var(--fixed); }
 .chip-fixed   { color: #fff; background: var(--fixed); border-color: var(--fixed); }
@@ -889,14 +940,15 @@ textarea { min-height: 120px; resize: vertical; }
   font-size: 15px;
   color: var(--steel);
   padding: 9px 0;
-  border-radius: 1px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: background-color var(--ease), color var(--ease), box-shadow var(--ease);
 }
 
 .viewswitch-btn.is-on {
   background: #fff;
   color: var(--ink);
-  box-shadow: 0 1px 3px rgba(23, 32, 42, 0.14);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, 0.14);
 }
 
 /* ---------- Calendar shell ---------- */
@@ -962,7 +1014,7 @@ textarea { min-height: 120px; resize: vertical; }
   aspect-ratio: 1;
   min-height: 42px;
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   background: var(--wall);
   display: flex;
   flex-direction: column;
@@ -972,14 +1024,16 @@ textarea { min-height: 120px; resize: vertical; }
   cursor: pointer;
   padding: 0;
   font: inherit;
-  transition: background-color 0.1s;
+  transition: background-color var(--ease);
 }
+
+.cal-cell:not(.cal-sel):not(.cal-out):hover { background: var(--rule); }
 
 .cal-daynum { font-size: 14px; color: var(--ink); }
 .cal-out { background: none; }
-.cal-out .cal-daynum { color: #C3C9CE; }
+.cal-out .cal-daynum { color: #C4CAD4; }
 
-.cal-today:not(.cal-sel) { background: #E7EEFC; }
+.cal-today:not(.cal-sel) { background: #E8EDFB; }
 .cal-today .cal-daynum { font-weight: 700; color: var(--chalk-dark); }
 
 .cal-sel { background: var(--ink) !important; }
@@ -1010,13 +1064,19 @@ textarea { min-height: 120px; resize: vertical; }
   cursor: pointer;
   font: inherit;
   min-height: 58px;
+  transition: background-color var(--ease), border-color var(--ease), box-shadow var(--ease);
 }
+
+.cal-weekrow:hover { box-shadow: var(--shadow); }
 
 .cal-weekrow.cal-today { border-color: var(--chalk); border-width: 2px; }
 
-/* Selection reads as a left accent bar, not an inverted block — so it
-   never competes visually with the "today" outline on the same row. */
-.cal-weekrow.cal-sel {
+/* Its own class, deliberately not .cal-sel — the month grid uses that name
+   with !important for its dark-fill selected day, and class names collide
+   across unrelated components if they are not kept distinct. Selection here
+   reads as a left accent bar, not an inverted block, so it never competes
+   visually with the "today" outline on the same row. */
+.cal-weekrow.cal-rowsel {
   background: var(--wall);
   box-shadow: inset 4px 0 0 var(--ink);
 }
@@ -1058,7 +1118,7 @@ textarea { min-height: 120px; resize: vertical; }
 
 .cal-weekbar {
   background: var(--wall);
-  border-radius: 1px;
+  border-radius: var(--radius-sm);
   padding: 6px 9px;
   font-size: 14px;
   color: var(--ink);
@@ -1069,12 +1129,23 @@ textarea { min-height: 120px; resize: vertical; }
 
 .cal-weekwho { color: var(--steel); font-weight: 500; }
 .cal-weekmore { font-size: 12px; color: var(--steel); padding-left: 2px; }
-.cal-weeknone { font-size: 14px; color: #A6AEB6; padding: 6px 2px; }
+.cal-weeknone { font-size: 14px; color: #98A2B3; padding: 6px 2px; }
 
 @media (min-width: 500px) {
   .cal-cell { min-height: 54px; }
   .cal-daynum { font-size: 15px; }
 }
+
+/* ---------- Scheduled time ---------- */
+
+.sc-time {
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 600;
+  color: var(--chalk-dark);
+}
+
+.cal-sel .sc-time,
+.cal-weekrow.cal-rowsel .sc-time { color: inherit; }
 
 </style>
 </head>
@@ -2501,6 +2572,15 @@ window.CONFIG = {
   var schedSelected = null;  // the day the list below the calendar shows
   var schedMode = 'month';   // 'day' | 'week' | 'month'
 
+  function formatTime(t) {
+    if (!t) return '';
+    var bits = t.split(':');
+    var h = parseInt(bits[0], 10), m = bits[1];
+    var ap = h >= 12 ? 'pm' : 'am';
+    h = h % 12; if (h === 0) h = 12;
+    return h + ':' + m + ' ' + ap;
+  }
+
   function ymd(y, m, d) {
     return y + '-' + pad(m + 1) + '-' + pad(d);
   }
@@ -2604,6 +2684,14 @@ window.CONFIG = {
 
       var byDate = {};
       rows.forEach(function (it) { (byDate[it.work_date] = byDate[it.work_date] || []).push(it); });
+      Object.keys(byDate).forEach(function (d) {
+        byDate[d].sort(function (a, b) {
+          if (!a.work_time && !b.work_time) return 0;
+          if (!a.work_time) return 1;
+          if (!b.work_time) return -1;
+          return a.work_time < b.work_time ? -1 : 1;
+        });
+      });
 
       var todayStr = ymd(t.y, t.m, t.d);
       var thisMonthCount = rows.filter(function (it) {
@@ -2701,7 +2789,7 @@ window.CONFIG = {
         var items = byDate[c.date] || [];
         var isToday = c.date === todayStr;
         var isSel = c.date === schedSelected;
-        var cls = 'cal-weekrow' + (isToday ? ' cal-today' : '') + (isSel ? ' cal-sel' : '');
+        var cls = 'cal-weekrow' + (isToday ? ' cal-today' : '') + (isSel ? ' cal-rowsel' : '');
 
         return '<button type="button" class="' + cls + '" data-date="' + c.date + '">' +
           '<span class="cal-weekleft">' +
@@ -2713,7 +2801,9 @@ window.CONFIG = {
               ? items.slice(0, 4).map(function (it) {
                   var job = byJob[it.job_id];
                   var label = job ? job.name : (it.note || 'Planned');
-                  return '<span class="cal-weekbar">' + esc(label) +
+                  return '<span class="cal-weekbar">' +
+                    (it.work_time ? '<span class="sc-time">' + esc(formatTime(it.work_time)) + '</span> ' : '') +
+                    esc(label) +
                     (it.assignee_name ? ' <span class="cal-weekwho">· ' + esc(it.assignee_name) + '</span>' : '') +
                   '</span>';
                 }).join('') +
@@ -2741,7 +2831,9 @@ window.CONFIG = {
             var job = byJob[it.job_id];
             return '<li class="jobitem"><div class="jobrow">' +
               '<div class="jobrow-top">' +
-                '<span class="jobrow-name">' + esc(job ? job.name : 'No job set') + '</span>' +
+                '<span class="jobrow-name">' +
+                  (it.work_time ? '<span class="sc-time">' + esc(formatTime(it.work_time)) + '</span> ' : '') +
+                  esc(job ? job.name : 'No job set') + '</span>' +
                 '<span class="jobrow-when">' + esc(it.assignee_name || 'whole crew') + '</span>' +
               '</div>' +
               (it.note ? '<div class="jobrow-meta" style="white-space:pre-wrap">' + esc(it.note) + '</div>' : '') +
@@ -2759,6 +2851,10 @@ window.CONFIG = {
         '<div class="row">' +
           '<div class="grow"><label for="sc-date">Day</label>' +
             '<input id="sc-date" type="date" value="' + esc(schedSelected) + '"></div>' +
+          '<div class="grow"><label for="sc-time">Time <span class="muted">(optional)</span></label>' +
+            '<input id="sc-time" type="time"></div>' +
+        '</div>' +
+        '<div class="row">' +
           '<div class="grow"><label for="sc-job">Job</label>' +
             '<select id="sc-job">' +
               '<option value="">No particular job</option>' +
@@ -2827,6 +2923,7 @@ window.CONFIG = {
 
     on('sc-save', 'click', function () {
       var date = document.getElementById('sc-date').value;
+      var time = document.getElementById('sc-time').value;
       var jobId = document.getElementById('sc-job').value;
       var whoEmail = document.getElementById('sc-who').value;
       var note = document.getElementById('sc-note').value.trim();
@@ -2848,6 +2945,7 @@ window.CONFIG = {
         company_id: org.company_id,
         job_id: jobId || null,
         work_date: date,
+        work_time: time || null,
         assignee_email: whoEmail,
         assignee_name: whoName,
         note: note,
