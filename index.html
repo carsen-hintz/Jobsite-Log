@@ -869,35 +869,69 @@ textarea { min-height: 120px; resize: vertical; }
 .history-meta { font-size: 13px; color: var(--steel); }
 .history-note { margin: 3px 0 0; font-size: 15px; white-space: pre-wrap; overflow-wrap: anywhere; }
 
-/* ---------- Calendar (month grid) ---------- */
+/* ---------- View switcher ---------- */
+
+.viewswitch {
+  display: flex;
+  background: var(--wall);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 3px;
+  margin-bottom: 14px;
+}
+
+.viewswitch-btn {
+  flex: 1;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--steel);
+  padding: 9px 0;
+  border-radius: 1px;
+  cursor: pointer;
+}
+
+.viewswitch-btn.is-on {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 1px 3px rgba(23, 32, 42, 0.14);
+}
+
+/* ---------- Calendar shell ---------- */
 
 .cal {
   background: var(--board);
   border: 1px solid var(--rule);
   border-radius: var(--radius);
-  padding: 14px;
+  padding: 16px;
 }
 
 .cal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  gap: 10px;
+  margin-bottom: 12px;
 }
 
 .cal-title {
   font-family: "Barlow Condensed", sans-serif;
   font-weight: 600;
   font-size: 21px;
+  text-align: center;
+  flex: 1;
 }
 
 .cal-nav {
-  width: 38px;
-  height: 38px;
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
   border: 1px solid var(--rule);
   border-radius: var(--radius);
   background: #fff;
-  font-size: 20px;
+  font-size: 21px;
   line-height: 1;
   cursor: pointer;
   color: var(--ink);
@@ -905,54 +939,125 @@ textarea { min-height: 120px; resize: vertical; }
 
 .cal-nav:active { background: var(--wall); }
 
+/* ---------- Month grid ---------- */
+
 .cal-dow {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   text-align: center;
   font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.03em;
   color: var(--steel);
-  padding: 4px 0;
+  padding: 0 0 6px;
 }
 
 .cal-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 2px;
+  gap: 3px;
 }
 
 .cal-cell {
   aspect-ratio: 1;
-  min-height: 40px;
-  border: 1px solid var(--rule);
+  min-height: 42px;
+  border: 1px solid transparent;
   border-radius: var(--radius);
-  background: #fff;
+  background: var(--wall);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 3px;
+  gap: 4px;
   cursor: pointer;
   padding: 0;
   font: inherit;
+  transition: background-color 0.1s;
 }
 
 .cal-daynum { font-size: 14px; color: var(--ink); }
-.cal-out { background: var(--wall); }
-.cal-out .cal-daynum { color: #A6AEB6; }
+.cal-out { background: none; }
+.cal-out .cal-daynum { color: #C3C9CE; }
 
-.cal-today { border-color: var(--chalk); border-width: 2px; }
+.cal-today:not(.cal-sel) { background: #E7EEFC; }
 .cal-today .cal-daynum { font-weight: 700; color: var(--chalk-dark); }
 
-.cal-sel { background: var(--ink); }
+.cal-sel { background: var(--ink) !important; }
 .cal-sel .cal-daynum { color: #fff; font-weight: 600; }
 
-.cal-dots { display: flex; gap: 2px; }
+.cal-dots { display: flex; gap: 3px; }
 .cal-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--chalk); }
 .cal-sel .cal-dot { background: #fff; }
 
+/* ---------- Week view ---------- */
+
+.cal-week {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.cal-weekcol {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  align-items: start;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  background: #fff;
+  padding: 10px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+}
+
+.cal-weekcol.cal-today { border-color: var(--chalk); }
+.cal-weekcol.cal-sel { background: var(--ink); border-color: var(--ink); }
+.cal-weekcol.cal-sel .cal-weekdow,
+.cal-weekcol.cal-sel .cal-weeknum { color: #fff; }
+.cal-weekcol.cal-sel .cal-weekbar { background: #ffffff22; color: #fff; }
+.cal-weekcol.cal-sel .cal-weekmore { color: #C9D3DD; }
+
+.cal-weekdow {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  color: var(--steel);
+}
+
+.cal-weeknum {
+  display: block;
+  font-family: "Barlow Condensed", sans-serif;
+  font-weight: 700;
+  font-size: 26px;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.cal-weekitems {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cal-weekbar {
+  background: var(--wall);
+  border-radius: 1px;
+  padding: 5px 8px;
+  font-size: 14px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-weekmore { font-size: 12px; color: var(--steel); }
+
 @media (min-width: 500px) {
-  .cal-cell { min-height: 52px; }
+  .cal-cell { min-height: 54px; }
   .cal-daynum { font-size: 15px; }
 }
 
@@ -2377,12 +2482,15 @@ window.CONFIG = {
   /* ---------------- schedule ---------------- */
 
   var schedNew = false;
-  var schedView = null;   // { year, month } — month is 0-11
-  var schedSelected = null;
+  var schedView = null;      // { year, month } — month is 0-11
+  var schedSelected = null;  // the day the list below the calendar shows
+  var schedMode = 'month';   // 'day' | 'week' | 'month'
 
   function ymd(y, m, d) {
     return y + '-' + pad(m + 1) + '-' + pad(d);
   }
+
+  function parseYmd(s) { return new Date(s + 'T12:00:00'); }
 
   function todayParts() {
     var d = new Date();
@@ -2393,7 +2501,11 @@ window.CONFIG = {
 
   function weekday(ymdStr) {
     var names = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    return names[new Date(ymdStr + 'T12:00:00').getDay()];
+    return names[parseYmd(ymdStr).getDay()];
+  }
+
+  function weekdayShort(ymdStr) {
+    return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][parseYmd(ymdStr).getDay()];
   }
 
   function monthLabel(y, m) {
@@ -2401,9 +2513,20 @@ window.CONFIG = {
             'September','October','November','December'][m] + ' ' + y;
   }
 
+  function addDaysYmd(dstr, n) {
+    var d = parseYmd(dstr);
+    d.setDate(d.getDate() + n);
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  }
+
+  // Sunday of the week containing this date.
+  function weekStart(dstr) {
+    var d = parseYmd(dstr);
+    return addDaysYmd(dstr, -d.getDay());
+  }
+
   // Sunday-first 6-row grid, padded with the tail of the previous month and
-  // the head of the next so every week is a full row — the layout people
-  // expect from any calendar app.
+  // the head of the next so every week is a full row.
   function monthGrid(y, m) {
     var first = new Date(y, m, 1).getDay();
     var len = daysInMonth(y, m);
@@ -2425,6 +2548,20 @@ window.CONFIG = {
     return cells;
   }
 
+  function weekCells(dstr) {
+    var start = weekStart(dstr);
+    var out = [];
+    for (var i = 0; i < 7; i++) out.push({ date: addDaysYmd(start, i), out: false });
+    return out;
+  }
+
+  // The visible range to fetch, for whichever mode is active — always at
+  // least the full month grid so switching modes never needs a re-fetch.
+  function visibleRange() {
+    var cells = monthGrid(schedView.year, schedView.month);
+    return { from: cells[0].date, to: cells[cells.length - 1].date, cells: cells };
+  }
+
   function renderSchedule() {
     app.innerHTML = '<p class="muted">Loading the schedule…</p>';
 
@@ -2432,11 +2569,10 @@ window.CONFIG = {
     if (!schedView) schedView = { year: t.y, month: t.m };
     if (!schedSelected) schedSelected = ymd(t.y, t.m, t.d);
 
-    var cells = monthGrid(schedView.year, schedView.month);
-    var from = cells[0].date, to = cells[cells.length - 1].date;
+    var range = visibleRange();
 
     Promise.all([
-      sb.from('schedule').select('*').gte('work_date', from).lte('work_date', to)
+      sb.from('schedule').select('*').gte('work_date', range.from).lte('work_date', range.to)
         .order('work_date').order('created_at'),
       sb.from('jobs').select('id,name,status').order('name'),
       sb.from('memberships').select('email,full_name').order('created_at')
@@ -2455,182 +2591,268 @@ window.CONFIG = {
       rows.forEach(function (it) { (byDate[it.work_date] = byDate[it.work_date] || []).push(it); });
 
       var todayStr = ymd(t.y, t.m, t.d);
-      var selItems = byDate[schedSelected] || [];
+      var thisMonthCount = rows.filter(function (it) {
+        return it.work_date.slice(0, 7) === schedView.year + '-' + pad(schedView.month + 1);
+      }).length;
 
       app.innerHTML =
         '<div class="jobhead">' +
           '<h1>Schedule</h1>' +
-          '<div class="jobhead-meta">' + rows.length +
-            (rows.length === 1 ? ' thing planned this month' : ' things planned this month') + '</div>' +
+          '<div class="jobhead-meta">' + thisMonthCount +
+            (thisMonthCount === 1 ? ' thing planned this month' : ' things planned this month') + '</div>' +
+        '</div>' +
+
+        '<div class="viewswitch">' +
+          ['day', 'week', 'month'].map(function (m) {
+            return '<button type="button" class="viewswitch-btn' + (schedMode === m ? ' is-on' : '') +
+              '" data-mode="' + m + '">' + m.charAt(0).toUpperCase() + m.slice(1) + '</button>';
+          }).join('') +
         '</div>' +
 
         '<div class="cal">' +
-          '<div class="cal-head">' +
-            '<button id="cal-prev" class="cal-nav" aria-label="Previous month">&lsaquo;</button>' +
-            '<span class="cal-title">' + esc(monthLabel(schedView.year, schedView.month)) + '</span>' +
-            '<button id="cal-next" class="cal-nav" aria-label="Next month">&rsaquo;</button>' +
-          '</div>' +
-          '<div class="cal-dow">' +
-            ['S','M','T','W','T','F','S'].map(function (d) { return '<span>' + d + '</span>'; }).join('') +
-          '</div>' +
-          '<div class="cal-grid">' +
-            cells.map(function (c) {
-              var items = byDate[c.date] || [];
-              var cls = 'cal-cell' +
-                (c.out ? ' cal-out' : '') +
-                (c.date === todayStr ? ' cal-today' : '') +
-                (c.date === schedSelected ? ' cal-sel' : '');
-              return '<button type="button" class="' + cls + '" data-date="' + c.date + '">' +
-                '<span class="cal-daynum">' + c.day + '</span>' +
-                (items.length
-                  ? '<span class="cal-dots">' +
-                      items.slice(0, 3).map(function () { return '<span class="cal-dot"></span>'; }).join('') +
-                    '</span>'
-                  : '') +
-              '</button>';
-            }).join('') +
-          '</div>' +
-          '<div class="row" style="margin-top:10px">' +
-            '<button id="cal-today-btn" class="btn-plain">Today</button>' +
-          '</div>' +
+          calHeaderHtml() +
+          (schedMode === 'month' ? calMonthHtml(range.cells, byDate, todayStr) : '') +
+          (schedMode === 'week' ? calWeekHtml(byDate, todayStr, byJob) : '') +
+          (schedMode === 'day' ? '' : '') +
         '</div>' +
 
-        '<div class="section-head"><h2>' +
-            (schedSelected === todayStr ? 'Today' : esc(weekday(schedSelected))) +
-          '</h2><span class="small muted">' + esc(longDate(schedSelected)) + '</span></div>' +
-
-        (selItems.length
-          ? '<ul class="joblist">' + selItems.map(function (it) {
-              var job = byJob[it.job_id];
-              return '<li class="jobitem"><div class="jobrow">' +
-                '<div class="jobrow-top">' +
-                  '<span class="jobrow-name">' + esc(job ? job.name : 'No job set') + '</span>' +
-                  '<span class="jobrow-when">' + esc(it.assignee_name || 'whole crew') + '</span>' +
-                '</div>' +
-                (it.note ? '<div class="jobrow-meta" style="white-space:pre-wrap">' + esc(it.note) + '</div>' : '') +
-              '</div>' +
-              (owner
-                ? '<button type="button" class="jobact jobdel js-sc-del" data-id="' + esc(it.id) +
-                    '" aria-label="Remove from schedule" title="Remove">' + TRASH_SVG + '</button>'
-                : '') +
-              '</li>';
-            }).join('') + '</ul>'
-          : '<div class="empty" style="padding:20px"><p style="margin:0">Nothing planned this day.</p></div>') +
+        (schedMode === 'day'
+          ? dayListHtml(schedSelected, byDate[schedSelected] || [], byJob, todayStr, true)
+          : schedMode === 'month'
+            ? dayListHtml(schedSelected, byDate[schedSelected] || [], byJob, todayStr, false)
+            : '') +
 
         (owner
           ? (schedNew
-              ? '<div class="panel" style="margin-top:14px">' +
-                  '<h2 style="font-size:22px;margin-bottom:12px">Plan some work</h2>' +
-                  '<div class="row">' +
-                    '<div class="grow"><label for="sc-date">Day</label>' +
-                      '<input id="sc-date" type="date" value="' + esc(schedSelected) + '"></div>' +
-                    '<div class="grow"><label for="sc-job">Job</label>' +
-                      '<select id="sc-job">' +
-                        '<option value="">No particular job</option>' +
-                        jobs.filter(function (j) { return j.status === 'Active'; }).map(function (j) {
-                          return '<option value="' + esc(j.id) + '">' + esc(j.name) + '</option>';
-                        }).join('') +
-                      '</select></div>' +
-                  '</div>' +
-                  '<div class="field"><label for="sc-who">Who</label>' +
-                    '<select id="sc-who">' +
-                      '<option value="">Anyone / the whole crew</option>' +
-                      crew.map(function (m) {
-                        return '<option value="' + esc(m.email) + '">' +
-                          esc(m.full_name || m.email.split('@')[0]) + '</option>';
-                      }).join('') +
-                    '</select></div>' +
-                  '<div class="field"><label for="sc-note">What is the plan?</label>' +
-                    '<textarea id="sc-note" style="min-height:80px" ' +
-                      'placeholder="Hang second floor. Bring the lift and 40 sheets of 5/8."></textarea></div>' +
-                  '<div class="row" style="margin-top:14px">' +
-                    '<button id="sc-save" class="btn grow">Add to schedule</button>' +
-                    '<button id="sc-cancel" class="btn btn-quiet">Cancel</button>' +
-                  '</div>' +
-                '</div>'
+              ? addFormHtml(jobs, crew)
               : '<div class="dock"><div class="dock-inner">' +
                   '<button id="sc-new" class="btn btn-block">Add to the schedule</button>' +
                 '</div></div>')
           : '');
 
-      Array.prototype.forEach.call(document.querySelectorAll('.cal-cell'), function (b) {
-        b.addEventListener('click', function () {
-          schedSelected = b.dataset.date;
-          renderSchedule();
-        });
-      });
-
-      on('cal-prev', 'click', function () {
-        schedView.month--;
-        if (schedView.month < 0) { schedView.month = 11; schedView.year--; }
-        renderSchedule();
-      });
-      on('cal-next', 'click', function () {
-        schedView.month++;
-        if (schedView.month > 11) { schedView.month = 0; schedView.year++; }
-        renderSchedule();
-      });
-      on('cal-today-btn', 'click', function () {
-        var n = todayParts();
-        schedView = { year: n.y, month: n.m };
-        schedSelected = ymd(n.y, n.m, n.d);
-        renderSchedule();
-      });
-
-      on('sc-new', 'click', function () { schedNew = true; renderSchedule(); });
-      on('sc-cancel', 'click', function () { schedNew = false; renderSchedule(); });
-
-      on('sc-save', 'click', function () {
-        var date = document.getElementById('sc-date').value;
-        var jobId = document.getElementById('sc-job').value;
-        var whoEmail = document.getElementById('sc-who').value;
-        var note = document.getElementById('sc-note').value.trim();
-
-        if (!date) return toast('Pick a day.');
-        if (!jobId && !note) return toast('Pick a job, or say what the plan is.');
-
-        var whoName = '';
-        if (whoEmail) {
-          var found = crew.filter(function (m) { return m.email === whoEmail; })[0];
-          whoName = (found && found.full_name) || whoEmail.split('@')[0];
-        }
-
-        var btn = document.getElementById('sc-save');
-        btn.disabled = true;
-        btn.textContent = 'Adding…';
-
-        sb.from('schedule').insert({
-          company_id: org.company_id,
-          job_id: jobId || null,
-          work_date: date,
-          assignee_email: whoEmail,
-          assignee_name: whoName,
-          note: note,
-          created_by: me.email
-        }).then(function (res) {
-          btn.disabled = false;
-          btn.textContent = 'Add to schedule';
-          if (res.error) return toast('Could not add that: ' + res.error.message);
-          schedNew = false;
-          schedSelected = date;
-          var d = new Date(date + 'T12:00:00');
-          schedView = { year: d.getFullYear(), month: d.getMonth() };
-          toast('Added to the schedule');
-          renderSchedule();
-        });
-      });
-
-      Array.prototype.forEach.call(document.querySelectorAll('.js-sc-del'), function (b) {
-        b.addEventListener('click', function () {
-          if (!confirm('Take this off the schedule?')) return;
-          sb.from('schedule').delete().eq('id', b.dataset.id).then(function (res) {
-            if (res.error) return toast('Could not remove that: ' + res.error.message);
-            toast('Removed');
-            renderSchedule();
-          });
-        });
-      });
+      wireSchedule(rows, jobs, crew, byJob, byDate, todayStr);
     }).catch(function (err) { fatal('Loading the schedule', err); });
+  }
+
+  function calHeaderHtml() {
+    var title;
+    if (schedMode === 'day') title = weekday(schedSelected) + ', ' + longDate(schedSelected);
+    else if (schedMode === 'week') {
+      var start = weekStart(schedSelected), end = addDaysYmd(start, 6);
+      title = longDate(start) + ' – ' + longDate(end);
+    } else {
+      title = monthLabel(schedView.year, schedView.month);
+    }
+
+    return '<div class="cal-head">' +
+      '<button id="cal-prev" class="cal-nav" aria-label="Previous">&lsaquo;</button>' +
+      '<span class="cal-title">' + esc(title) + '</span>' +
+      '<button id="cal-next" class="cal-nav" aria-label="Next">&rsaquo;</button>' +
+    '</div>';
+  }
+
+  function calMonthHtml(cells, byDate, todayStr) {
+    return '<div class="cal-dow">' +
+        ['S','M','T','W','T','F','S'].map(function (d) { return '<span>' + d + '</span>'; }).join('') +
+      '</div>' +
+      '<div class="cal-grid">' +
+        cells.map(function (c) {
+          var items = byDate[c.date] || [];
+          var cls = 'cal-cell' +
+            (c.out ? ' cal-out' : '') +
+            (c.date === todayStr ? ' cal-today' : '') +
+            (c.date === schedSelected ? ' cal-sel' : '');
+          return '<button type="button" class="' + cls + '" data-date="' + c.date + '">' +
+            '<span class="cal-daynum">' + c.day + '</span>' +
+            (items.length
+              ? '<span class="cal-dots">' +
+                  items.slice(0, 3).map(function () { return '<span class="cal-dot"></span>'; }).join('') +
+                '</span>'
+              : '') +
+          '</button>';
+        }).join('') +
+      '</div>' +
+      '<div class="row" style="margin-top:10px">' +
+        '<button id="cal-today-btn" class="btn-plain">Today</button>' +
+      '</div>';
+  }
+
+  // Seven day-columns, each showing its date and every item on it as a
+  // small labelled bar — the closest a phone screen gets to a real week
+  // view without needing to scroll sideways.
+  function calWeekHtml(byDate, todayStr, byJob) {
+    var cells = weekCells(schedSelected);
+    return '<div class="cal-week">' +
+      cells.map(function (c) {
+        var items = byDate[c.date] || [];
+        var cls = 'cal-weekcol' +
+          (c.date === todayStr ? ' cal-today' : '') +
+          (c.date === schedSelected ? ' cal-sel' : '');
+        return '<button type="button" class="' + cls + '" data-date="' + c.date + '">' +
+          '<span class="cal-weekdow">' + weekdayShort(c.date) + '</span>' +
+          '<span class="cal-weeknum">' + parseYmd(c.date).getDate() + '</span>' +
+          '<span class="cal-weekitems">' +
+            items.slice(0, 4).map(function (it) {
+              var job = byJob[it.job_id];
+              return '<span class="cal-weekbar">' + esc(job ? job.name : (it.note || 'Planned')) + '</span>';
+            }).join('') +
+            (items.length > 4 ? '<span class="cal-weekmore">+' + (items.length - 4) + ' more</span>' : '') +
+          '</span>' +
+        '</button>';
+      }).join('') +
+      '<div class="row" style="margin-top:10px">' +
+        '<button id="cal-today-btn" class="btn-plain">Today</button>' +
+      '</div>' +
+    '</div>';
+  }
+
+  function dayListHtml(dstr, items, byJob, todayStr, withHeading) {
+    return (withHeading
+      ? '<div class="section-head"><h2>' + (dstr === todayStr ? 'Today' : esc(weekday(dstr))) +
+          '</h2><span class="small muted">' + esc(longDate(dstr)) + '</span></div>'
+      : '<div class="section-head"><h2>' +
+          (dstr === todayStr ? 'Today' : esc(weekday(dstr))) +
+        '</h2><span class="small muted">' + esc(longDate(dstr)) + '</span></div>') +
+
+      (items.length
+        ? '<ul class="joblist">' + items.map(function (it) {
+            var job = byJob[it.job_id];
+            return '<li class="jobitem"><div class="jobrow">' +
+              '<div class="jobrow-top">' +
+                '<span class="jobrow-name">' + esc(job ? job.name : 'No job set') + '</span>' +
+                '<span class="jobrow-when">' + esc(it.assignee_name || 'whole crew') + '</span>' +
+              '</div>' +
+              (it.note ? '<div class="jobrow-meta" style="white-space:pre-wrap">' + esc(it.note) + '</div>' : '') +
+            '</div>' +
+            '<button type="button" class="jobact jobdel js-sc-del" data-id="' + esc(it.id) +
+              '" aria-label="Remove from schedule" title="Remove">' + TRASH_SVG + '</button>' +
+            '</li>';
+          }).join('') + '</ul>'
+        : '<div class="empty" style="padding:20px"><p style="margin:0">Nothing planned this day.</p></div>');
+  }
+
+  function addFormHtml(jobs, crew) {
+    return '<div class="panel" style="margin-top:14px">' +
+        '<h2 style="font-size:22px;margin-bottom:12px">Plan some work</h2>' +
+        '<div class="row">' +
+          '<div class="grow"><label for="sc-date">Day</label>' +
+            '<input id="sc-date" type="date" value="' + esc(schedSelected) + '"></div>' +
+          '<div class="grow"><label for="sc-job">Job</label>' +
+            '<select id="sc-job">' +
+              '<option value="">No particular job</option>' +
+              jobs.filter(function (j) { return j.status === 'Active'; }).map(function (j) {
+                return '<option value="' + esc(j.id) + '">' + esc(j.name) + '</option>';
+              }).join('') +
+            '</select></div>' +
+        '</div>' +
+        '<div class="field"><label for="sc-who">Who</label>' +
+          '<select id="sc-who">' +
+            '<option value="">Anyone / the whole crew</option>' +
+            crew.map(function (m) {
+              return '<option value="' + esc(m.email) + '">' +
+                esc(m.full_name || m.email.split('@')[0]) + '</option>';
+            }).join('') +
+          '</select></div>' +
+        '<div class="field"><label for="sc-note">What is the plan?</label>' +
+          '<textarea id="sc-note" style="min-height:80px" ' +
+            'placeholder="Hang second floor. Bring the lift and 40 sheets of 5/8."></textarea></div>' +
+        '<div class="row" style="margin-top:14px">' +
+          '<button id="sc-save" class="btn grow">Add to schedule</button>' +
+          '<button id="sc-cancel" class="btn btn-quiet">Cancel</button>' +
+        '</div>' +
+      '</div>';
+  }
+
+  function shiftView(dir) {
+    if (schedMode === 'day') {
+      schedSelected = addDaysYmd(schedSelected, dir);
+      var d = parseYmd(schedSelected);
+      schedView = { year: d.getFullYear(), month: d.getMonth() };
+    } else if (schedMode === 'week') {
+      schedSelected = addDaysYmd(schedSelected, dir * 7);
+      var d2 = parseYmd(schedSelected);
+      schedView = { year: d2.getFullYear(), month: d2.getMonth() };
+    } else {
+      schedView.month += dir;
+      if (schedView.month < 0) { schedView.month = 11; schedView.year--; }
+      if (schedView.month > 11) { schedView.month = 0; schedView.year++; }
+    }
+  }
+
+  function wireSchedule(rows, jobs, crew, byJob, byDate, todayStr) {
+    Array.prototype.forEach.call(document.querySelectorAll('.viewswitch-btn'), function (b) {
+      b.addEventListener('click', function () { schedMode = b.dataset.mode; renderSchedule(); });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('[data-date]'), function (b) {
+      b.addEventListener('click', function () {
+        schedSelected = b.dataset.date;
+        renderSchedule();
+      });
+    });
+
+    on('cal-prev', 'click', function () { shiftView(-1); renderSchedule(); });
+    on('cal-next', 'click', function () { shiftView(1); renderSchedule(); });
+    on('cal-today-btn', 'click', function () {
+      var n = todayParts();
+      schedView = { year: n.y, month: n.m };
+      schedSelected = ymd(n.y, n.m, n.d);
+      renderSchedule();
+    });
+
+    on('sc-new', 'click', function () { schedNew = true; renderSchedule(); });
+    on('sc-cancel', 'click', function () { schedNew = false; renderSchedule(); });
+
+    on('sc-save', 'click', function () {
+      var date = document.getElementById('sc-date').value;
+      var jobId = document.getElementById('sc-job').value;
+      var whoEmail = document.getElementById('sc-who').value;
+      var note = document.getElementById('sc-note').value.trim();
+
+      if (!date) return toast('Pick a day.');
+      if (!jobId && !note) return toast('Pick a job, or say what the plan is.');
+
+      var whoName = '';
+      if (whoEmail) {
+        var found = crew.filter(function (m) { return m.email === whoEmail; })[0];
+        whoName = (found && found.full_name) || whoEmail.split('@')[0];
+      }
+
+      var btn = document.getElementById('sc-save');
+      btn.disabled = true;
+      btn.textContent = 'Adding…';
+
+      sb.from('schedule').insert({
+        company_id: org.company_id,
+        job_id: jobId || null,
+        work_date: date,
+        assignee_email: whoEmail,
+        assignee_name: whoName,
+        note: note,
+        created_by: me.email
+      }).then(function (res) {
+        btn.disabled = false;
+        btn.textContent = 'Add to schedule';
+        if (res.error) return toast('Could not add that: ' + res.error.message);
+        schedNew = false;
+        schedSelected = date;
+        var d = parseYmd(date);
+        schedView = { year: d.getFullYear(), month: d.getMonth() };
+        toast('Added to the schedule');
+        renderSchedule();
+      });
+    });
+
+    Array.prototype.forEach.call(document.querySelectorAll('.js-sc-del'), function (b) {
+      b.addEventListener('click', function () {
+        if (!confirm('Take this off the schedule?')) return;
+        sb.from('schedule').delete().eq('id', b.dataset.id).then(function (res) {
+          if (res.error) return toast('Could not remove that: ' + res.error.message);
+          toast('Removed');
+          renderSchedule();
+        });
+      });
+    });
   }
 
   /* ---------------- crew ---------------- */
@@ -3814,8 +4036,9 @@ window.CONFIG = {
   function renderError(msg) {
     app.innerHTML = '<div class="error"><h2 style="font-size:20px;margin-bottom:6px">Could not reach your data</h2>' +
       '<p class="small" style="margin:0 0 10px">' + esc(msg) + '</p>' +
-      '<p class="small muted" style="margin:0">If this says something about a table or policy, the database script in ' +
-      '<code>db/schema.sql</code> has not been run yet. Step 4 of README.md covers it.</p>' +
+      '<p class="small muted" style="margin:0">If this mentions a missing table, relationship or column, ' +
+      'one of the SQL files in <code>db/</code> has not been run yet against this database — check which ' +
+      'feature the error names and run the matching file.</p>' +
       '<a class="backlink" href="#/">Back to jobs</a></div>';
   }
 
