@@ -2205,6 +2205,9 @@ window.CONFIG = {
           ' · started ' + esc(longDate(c.created_at.slice(0, 10))) +
           ' · ' + c.entry_count + ' entries</p>' +
 
+        '<div class="field"><label for="cnm-' + esc(c.id) + '">Company name</label>' +
+          '<input id="cnm-' + esc(c.id) + '" type="text" value="' + esc(c.name) + '"></div>' +
+
         '<div class="row">' +
           '<div class="grow"><label for="as-' + esc(c.id) + '">Seats</label>' +
             '<input id="as-' + esc(c.id) + '" type="text" inputmode="numeric" value="' +
@@ -2387,9 +2390,11 @@ window.CONFIG = {
         var id = b.dataset.id;
         var seats = document.getElementById('as-' + id).value.trim();
         var access = document.getElementById('aa-' + id).value;
+        var name = document.getElementById('cnm-' + id).value.trim();
         var n = parseInt(seats, 10);
 
         if (seats !== '' && (isNaN(n) || n < 1)) return toast('Seats must be a number, 1 or more.');
+        if (name.length < 2) return toast('Enter a company name.');
 
         b.disabled = true; b.textContent = 'Saving…';
 
@@ -2401,7 +2406,8 @@ window.CONFIG = {
           p_notes: document.getElementById('an-' + id).value,
           p_seats: seats === '' ? null : n,
           p_access: access ? access + 'T23:59:00Z' : null,
-          p_clear_access: !access
+          p_clear_access: !access,
+          p_name: name
         }).then(function (res) {
           b.disabled = false; b.textContent = 'Save changes';
           if (res.error) return toast(cleanRpcError(res.error));
@@ -3123,7 +3129,20 @@ window.CONFIG = {
         app.innerHTML =
           '<div class="jobhead">' +
             '<span class="kicker">Crew</span>' +
-            '<h1>' + esc(org.company_name) + '</h1>' +
+            (owner
+              ? '<div id="cn-view">' +
+                  '<h1>' + esc(org.company_name) + '</h1>' +
+                  '<button id="cn-edit" class="btn-plain" style="padding:2px 0">Rename company</button>' +
+                '</div>' +
+                '<div id="cn-form" hidden>' +
+                  '<div class="field"><label for="cn-input">Company name</label>' +
+                    '<input id="cn-input" type="text" value="' + esc(org.company_name) + '"></div>' +
+                  '<div class="row" style="margin-top:10px">' +
+                    '<button id="cn-save" class="btn">Save name</button>' +
+                    '<button id="cn-cancel" class="btn btn-quiet">Cancel</button>' +
+                  '</div>' +
+                '</div>'
+              : '<h1>' + esc(org.company_name) + '</h1>') +
             '<div class="jobhead-meta">' + members.length + ' of ' +
               (org.seat_limit == null ? 'unlimited' : org.seat_limit) + ' seats used' +
               (free != null && free > 0
@@ -3184,6 +3203,39 @@ window.CONFIG = {
                   'the white bar.</p>' +
               '</div>'
             : '');
+
+        on('cn-edit', 'click', function () {
+          document.getElementById('cn-view').hidden = true;
+          document.getElementById('cn-form').hidden = false;
+          var box = document.getElementById('cn-input');
+          box.focus();
+          box.select();
+        });
+        on('cn-cancel', 'click', function () {
+          document.getElementById('cn-form').hidden = true;
+          document.getElementById('cn-view').hidden = false;
+        });
+        on('cn-save', 'click', function () {
+          var name = document.getElementById('cn-input').value.trim();
+          if (name.length < 2) return toast('Enter a company name.');
+
+          var btn = document.getElementById('cn-save');
+          btn.disabled = true;
+          btn.textContent = 'Saving…';
+
+          sb.rpc('set_company_name', { p_name: name }).then(function (res) {
+            btn.disabled = false;
+            btn.textContent = 'Save name';
+            if (res.error) return toast(cleanRpcError(res.error));
+            org.company_name = name;
+            paintBrand();
+            toast('Company renamed');
+            renderCrew();
+          });
+        });
+        on('cn-input', 'keydown', function (e) {
+          if (e.key === 'Enter') document.getElementById('cn-save').click();
+        });
 
         on('inv-send', 'click', sendCrewInvite);
         on('inv-email', 'keydown', function (e) {
