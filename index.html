@@ -640,6 +640,28 @@ textarea { min-height: 120px; resize: vertical; }
 
 .btn-soft-danger:hover { background: #FBDAD7; }
 
+.langpick { margin-bottom: 16px; }
+.langseg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.langseg button {
+  min-height: 44px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  background: var(--wall);
+  color: var(--ink);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.langseg button.is-on {
+  background: var(--chalk);
+  border-color: var(--chalk);
+  color: #fff;
+}
+
 .gate h1 { font-size: 32px; margin-bottom: 4px; }
 .gate p { color: var(--steel); margin: 0 0 18px; }
 
@@ -1234,6 +1256,7 @@ textarea { min-height: 120px; resize: vertical; }
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <script>
 /* =========================================================
    SETTINGS — the only part of this file you need to edit.
@@ -1253,7 +1276,16 @@ window.CONFIG = {
   SUPABASE_ANON_KEY: "sb_publishable_C26OIIhQZUagcgQj7rs84Q_EA3TLOnU",
 
   // Your company name. Shows up on the PDF reports you send clients.
-  COMPANY_NAME: "Stallman Drywall"
+  COMPANY_NAME: "Stallman Drywall",
+
+  // Optional — only needed for the "Save to Drive" button on a job.
+  // In Google Cloud: APIs & Services -> Library -> enable "Google Drive API",
+  // then Credentials -> Create credentials -> OAuth client ID -> Web
+  // application, and add this page's address (for example
+  // https://jobsitelogger.carsens-software-development.com) under
+  // "Authorized JavaScript origins". Paste the client ID below. It ends in
+  // .apps.googleusercontent.com and is safe to keep here.
+  GOOGLE_CLIENT_ID: ""
 };
 </script>
 <script>
@@ -1299,6 +1331,12 @@ window.CONFIG = {
   var dash = { q: '', status: 'Active' };
   var view = { entries: [], job: null, q: '', date: '', editing: null, issueEditing: null };
   var toastTimer = null;
+  var LANG_KEY = 'jobsite-lang';
+  var lang = 'en';
+  try {
+    var saved = localStorage.getItem(LANG_KEY);
+    if (saved === 'es' || saved === 'en') lang = saved;
+  } catch (e0) {}
 
   /* ---------------- small helpers ---------------- */
 
@@ -1307,6 +1345,450 @@ window.CONFIG = {
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
+
+  function t(s) {
+    if (s == null) return '';
+    if (lang !== 'es') return String(s);
+    var v = ES[s];
+    return v == null ? String(s) : v;
+  }
+
+  function tf(tmpl) {
+    var args = Array.prototype.slice.call(arguments, 1);
+    return t(tmpl).replace(/\{(\d+)\}/g, function (_, i) {
+      return args[Number(i)] == null ? '' : String(args[Number(i)]);
+    });
+  }
+
+  function setLang(next) {
+    var keep = {};
+    ['in-email', 'in-pass'].forEach(function (id) {
+      var n = document.getElementById(id);
+      if (n) keep[id] = n.value;
+    });
+    lang = next === 'es' ? 'es' : 'en';
+    try { localStorage.setItem(LANG_KEY, lang); } catch (e1) {}
+    applyChromeLang();
+    route();
+    Object.keys(keep).forEach(function (id) {
+      var n = document.getElementById(id);
+      if (n) n.value = keep[id];
+    });
+  }
+
+  function applyChromeLang() {
+    document.documentElement.lang = lang === 'es' ? 'es' : 'en';
+    document.title = t('Jobsite Logger');
+    if (backBtn) backBtn.textContent = t('Back');
+    if (whoamiBtn) {
+      whoamiBtn.setAttribute('aria-label', t('Settings and account'));
+      whoamiBtn.setAttribute('title', t('Settings'));
+    }
+    var close = document.getElementById('lightbox-close');
+    if (close) {
+      close.textContent = t('Close');
+      close.setAttribute('aria-label', t('Close photo'));
+    }
+    if (lightboxImg) lightboxImg.alt = t('Jobsite photo, full size');
+  }
+
+  function langPickerHtml(id) {
+    return '<div class="field langpick"><span class="kicker">' + t('Language') + '</span>' +
+      '<div class="langseg" role="group" aria-label="' + t('Language') + '">' +
+        '<button type="button" class="' + (lang === 'en' ? 'is-on' : '') + '" id="' + id + '-en">' + t('English') + '</button>' +
+        '<button type="button" class="' + (lang === 'es' ? 'is-on' : '') + '" id="' + id + '-es">' + t('Spanish') + '</button>' +
+      '</div></div>';
+  }
+
+  function bindLangPicker(id) {
+    on(id + '-en', 'click', function () { setLang('en'); });
+    on(id + '-es', 'click', function () { setLang('es'); });
+  }
+
+  function roleLabel(role) {
+    if (role === 'owner') return t('owner');
+    if (role === 'crew') return t('crew');
+    return role || '';
+  }
+
+  var ES = {
+    'Jobsite Logger': 'Registro de obra',
+    'Back': 'Atrás',
+    'Settings': 'Ajustes',
+    'Settings and account': 'Ajustes y cuenta',
+    'Close': 'Cerrar',
+    'Close photo': 'Cerrar foto',
+    'Jobsite photo, full size': 'Foto de la obra, tamaño completo',
+    'Language': 'Idioma',
+    'English': 'English',
+    'Spanish': 'Español',
+    'Crew log': 'Registro de cuadrilla',
+    'Sign in': 'Iniciar sesión',
+    'Use the email and password you were given.': 'Usa el correo y la contraseña que te dieron.',
+    'Email': 'Correo',
+    'Password': 'Contraseña',
+    'Forgot your password?': '¿Olvidaste tu contraseña?',
+    'Accounts are set up for you — there is no sign-up here. Need a login? Ask whoever set up your crew.': 'Las cuentas las arma la oficina: aquí no hay registro. ¿Necesitas acceso? Pídeselo a quien armó tu cuadrilla.',
+    'Enter your email address.': 'Escribe tu correo.',
+    'Enter your password.': 'Escribe tu contraseña.',
+    'Signing in…': 'Entrando…',
+    'That email and password do not match.': 'Ese correo y contraseña no coinciden.',
+    'This account is not confirmed yet — ask the office.': 'Esta cuenta aún no está confirmada — pregunta a la oficina.',
+    'Type your email address above first, then tap this.': 'Escribe tu correo arriba primero y luego toca aquí.',
+    'Sending…': 'Enviando…',
+    'If that address has an account, a reset link is on its way. Check your junk folder too.': 'Si esa dirección tiene cuenta, ya va un enlace para restablecer. Revisa también el correo no deseado.',
+    'Set your password': 'Elige tu contraseña',
+    'Choose a new password': 'Elige una contraseña nueva',
+    'Welcome. Pick a password and you are in.': 'Bienvenido. Elige una contraseña y ya estás dentro.',
+    'Pick a new password for your account.': 'Elige una contraseña nueva para tu cuenta.',
+    'Your name': 'Tu nombre',
+    'This shows on everything you post.': 'Esto aparece en todo lo que publiques.',
+    'At least 8 characters.': 'Mínimo 8 caracteres.',
+    'Confirm password': 'Confirmar contraseña',
+    'Save and continue': 'Guardar y continuar',
+    'Sign out instead': 'Cerrar sesión',
+    'Enter your name.': 'Escribe tu nombre.',
+    'Use a password of at least 8 characters.': 'Usa una contraseña de al menos 8 caracteres.',
+    'The two passwords do not match.': 'Las dos contraseñas no coinciden.',
+    'Saving…': 'Guardando…',
+    'That is already your password — pick a different one.': 'Esa ya es tu contraseña — elige otra.',
+    'Password saved': 'Contraseña guardada',
+    'That link did not work': 'Ese enlace no funcionó',
+    'Invite and reset links expire after an hour and only work once. Ask for a fresh one.': 'Los enlaces de invitación y restablecimiento caducan en una hora y solo sirven una vez. Pide uno nuevo.',
+    'Back to sign in': 'Volver a iniciar sesión',
+    'Almost there': 'Casi listo',
+    'Your login works, but it is not attached to a crew yet. Whoever set up your account needs to add you — that usually takes a minute.': 'Tu acceso funciona, pero aún no está ligado a una cuadrilla. Quien armó tu cuenta tiene que agregarte — suele tardar un minuto.',
+    'Signed in as {0}': 'Sesión iniciada como {0}',
+    'Check again': 'Volver a comprobar',
+    'Checking…': 'Comprobando…',
+    'Not yet — try again in a minute.': 'Todavía no — inténtalo en un minuto.',
+    'Sign out': 'Cerrar sesión',
+    'Access has ended': 'El acceso terminó',
+    'Account paused': 'Cuenta en pausa',
+    "{0}'s access ended on {1}.": 'El acceso de {0} terminó el {1}.',
+    '{0} is paused.': '{0} está en pausa.',
+    ' Every job, note and photo is exactly where you left it and nothing has been deleted. Get in touch to switch it back on.': ' Cada trabajo, nota y foto sigue donde lo dejaste y no se ha borrado nada. Contáctanos para reactivarlo.',
+    'Something went wrong.': 'Algo salió mal.',
+    'My profile': 'Mi perfil',
+    'Schedule': 'Horario',
+    'Crew': 'Cuadrilla',
+    'Admin console': 'Consola de admin',
+    'account owner': 'propietario de la cuenta',
+    'crew': 'cuadrilla',
+    'owner': 'propietario',
+    'Your details': 'Tus datos',
+    'Name shown on your entries': 'Nombre que sale en tus notas',
+    ' — ask the office if this needs changing.': ' — pide a la oficina si hay que cambiarlo.',
+    'Save name': 'Guardar nombre',
+    'Alerts': 'Avisos',
+    'Email me when someone posts to a job': 'Avísame por correo cuando alguien publique en un trabajo',
+    'One email per entry, to {0}. Your own posts never email you.': 'Un correo por nota, a {0}. Tus propias publicaciones no te llegan.',
+    'New password': 'Contraseña nueva',
+    'Confirm new password': 'Confirmar contraseña nueva',
+    'Change password': 'Cambiar contraseña',
+    'Changing…': 'Cambiando…',
+    'That is already your password.': 'Esa ya es tu contraseña.',
+    'Password changed': 'Contraseña cambiada',
+    'Name saved': 'Nombre guardado',
+    'Alerts on': 'Avisos activados',
+    'Alerts off': 'Avisos desactivados',
+    'Signed out': 'Sesión cerrada',
+    'just now': 'ahora mismo',
+    '{0} min ago': 'hace {0} min',
+    '{0} hour ago': 'hace {0} hora',
+    '{0} hours ago': 'hace {0} horas',
+    '{0} day ago': 'hace {0} día',
+    '{0} days ago': 'hace {0} días',
+    '{0} week ago': 'hace {0} semana',
+    '{0} weeks ago': 'hace {0} semanas',
+    'Issue · fixed': 'Problema · resuelto',
+    'Issue · being fixed': 'Problema · en arreglo',
+    'Issue · open': 'Problema · abierto',
+    'No connection. ': 'Sin conexión. ',
+    '{0} entry saved on this phone': '{0} nota guardada en este teléfono',
+    '{0} entries saved on this phone': '{0} notas guardadas en este teléfono',
+    ' — they post when you have signal.': ' — se envían cuando haya señal.',
+    'Entries you post now are saved here and sent when you are back online.': 'Las notas que publiques ahora se guardan aquí y se envían al volver a tener red.',
+    'Send now': 'Enviar ahora',
+    '{0} entry posted': '{0} nota publicada',
+    '{0} entries posted': '{0} notas publicadas',
+    'The app could not start': 'La app no pudo arrancar',
+    'Send this message on and it can be fixed. A refresh sometimes clears it if the connection dropped mid-load.': 'Pasa este mensaje y se puede corregir. A veces recargar basta si se cortó la conexión al cargar.',
+    'Loading jobs…': 'Cargando trabajos…',
+    'Search jobs': 'Buscar trabajos',
+    'Name, address or client': 'Nombre, dirección o cliente',
+    'Show': 'Mostrar',
+    'Active ({0})': 'Activos ({0})',
+    'Completed ({0})': 'Terminados ({0})',
+    'All jobs ({0})': 'Todos los trabajos ({0})',
+    'Nothing posted lately': 'Sin notas recientes',
+    'No entry in {0} days or more. Either the crew is off it, or nobody is logging.': 'Sin notas en {0} días o más. O la cuadrilla no está ahí, o nadie está registrando.',
+    'All jobs': 'Todos los trabajos',
+    'Active jobs': 'Trabajos activos',
+    'Completed jobs': 'Trabajos terminados',
+    'Newest activity first': 'Actividad más reciente primero',
+    'Worth archiving': 'Conviene archivar',
+    'Nothing on these for {0}+ days.': 'Nada en estos por {0}+ días.',
+    'Save the notes and the client PDF onto your own computer, then delete the job here. That keeps your photo storage down and leaves you holding the record — worth doing while the job is still fresh enough to answer questions about.': 'Guarda las notas y el PDF del cliente en tu computadora y luego borra el trabajo aquí. Así bajas el almacenamiento de fotos y te quedas con el registro — conviene hacerlo mientras el trabajo aún está fresco.',
+    'Add a job': 'Agregar un trabajo',
+    'Job name': 'Nombre del trabajo',
+    'Address': 'Dirección',
+    'Your phone offers addresses you have used before. Tap an address on a job to open it in maps.': 'El teléfono sugiere direcciones que ya usaste. Toca una dirección en un trabajo para abrirla en mapas.',
+    'Client': 'Cliente',
+    'Save job': 'Guardar trabajo',
+    'Cancel': 'Cancelar',
+    'No client listed': 'Sin cliente',
+    'Completed': 'Terminado',
+    '{0} days quiet': '{0} días en silencio',
+    '{0} days since an entry': '{0} días desde una nota',
+    'Save notes for {0}': 'Guardar notas de {0}',
+    'Save notes (.txt)': 'Guardar notas (.txt)',
+    'Delete {0}': 'Borrar {0}',
+    'Delete job': 'Borrar trabajo',
+    'No jobs yet': 'Aún no hay trabajos',
+    'Add your first job below. Once it is in, your crew can post notes and photos to it from their phones.': 'Agrega tu primer trabajo abajo. Cuando esté, la cuadrilla puede publicar notas y fotos desde el teléfono.',
+    'Nothing matches': 'Nada coincide',
+    'Clear the search box, or switch “Show” to all jobs.': 'Limpia la búsqueda, o cambia “Mostrar” a todos los trabajos.',
+    'Give the job a name.': 'Ponle un nombre al trabajo.',
+    'Could not save: {0}': 'No se pudo guardar: {0}',
+    'Job saved': 'Trabajo guardado',
+    'Delete "{0}"?\n\nEvery entry and photo on this job goes with it, for the whole crew. This cannot be undone.': '¿Borrar "{0}"?\n\nTodas las notas y fotos de este trabajo se van con él, para toda la cuadrilla. No se puede deshacer.',
+    'Deleting…': 'Borrando…',
+    'Could not delete: {0}': 'No se pudo borrar: {0}',
+    'Job deleted': 'Trabajo borrado',
+    'Loading job…': 'Cargando trabajo…',
+    'Admin data could not be loaded. {0}': 'No se pudieron cargar los datos de admin. {0}',
+    'That job could not be loaded. {0}': 'No se pudo cargar ese trabajo. {0}',
+    'Completed job': 'Trabajo terminado',
+    'Active job': 'Trabajo activo',
+    'Reopen job': 'Reabrir trabajo',
+    'Mark job completed': 'Marcar trabajo como terminado',
+    'Client PDF': 'PDF para el cliente',
+    'Save photos': 'Guardar fotos',
+    'This job has no photos yet.': 'Este trabajo aún no tiene fotos.',
+    'Saving photo {0} of {1}…': 'Guardando foto {0} de {1}…',
+    '{0} photo saved': '{0} foto guardada',
+    '{0} photos saved': '{0} fotos guardadas',
+    'Could not save the photos: {0}': 'No se pudieron guardar las fotos: {0}',
+    'Save to Drive': 'Guardar en Drive',
+    'Opening Google…': 'Abriendo Google…',
+    'Google Drive already has these photos.': 'Google Drive ya tiene estas fotos.',
+    '{0} photo saved to Google Drive': '{0} foto guardada en Google Drive',
+    '{0} photos saved to Google Drive': '{0} fotos guardadas en Google Drive',
+    'Could not save to Google Drive: {0}': 'No se pudo guardar en Google Drive: {0}',
+    'Add your Google client ID to the SETTINGS block in index.html first.': 'Primero agrega tu client ID de Google en el bloque SETTINGS de index.html.',
+    'Google sign-in did not load. Check the connection and try again.': 'No cargó el inicio de sesión de Google. Revisa la conexión e inténtalo de nuevo.',
+    'Google blocked the sign-in window — allow pop-ups for this site and try again.': 'Google bloqueó la ventana de inicio de sesión — permite ventanas emergentes en este sitio e inténtalo de nuevo.',
+    'Google sign-in failed.': 'Falló el inicio de sesión de Google.',
+    'Date': 'Fecha',
+    'What happened on site?': '¿Qué pasó en la obra?',
+    'Issue': 'Problema',
+    'Site note': 'Nota',
+    'Add photos': 'Agregar fotos',
+    'Post entry': 'Publicar nota',
+    'Coming up': 'Próximo',
+    'Daily log': 'Registro diario',
+    '{0} entry': '{0} nota',
+    '{0} entries': '{0} notas',
+    'Search notes': 'Buscar notas',
+    'Word, name or material': 'Palabra, nombre o material',
+    'On date': 'En fecha',
+    'Add entry': 'Agregar nota',
+    'The log is empty': 'El registro está vacío',
+    'Post the first entry with the button at the bottom. Notes are dated automatically.': 'Publica la primera nota con el botón de abajo. Las notas se fechan solas.',
+    'Clear the search box or the date to see the whole log again.': 'Limpia la búsqueda o la fecha para ver todo el registro otra vez.',
+    'Photo from {0}': 'Foto del {0}',
+    'Edit': 'Editar',
+    'Reopen / update': 'Reabrir / actualizar',
+    'Add update': 'Agregar actualización',
+    'Add an update': 'Agregar una actualización',
+    'Delete': 'Borrar',
+    'Editing your entry': 'Editando tu nota',
+    'Photos on this entry': 'Fotos en esta nota',
+    'Tap a photo to remove it when you save.': 'Toca una foto para quitarla al guardar.',
+    'Photo on this entry': 'Foto en esta nota',
+    'Removing': 'Quitando',
+    'Logged by {0} on {1}': 'Registrado por {0} el {1}',
+    ' · {0} update so far': ' · {0} actualización hasta ahora',
+    ' · {0} updates so far': ' · {0} actualizaciones hasta ahora',
+    '. Updates are added to the record — nothing gets overwritten.': '. Las actualizaciones se agregan al historial — no se borra nada.',
+    'Open': 'Abierto',
+    'Being fixed': 'En arreglo',
+    'Fixed': 'Resuelto',
+    'What has happened?': '¿Qué ha pasado?',
+    'Say what has happened, so the history means something later.': 'Di qué ha pasado, para que el historial sirva después.',
+    'Marked fixed': 'Marcado como resuelto',
+    'Update added': 'Actualización agregada',
+    '{0} update': '{0} actualización',
+    '{0} updates': '{0} actualizaciones',
+    'Still open': 'Sigue abierto',
+    'Selected photo': 'Foto elegida',
+    '{0} photo ready': '{0} foto lista',
+    '{0} photos ready': '{0} fotos listas',
+    'Add a note or a photo first.': 'Agrega una nota o una foto primero.',
+    'Posting…': 'Publicando…',
+    'Entry posted': 'Nota publicada',
+    'Could not post: {0}': 'No se pudo publicar: {0}',
+    'Saving on this phone…': 'Guardando en este teléfono…',
+    'Saved on this phone — it will post shortly.': 'Guardado en este teléfono — se publicará enseguida.',
+    'Saved on this phone. It posts as soon as you have signal.': 'Guardado en este teléfono. Se publica en cuanto haya señal.',
+    'Could not save that entry: {0}': 'No se pudo guardar esa nota: {0}',
+    'Uploading photo {0} of {1}…': 'Subiendo foto {0} de {1}…',
+    'That photo could not be read.': 'No se pudo leer esa foto.',
+    'An entry needs a note or a photo.': 'Una nota necesita texto o una foto.',
+    'Entry updated': 'Nota actualizada',
+    'Save changes': 'Guardar cambios',
+    'Delete this entry and its photos? This cannot be undone.': '¿Borrar esta nota y sus fotos? No se puede deshacer.',
+    'Entry deleted': 'Nota borrada',
+    'Could not update: {0}': 'No se pudo actualizar: {0}',
+    'Job marked completed': 'Trabajo marcado como terminado',
+    'Job reopened': 'Trabajo reabierto',
+    'Building notes file…': 'Armando el archivo de notas…',
+    'Notes saved': 'Notas guardadas',
+    'Could not build the file: {0}': 'No se pudo armar el archivo: {0}',
+    'Building…': 'Armando…',
+    'Client: {0}': 'Cliente: {0}',
+    'Status: {0}': 'Estado: {0}',
+    'Report prepared by {0} on {1}': 'Informe preparado por {0} el {1}',
+    'Page {0} of {1}': 'Página {0} de {1}',
+    'PDF failed: {0}': 'Falló el PDF: {0}',
+    'Could not reach your data': 'No se pudo llegar a tus datos',
+    'If this mentions a missing table, relationship or column, one of the SQL files in db/ has not been run yet against this database — check which feature the error names and run the matching file.': 'Si menciona una tabla, relación o columna faltante, aún no se corrió uno de los archivos SQL de db/ en esta base — mira qué función nombra el error y corre el archivo que corresponda.',
+    'Back to jobs': 'Volver a los trabajos',
+    'am': 'a. m.',
+    'pm': 'p. m.',
+    'Jan': 'ene', 'Feb': 'feb', 'Mar': 'mar', 'Apr': 'abr', 'May': 'may', 'Jun': 'jun',
+    'Jul': 'jul', 'Aug': 'ago', 'Sep': 'sep', 'Oct': 'oct', 'Nov': 'nov', 'Dec': 'dic',
+    'January': 'enero', 'February': 'febrero', 'March': 'marzo', 'April': 'abril',
+    'June': 'junio', 'July': 'julio', 'August': 'agosto',
+    'September': 'septiembre', 'October': 'octubre', 'November': 'noviembre', 'December': 'diciembre',
+    'Sunday': 'domingo', 'Monday': 'lunes', 'Tuesday': 'martes', 'Wednesday': 'miércoles',
+    'Thursday': 'jueves', 'Friday': 'viernes', 'Saturday': 'sábado',
+    'Sun': 'dom', 'Mon': 'lun', 'Tue': 'mar', 'Wed': 'mié', 'Thu': 'jue', 'Fri': 'vie', 'Sat': 'sáb',
+    'S0': 'D', 'M1': 'L', 'T2': 'M', 'W3': 'X', 'T4': 'J', 'F5': 'V', 'S6': 'S',
+    'Loading the schedule…': 'Cargando el horario…',
+    '{0} thing planned this month': '{0} cosa planeada este mes',
+    '{0} things planned this month': '{0} cosas planeadas este mes',
+    'Day': 'Día',
+    'Week': 'Semana',
+    'Month': 'Mes',
+    'Previous': 'Anterior',
+    'Next': 'Siguiente',
+    'Today': 'Hoy',
+    ' · today': ' · hoy',
+    'Planned': 'Planeado',
+    'Whole crew': 'Toda la cuadrilla',
+    'whole crew': 'toda la cuadrilla',
+    '+{0} more': '+{0} más',
+    'Nothing planned': 'Nada planeado',
+    'No job set': 'Sin trabajo',
+    'Remove from schedule': 'Quitar del horario',
+    'Remove': 'Quitar',
+    'Nothing planned this day.': 'Nada planeado este día.',
+    'Plan some work': 'Planear trabajo',
+    'Time {0}': 'Hora {0}',
+    '(optional)': '(opcional)',
+    'Job': 'Trabajo',
+    'No particular job': 'Ningún trabajo en particular',
+    'Who': 'Quién',
+    'Anyone / the whole crew': 'Cualquiera / toda la cuadrilla',
+    'What is the plan?': '¿Cuál es el plan?',
+    'Add to schedule': 'Agregar al horario',
+    'Add to the schedule': 'Agregar al horario',
+    'Pick a day.': 'Elige un día.',
+    'Pick a job, or say what the plan is.': 'Elige un trabajo, o di cuál es el plan.',
+    'Could not add that: {0}': 'No se pudo agregar: {0}',
+    'Added to the schedule': 'Agregado al horario',
+    'Take this off the schedule?': '¿Quitar esto del horario?',
+    'Could not remove that: {0}': 'No se pudo quitar: {0}',
+    'Removed': 'Quitado',
+    'Loading crew…': 'Cargando cuadrilla…',
+    'Rename company': 'Renombrar empresa',
+    'Company name': 'Nombre de la empresa',
+    '{0} of {1} seats used': '{0} de {1} plazas usadas',
+    'unlimited': 'ilimitadas',
+    ' · {0} seat free': ' · {0} plaza libre',
+    ' · {0} seats free': ' · {0} plazas libres',
+    'Remove from crew': 'Quitar de la cuadrilla',
+    'Add someone to the crew': 'Agregar a alguien a la cuadrilla',
+    'Your crew is full.': 'Tu cuadrilla está llena.',
+    'All {0} seats are in use. Remove someone above, or get in touch about adding seats.': 'Las {0} plazas están ocupadas. Quita a alguien arriba, o pregunta por más plazas.',
+    'Their email address': 'Su correo',
+    'They get an email with a link to set their own password. You never handle it.': 'Reciben un correo con un enlace para elegir su contraseña. Tú no la manejas.',
+    'Company logo': 'Logo de la empresa',
+    '{0} logo': 'Logo de {0}',
+    'No logo yet — your company name shows at the top instead.': 'Aún no hay logo — el nombre de la empresa sale arriba.',
+    'Choose a different logo': 'Elegir otro logo',
+    'Choose a logo': 'Elegir un logo',
+    'PNG, JPG or WebP. A wide logo works best, and a PNG with a transparent or white background looks cleanest against the white bar.': 'PNG, JPG o WebP. Un logo ancho queda mejor, y un PNG con fondo transparente o blanco se ve más limpio en la barra blanca.',
+    'Company renamed': 'Empresa renombrada',
+    'Remove the logo? Your company name will show at the top instead.': '¿Quitar el logo? El nombre de la empresa saldrá arriba.',
+    'Logo removed': 'Logo quitado',
+    'Remove {0} from the crew?\n\nTheir past entries and photos stay in the log. They lose access immediately.': '¿Quitar a {0} de la cuadrilla?\n\nSus notas y fotos anteriores se quedan. Pierde el acceso de inmediato.',
+    ' (you)': ' (tú)',
+    'Enter their email address.': 'Escribe su correo.',
+    'Send invite': 'Enviar invitación',
+    'That invite could not be sent.': 'No se pudo enviar esa invitación.',
+    'Invite sent to {0}': 'Invitación enviada a {0}',
+    'They already had an account — added to your crew.': 'Ya tenían cuenta — se agregaron a tu cuadrilla.',
+    'That invite could not be sent: {0}': 'No se pudo enviar esa invitación: {0}',
+    'Enter a company name.': 'Escribe un nombre de empresa.',
+    'Loading customers…': 'Cargando clientes…',
+    'Add a contractor': 'Agregar contratista',
+    'Refresh': 'Actualizar',
+    'Update': 'Actualizar',
+    'Assign': 'Asignar',
+    'Adding…': 'Agregando…',
+    'Creating…': 'Creando…',
+    'Loading…': 'Cargando…',
+    'Show crew': 'Ver cuadrilla',
+    'Hide crew': 'Ocultar cuadrilla',
+    'Paused': 'En pausa',
+    'Unpause': 'Reanudar',
+    'Pause now': 'Pausar ahora',
+    'Saved': 'Guardado',
+    'Unassigned': 'Sin asignar',
+    'Client:  ': 'Cliente:  ',
+    'Address: ': 'Dirección: ',
+    'Status:  ': 'Estado:  ',
+    'Entries: ': 'Notas: ',
+    'Saved:   ': 'Guardado:   ',
+    'No entries yet.': 'Aún no hay notas.',
+    'FIXED': 'RESUELTO',
+    'BEING FIXED': 'EN ARREGLO',
+    'STILL OPEN': 'SIGUE ABIERTO',
+    'ISSUE': 'PROBLEMA',
+    ' (FIXED)': ' (RESUELTO)',
+    ' (BEING FIXED)': ' (EN ARREGLO)',
+    ' (OPEN)': ' (ABIERTO)',
+    'by ': 'por ',
+    'Finish the setup': 'Termina la configuración',
+    'The app is running, but it does not know where to store your notes yet.': 'La app está en marcha, pero aún no sabe dónde guardar tus notas.',
+    'Open this index.html file in Notepad — right-click it, choose Open with, then Notepad.': 'Abre este archivo index.html en el Bloc de notas: clic derecho, Abrir con, Bloc de notas.',
+    'Paste your Supabase Project URL and anon key between the quote marks.': 'Pega la URL del proyecto de Supabase y la clave anon entre las comillas.',
+    'Save the file, then refresh this page. If the file is on GitHub, commit the change and wait about a minute.': 'Guarda el archivo y recarga esta página. Si está en GitHub, publica el cambio y espera un minuto.',
+    'Step 2 of README.md shows exactly where those two values live in Supabase.': 'El paso 2 de README.md indica exactamente dónde están esos dos valores en Supabase.',
+    'Script error': 'Error de script',
+    'Startup': 'Arranque',
+    'Loading': 'Carga',
+    'The Supabase library did not load. Check the connection, or whether something on this network blocks cdn.jsdelivr.net.': 'No cargó la librería de Supabase. Revisa la conexión, o si esta red bloquea cdn.jsdelivr.net.',
+    'Signing in': 'Inicio de sesión',
+    'Remove {0} from their crew?\n\nThey lose access immediately. Their past entries and photos stay in the log.': '¿Quitar a {0} de su cuadrilla?\n\nPierde el acceso de inmediato. Sus notas y fotos anteriores se quedan en el registro.',
+    'Access removed': 'Acceso quitado',
+    'Access granted': 'Acceso concedido',
+    'Admin access removed': 'Acceso de admin quitado',
+    'Enter a valid email address.': 'Escribe un correo válido.',
+    'Add admin': 'Agregar admin',
+    'Nobody has joined yet.': 'Nadie se ha unido todavía.',
+    'That is not an image file — try a PNG or JPG.': 'Eso no es una imagen — prueba un PNG o JPG.',
+    'That image is very large — try one under 6 MB.': 'Esa imagen es muy grande — prueba una de menos de 6 MB.',
+    'Uploading logo…': 'Subiendo el logo…',
+    'Logo updated': 'Logo actualizado',
+    'Could not upload the logo: {0}': 'No se pudo subir el logo: {0}',
+    'That image could not be processed.': 'No se pudo procesar esa imagen.',
+    'That file did not look like an image.': 'Ese archivo no parece una imagen.',
+    'MayMonth': 'mayo'
+  };
 
   function toast(msg) {
     toastEl.textContent = msg;
@@ -1322,11 +1804,11 @@ window.CONFIG = {
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
 
-  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  var MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
   function dateParts(ymd) {
     var p = String(ymd || '').split('-');
-    var mon = MONTHS[Number(p[1]) - 1] || '';
+    var mon = t(MONTHS_EN[Number(p[1]) - 1] || '');
     return { day: String(Number(p[2]) || ''), mon: mon, year: p[0] || '' };
   }
 
@@ -1339,7 +1821,7 @@ window.CONFIG = {
     var d = new Date(iso);
     if (isNaN(d)) return '';
     var h = d.getHours(), m = pad(d.getMinutes());
-    var ap = h >= 12 ? 'pm' : 'am';
+    var ap = h >= 12 ? t('pm') : t('am');
     h = h % 12; if (h === 0) h = 12;
     return h + ':' + m + ' ' + ap;
   }
@@ -1348,14 +1830,14 @@ window.CONFIG = {
     var then = new Date(iso).getTime();
     if (isNaN(then)) return '';
     var mins = Math.round((Date.now() - then) / 60000);
-    if (mins < 1) return 'just now';
-    if (mins < 60) return mins + ' min ago';
+    if (mins < 1) return t('just now');
+    if (mins < 60) return tf('{0} min ago', mins);
     var hrs = Math.round(mins / 60);
-    if (hrs < 24) return hrs + (hrs === 1 ? ' hour ago' : ' hours ago');
+    if (hrs < 24) return hrs === 1 ? tf('{0} hour ago', hrs) : tf('{0} hours ago', hrs);
     var days = Math.round(hrs / 24);
-    if (days < 7) return days + (days === 1 ? ' day ago' : ' days ago');
+    if (days < 7) return days === 1 ? tf('{0} day ago', days) : tf('{0} days ago', days);
     var wks = Math.round(days / 7);
-    if (wks < 5) return wks + (wks === 1 ? ' week ago' : ' weeks ago');
+    if (wks < 5) return wks === 1 ? tf('{0} week ago', wks) : tf('{0} weeks ago', wks);
     return longDate(iso.slice(0, 10));
   }
 
@@ -1396,9 +1878,9 @@ window.CONFIG = {
   function tagChip(en) {
     if (en.tag !== 'issue') return '';
     var st = en.issue_status || 'open';
-    if (st === 'resolved') return '<span class="chip chip-fixed">Issue · fixed</span>';
-    if (st === 'working') return '<span class="chip chip-working">Issue · being fixed</span>';
-    return '<span class="chip chip-issue">Issue · open</span>';
+    if (st === 'resolved') return '<span class="chip chip-fixed">' + t('Issue · fixed') + '</span>';
+    if (st === 'working') return '<span class="chip chip-working">' + t('Issue · being fixed') + '</span>';
+    return '<span class="chip chip-issue">' + t('Issue · open') + '</span>';
   }
 
   function on(id, evt, fn) {
@@ -1490,7 +1972,7 @@ window.CONFIG = {
         });
       }, Promise.resolve(false)).then(function () {
         flushing = false;
-        if (done && !quiet) toast(done + (done === 1 ? ' entry posted' : ' entries posted'));
+        if (done && !quiet) toast(done === 1 ? tf('{0} entry posted', done) : tf('{0} entries posted', done));
         return done;
       });
     }).catch(function () { flushing = false; return 0; });
@@ -1508,13 +1990,13 @@ window.CONFIG = {
       bar.innerHTML =
         '<div class="offbar-in">' +
           '<span>' +
-            (off ? 'No connection. ' : '') +
+            (off ? t('No connection. ') : '') +
             (n
-              ? n + (n === 1 ? ' entry saved on this phone' : ' entries saved on this phone') +
-                (off ? ' — they post when you have signal.' : '')
-              : 'Entries you post now are saved here and sent when you are back online.') +
+              ? (n === 1 ? tf('{0} entry saved on this phone', n) : tf('{0} entries saved on this phone', n)) +
+                (off ? t(' — they post when you have signal.') : '')
+              : t('Entries you post now are saved here and sent when you are back online.')) +
           '</span>' +
-          (n && !off ? '<button id="offbar-send" class="btn-mini">Send now</button>' : '') +
+          (n && !off ? '<button id="offbar-send" class="btn-mini">' + t('Send now') + '</button>' : '') +
         '</div>';
 
       var btn = document.getElementById('offbar-send');
@@ -1537,24 +2019,23 @@ window.CONFIG = {
     if (app) {
       app.innerHTML =
         '<div class="error" style="margin-top:18px">' +
-          '<h2 style="font-size:20px;margin-bottom:8px">The app could not start</h2>' +
+          '<h2 style="font-size:20px;margin-bottom:8px">' + t('The app could not start') + '</h2>' +
           '<p class="small" style="margin:0 0 10px"><strong>' + esc(where) + ':</strong> ' + esc(msg) + '</p>' +
-          '<p class="small muted" style="margin:0">Send this message on and it can be fixed. ' +
-            'A refresh sometimes clears it if the connection dropped mid-load.</p>' +
+          '<p class="small muted" style="margin:0">' + t('Send this message on and it can be fixed. A refresh sometimes clears it if the connection dropped mid-load.') + '</p>' +
         '</div>';
     }
     if (window.console && console.error) console.error('[jobsite-logger] ' + where, err);
   }
 
   window.addEventListener('error', function (e) {
-    if (app && !app.innerHTML) fatal('Script error', e.message || e.error);
+    if (app && !app.innerHTML) fatal(t('Script error'), e.message || e.error);
   });
 
   function boot() {
     try {
       bootInner();
     } catch (err) {
-      fatal('Startup', err);
+      fatal(t('Startup'), err);
     }
   }
 
@@ -1562,8 +2043,7 @@ window.CONFIG = {
     if (!configured()) return renderSetupNeeded();
 
     if (!window.supabase || typeof window.supabase.createClient !== 'function') {
-      return fatal('Loading', 'The Supabase library did not load. Check the connection, ' +
-        'or whether something on this network blocks cdn.jsdelivr.net.');
+      return fatal(t('Loading'), t('The Supabase library did not load. Check the connection, or whether something on this network blocks cdn.jsdelivr.net.'));
     }
 
     if (!window.jspdf) {
@@ -1608,6 +2088,7 @@ window.CONFIG = {
     });
     window.addEventListener('offline', paintQueueBanner);
 
+    applyChromeLang();
     startSession();
   }
 
@@ -1644,7 +2125,7 @@ window.CONFIG = {
       var next = meFromSession(session);
       var was = me && me.email;
       me = next;
-      if (!next && was) { org = null; toast('Signed out'); route(); }
+      if (!next && was) { org = null; toast(t('Signed out')); route(); }
     });
 
     sb.auth.getSession().then(function (res) {
@@ -1659,7 +2140,7 @@ window.CONFIG = {
         });
       });
     }).catch(function (err) {
-      fatal('Signing in', err);
+      fatal(t('Signing in'), err);
     });
   }
 
@@ -1676,7 +2157,7 @@ window.CONFIG = {
     brandLogo.hidden = true;
     brandLogo.removeAttribute('src');
     brandText.hidden = false;
-    brandText.textContent = (org && org.company_name) || 'Jobsite Logger';
+    brandText.textContent = (org && org.company_name) || t('Jobsite Logger');
   }
 
   function loadOrg() {
@@ -1707,6 +2188,7 @@ window.CONFIG = {
   function route() {
     staged = [];
     clearEditState();
+    applyChromeLang();
     whoamiBtn.hidden = !me;
 
     var hash = location.hash || '#/';
@@ -1755,12 +2237,12 @@ window.CONFIG = {
     var items = [];
 
     if (org) {
-      items.push({ label: 'My profile', hash: '#/profile' });
-      items.push({ label: 'Schedule', hash: '#/schedule' });
-      items.push({ label: 'Crew', hash: '#/crew' });
+      items.push({ label: t('My profile'), hash: '#/profile' });
+      items.push({ label: t('Schedule'), hash: '#/schedule' });
+      items.push({ label: t('Crew'), hash: '#/crew' });
     }
-    if (isAdmin) items.push({ label: 'Admin console', hash: '#/admin' });
-    items.push({ label: 'Sign out', action: 'out', danger: true });
+    if (isAdmin) items.push({ label: t('Admin console'), hash: '#/admin' });
+    items.push({ label: t('Sign out'), action: 'out', danger: true });
 
     menuEl.innerHTML = items.map(function (it, i) {
       return '<button type="button" role="menuitem" class="menu-item' +
@@ -1795,15 +2277,17 @@ window.CONFIG = {
   function renderSetupNeeded() {
     app.innerHTML =
       '<div class="panel setup" style="margin-top:18px">' +
-        '<h1 style="font-size:28px">Finish the setup</h1>' +
-        '<p class="muted">The app is running, but it does not know where to store your notes yet.</p>' +
+        langPickerHtml('setup-lang') +
+        '<h1 style="font-size:28px">' + t('Finish the setup') + '</h1>' +
+        '<p class="muted">' + t('The app is running, but it does not know where to store your notes yet.') + '</p>' +
         '<ol>' +
-          '<li>Open this <code>index.html</code> file in Notepad — right-click it, choose Open with, then Notepad.</li>' +
-          '<li>Paste your Supabase <strong>Project URL</strong> and <strong>anon key</strong> between the quote marks.</li>' +
-          '<li>Save the file, then refresh this page. If the file is on GitHub, commit the change and wait about a minute.</li>' +
+          '<li>' + t('Open this index.html file in Notepad — right-click it, choose Open with, then Notepad.') + '</li>' +
+          '<li>' + t('Paste your Supabase Project URL and anon key between the quote marks.') + '</li>' +
+          '<li>' + t('Save the file, then refresh this page. If the file is on GitHub, commit the change and wait about a minute.') + '</li>' +
         '</ol>' +
-        '<p class="muted small">Step 2 of README.md shows exactly where those two values live in Supabase.</p>' +
+        '<p class="muted small">' + t('Step 2 of README.md shows exactly where those two values live in Supabase.') + '</p>' +
       '</div>';
+    bindLangPicker('setup-lang');
   }
 
   /* ---------------- sign in ---------------- */
@@ -1811,20 +2295,21 @@ window.CONFIG = {
   function renderAuth() {
     app.innerHTML =
       '<div class="gate panel">' +
-        '<span class="kicker">Crew log</span>' +
-        '<h1>Sign in</h1>' +
-        '<p>Use the email and password you were given.</p>' +
-        '<div class="field"><label for="in-email">Email</label>' +
+        langPickerHtml('auth-lang') +
+        '<span class="kicker">' + t('Crew log') + '</span>' +
+        '<h1>' + t('Sign in') + '</h1>' +
+        '<p>' + t('Use the email and password you were given.') + '</p>' +
+        '<div class="field"><label for="in-email">' + t('Email') + '</label>' +
           '<input id="in-email" type="email" autocomplete="username" inputmode="email" ' +
             'autocapitalize="off" spellcheck="false" placeholder="dave@example.com"></div>' +
-        '<div class="field"><label for="in-pass">Password</label>' +
+        '<div class="field"><label for="in-pass">' + t('Password') + '</label>' +
           '<input id="in-pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>' +
-        '<div class="field"><button id="do-auth" class="btn btn-block">Sign in</button></div>' +
-        '<button id="do-forgot" class="btn-plain">Forgot your password?</button>' +
-        '<p class="small muted" style="margin:0">Accounts are set up for you — there is no sign-up here. ' +
-          'Need a login? Ask whoever set up your crew.</p>' +
+        '<div class="field"><button id="do-auth" class="btn btn-block">' + t('Sign in') + '</button></div>' +
+        '<button id="do-forgot" class="btn-plain">' + t('Forgot your password?') + '</button>' +
+        '<p class="small muted" style="margin:0">' + t('Accounts are set up for you — there is no sign-up here. Need a login? Ask whoever set up your crew.') + '</p>' +
       '</div>';
 
+    bindLangPicker('auth-lang');
     on('do-forgot', 'click', doForgot);
     on('do-auth', 'click', doSignIn);
     on('in-pass', 'keydown', function (e) { if (e.key === 'Enter') doSignIn(); });
@@ -1835,20 +2320,20 @@ window.CONFIG = {
     var email = document.getElementById('in-email').value.trim().toLowerCase();
     var pass = document.getElementById('in-pass').value;
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('Enter your email address.');
-    if (!pass) return toast('Enter your password.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast(t('Enter your email address.'));
+    if (!pass) return toast(t('Enter your password.'));
 
     var btn = document.getElementById('do-auth');
     btn.disabled = true;
-    btn.textContent = 'Signing in…';
+    btn.textContent = t('Signing in…');
 
     sb.auth.signInWithPassword({ email: email, password: pass }).then(function (res) {
       if (res.error) {
         btn.disabled = false;
-        btn.textContent = 'Sign in';
+        btn.textContent = t('Sign in');
         var m = res.error.message || '';
-        if (/invalid login/i.test(m)) return toast('That email and password do not match.');
-        if (/not confirmed/i.test(m)) return toast('This account is not confirmed yet — ask the office.');
+        if (/invalid login/i.test(m)) return toast(t('That email and password do not match.'));
+        if (/not confirmed/i.test(m)) return toast(t('This account is not confirmed yet — ask the office.'));
         return toast(m);
       }
       me = meFromSession(res.data.session);
@@ -1860,21 +2345,20 @@ window.CONFIG = {
     var email = document.getElementById('in-email').value.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       document.getElementById('in-email').focus();
-      return toast('Type your email address above first, then tap this.');
+      return toast(t('Type your email address above first, then tap this.'));
     }
 
     var btn = document.getElementById('do-forgot');
     btn.disabled = true;
-    btn.textContent = 'Sending…';
+    btn.textContent = t('Sending…');
 
     sb.auth.resetPasswordForEmail(email, {
       redirectTo: location.origin + location.pathname
     }).then(function (res) {
       btn.disabled = false;
-      btn.textContent = 'Forgot your password?';
+      btn.textContent = t('Forgot your password?');
       if (res.error) return toast(res.error.message);
-      // Deliberately vague: confirming which addresses exist would leak them.
-      toast('If that address has an account, a reset link is on its way. Check your junk folder too.');
+      toast(t('If that address has an account, a reset link is on its way. Check your junk folder too.'));
     });
   }
 
@@ -1886,29 +2370,32 @@ window.CONFIG = {
 
     app.innerHTML =
       '<div class="gate panel">' +
-        '<h1>' + (invited ? 'Set your password' : 'Choose a new password') + '</h1>' +
+        langPickerHtml('sp-lang') +
+        '<h1>' + (invited ? t('Set your password') : t('Choose a new password')) + '</h1>' +
         '<p>' + (invited
-          ? 'Welcome. Pick a password and you are in.'
-          : 'Pick a new password for your account.') + '</p>' +
+          ? t('Welcome. Pick a password and you are in.')
+          : t('Pick a new password for your account.')) + '</p>' +
         '<p class="small muted">' + esc(me.email) + '</p>' +
 
         (needName
-          ? '<div class="field"><label for="sp-name">Your name</label>' +
+          ? '<div class="field"><label for="sp-name">' + t('Your name') + '</label>' +
               '<input id="sp-name" type="text" autocomplete="name" placeholder="Dave Kruger">' +
-              '<p class="small muted" style="margin:6px 0 0">This shows on everything you post.</p></div>'
+              '<p class="small muted" style="margin:6px 0 0">' + t('This shows on everything you post.') + '</p></div>'
           : '') +
 
-        '<div class="field"><label for="sp-pass">Password</label>' +
+        '<div class="field"><label for="sp-pass">' + t('Password') + '</label>' +
           '<input id="sp-pass" type="password" autocomplete="new-password" placeholder="••••••••"></div>' +
-        '<p class="small muted" style="margin:-4px 0 12px">At least 8 characters.</p>' +
-        '<div class="field"><label for="sp-pass2">Confirm password</label>' +
+        '<p class="small muted" style="margin:-4px 0 12px">' + t('At least 8 characters.') + '</p>' +
+        '<div class="field"><label for="sp-pass2">' + t('Confirm password') + '</label>' +
           '<input id="sp-pass2" type="password" autocomplete="new-password" placeholder="••••••••"></div>' +
 
-        '<div class="field"><button id="sp-save" class="btn btn-block">Save and continue</button></div>' +
-        '<button id="sp-out" class="btn-plain">Sign out instead</button>' +
+        '<div class="field"><button id="sp-save" class="btn btn-block">' + t('Save and continue') + '</button></div>' +
+        '<button id="sp-out" class="btn-plain">' + t('Sign out instead') + '</button>' +
       '</div>';
 
+    bindLangPicker('sp-lang');
     on('sp-save', 'click', saveNewPassword);
+    on('sp-out', 'click', signOut);
     on('sp-pass2', 'keydown', function (e) {
       if (e.key === 'Enter') document.getElementById('sp-save').click();
     });
@@ -1921,16 +2408,16 @@ window.CONFIG = {
     var pass = document.getElementById('sp-pass').value;
     var pass2 = document.getElementById('sp-pass2').value;
 
-    if (nameBox && name.length < 2) return toast('Enter your name.');
-    if (pass.length < 8) return toast('Use a password of at least 8 characters.');
+    if (nameBox && name.length < 2) return toast(t('Enter your name.'));
+    if (pass.length < 8) return toast(t('Use a password of at least 8 characters.'));
     if (pass !== pass2) {
       document.getElementById('sp-pass2').focus();
-      return toast('The two passwords do not match.');
+      return toast(t('The two passwords do not match.'));
     }
 
     var btn = document.getElementById('sp-save');
     btn.disabled = true;
-    btn.textContent = 'Saving…';
+    btn.textContent = t('Saving…');
 
     var payload = { password: pass };
     if (nameBox) payload.data = { full_name: name };
@@ -1938,15 +2425,15 @@ window.CONFIG = {
     sb.auth.updateUser(payload).then(function (res) {
       if (res.error) {
         btn.disabled = false;
-        btn.textContent = 'Save and continue';
+        btn.textContent = t('Save and continue');
         var m = res.error.message || '';
-        if (/same.*password/i.test(m)) return toast('That is already your password — pick a different one.');
+        if (/same.*password/i.test(m)) return toast(t('That is already your password — pick a different one.'));
         return toast(m);
       }
 
       pendingAuth = null;
       if (nameBox) me.name = name;
-      toast('Password saved');
+      toast(t('Password saved'));
 
       loadOrg().then(function () {
         location.hash = '#/';
@@ -1958,11 +2445,10 @@ window.CONFIG = {
   function renderLinkProblem(msg) {
     app.innerHTML =
       '<div class="gate panel">' +
-        '<h1>That link did not work</h1>' +
+        '<h1>' + t('That link did not work') + '</h1>' +
         '<p>' + esc(msg) + '</p>' +
-        '<p class="small muted">Invite and reset links expire after an hour and only work once. ' +
-          'Ask for a fresh one.</p>' +
-        '<div class="field"><button id="lp-back" class="btn btn-block">Back to sign in</button></div>' +
+        '<p class="small muted">' + t('Invite and reset links expire after an hour and only work once. Ask for a fresh one.') + '</p>' +
+        '<div class="field"><button id="lp-back" class="btn btn-block">' + t('Back to sign in') + '</button></div>' +
       '</div>';
 
     on('lp-back', 'click', function () { location.hash = '#/'; route(); });
@@ -1973,23 +2459,22 @@ window.CONFIG = {
   function renderJoin() {
     app.innerHTML =
       '<div class="gate panel">' +
-        '<h1>Almost there</h1>' +
-        '<p>Your login works, but it is not attached to a crew yet. ' +
-          'Whoever set up your account needs to add you — that usually takes a minute.</p>' +
-        '<p class="small muted">Signed in as ' + esc(me.email) + '</p>' +
-        '<div class="field"><button id="do-recheck" class="btn btn-block">Check again</button></div>' +
-        '<button id="do-signout" class="btn-plain">Sign out</button>' +
+        '<h1>' + t('Almost there') + '</h1>' +
+        '<p>' + t('Your login works, but it is not attached to a crew yet. Whoever set up your account needs to add you — that usually takes a minute.') + '</p>' +
+        '<p class="small muted">' + tf('Signed in as {0}', esc(me.email)) + '</p>' +
+        '<div class="field"><button id="do-recheck" class="btn btn-block">' + t('Check again') + '</button></div>' +
+        '<button id="do-signout" class="btn-plain">' + t('Sign out') + '</button>' +
       '</div>';
 
     on('do-recheck', 'click', function () {
       var btn = document.getElementById('do-recheck');
       btn.disabled = true;
-      btn.textContent = 'Checking…';
+      btn.textContent = t('Checking…');
       loadOrg().then(function () {
         if (org) { location.hash = '#/'; return route(); }
         btn.disabled = false;
-        btn.textContent = 'Check again';
-        toast('Not yet — try again in a minute.');
+        btn.textContent = t('Check again');
+        toast(t('Not yet — try again in a minute.'));
       });
     });
 
@@ -2001,13 +2486,12 @@ window.CONFIG = {
 
     app.innerHTML =
       '<div class="gate panel">' +
-        '<h1>' + (expired ? 'Access has ended' : 'Account paused') + '</h1>' +
-        '<p>' + esc(org.company_name) + (expired
-          ? '\u2019s access ended on ' + esc(longDate(org.access_until.slice(0, 10))) + '.'
-          : ' is paused.') +
-        ' Every job, note and photo is exactly where you left it and nothing has been deleted. ' +
-        'Get in touch to switch it back on.</p>' +
-        '<button id="do-signout" class="btn-plain">Sign out</button>' +
+        '<h1>' + (expired ? t('Access has ended') : t('Account paused')) + '</h1>' +
+        '<p>' + (expired
+          ? tf("{0}'s access ended on {1}.", esc(org.company_name), esc(longDate(org.access_until.slice(0, 10))))
+          : tf('{0} is paused.', esc(org.company_name))) +
+        t(' Every job, note and photo is exactly where you left it and nothing has been deleted. Get in touch to switch it back on.') + '</p>' +
+        '<button id="do-signout" class="btn-plain">' + t('Sign out') + '</button>' +
       '</div>';
     on('do-signout', 'click', signOut);
   }
@@ -2022,7 +2506,7 @@ window.CONFIG = {
 
   // Postgres errors arrive prefixed and technical; the message we raised is the useful part.
   function cleanRpcError(err) {
-    var m = (err && err.message) || 'Something went wrong.';
+    var m = (err && err.message) || t('Something went wrong.');
     return m.replace(/^.*?:\s*/, '').replace(/\s*CONTEXT:[\s\S]*$/, '');
   }
 
@@ -2031,7 +2515,7 @@ window.CONFIG = {
   var adminNew = false;   // is the "add a contractor" panel open
 
   function renderAdmin() {
-    app.innerHTML = '<p class="muted">Loading customers…</p>';
+    app.innerHTML = '<p class="muted">' + t('Loading customers…') + '</p>';
 
     Promise.all([
       sb.rpc('admin_list_companies'),
@@ -2040,7 +2524,7 @@ window.CONFIG = {
       sb.rpc('admin_list_admins')
     ]).then(function (r) {
       if (r[0].error) {
-        return renderError('Admin data could not be loaded. ' + r[0].error.message);
+        return renderError(tf('Admin data could not be loaded. {0}', r[0].error.message));
       }
 
       var list = r[0].data || [];
@@ -2305,7 +2789,7 @@ window.CONFIG = {
 
       var btn = document.getElementById('adm-add');
       btn.disabled = true;
-      btn.textContent = 'Adding…';
+      btn.textContent = t('Adding…');
 
       sb.rpc('admin_add_admin', { p_email: email }).then(function (res) {
         btn.disabled = false;
@@ -2480,11 +2964,11 @@ window.CONFIG = {
 
   function uploadLogo(file) {
     if (file.type && file.type.indexOf('image/') !== 0) {
-      return toast('That is not an image file — try a PNG or JPG.');
+      return toast(t('That is not an image file — try a PNG or JPG.'));
     }
-    if (file.size > 6 * 1024 * 1024) return toast('That image is very large — try one under 6 MB.');
+    if (file.size > 6 * 1024 * 1024) return toast(t('That image is very large — try one under 6 MB.'));
 
-    toast('Uploading logo…');
+    toast(t('Uploading logo…'));
     var old = org.logo_path;
 
     shrinkLogo(file).then(function (out) {
@@ -2502,10 +2986,10 @@ window.CONFIG = {
         });
     }).then(function () {
       paintBrand();
-      toast('Logo updated');
+      toast(t('Logo updated'));
       renderCrew();
     }).catch(function (err) {
-      toast('Could not upload the logo: ' + (err.message || err));
+      toast(tf('Could not upload the logo: {0}', err.message || err));
     });
   }
 
@@ -2529,13 +3013,13 @@ window.CONFIG = {
         var keepPng = /png|webp/i.test(file.type);
         var type = keepPng ? 'image/png' : 'image/jpeg';
         canvas.toBlob(function (blob) {
-          if (!blob) return reject(new Error('That image could not be processed.'));
+          if (!blob) return reject(new Error(t('That image could not be processed.')));
           resolve({ blob: blob, type: type, ext: keepPng ? 'png' : 'jpg' });
         }, type, keepPng ? undefined : 0.9);
       };
       img.onerror = function () {
         URL.revokeObjectURL(url);
-        reject(new Error('That file did not look like an image.'));
+        reject(new Error(t('That file did not look like an image.')));
       };
       img.src = url;
     });
@@ -2555,18 +3039,18 @@ window.CONFIG = {
 
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       box.focus();
-      return toast('Enter their email address.');
+      return toast(t('Enter their email address.'));
     }
 
     var btn = document.getElementById('inv-send');
     btn.disabled = true;
-    btn.textContent = 'Sending…';
+    btn.textContent = t('Sending…');
 
     sb.functions.invoke('invite-crew', {
       body: { email: email, role: 'crew', redirectTo: location.origin + location.pathname }
     }).then(function (res) {
       btn.disabled = false;
-      btn.textContent = 'Send invite';
+      btn.textContent = t('Send invite');
 
       var data = res.data || {};
 
@@ -2584,17 +3068,17 @@ window.CONFIG = {
       }
 
       if (data.error) return toast(data.error);
-      if (!data.ok) return toast('That invite could not be sent.');
+      if (!data.ok) return toast(t('That invite could not be sent.'));
 
       box.value = '';
       toast(data.emailed
-        ? 'Invite sent to ' + email
-        : 'They already had an account — added to your crew.');
+        ? tf('Invite sent to {0}', email)
+        : t('They already had an account — added to your crew.'));
       loadOrg().then(renderCrew);
     }).catch(function (err) {
       btn.disabled = false;
-      btn.textContent = 'Send invite';
-      toast('That invite could not be sent: ' + (err.message || err));
+      btn.textContent = t('Send invite');
+      toast(tf('That invite could not be sent: {0}', err.message || err));
     });
   }
 
@@ -2603,59 +3087,64 @@ window.CONFIG = {
   function renderProfile() {
     app.innerHTML =
       '<div class="jobhead">' +
-        '<h1>My profile</h1>' +
+        '<h1>' + t('My profile') + '</h1>' +
         '<div class="jobhead-meta">' + esc(org.company_name) +
-          ' · ' + (org.role === 'owner' ? 'account owner' : 'crew') + '</div>' +
+          ' · ' + (org.role === 'owner' ? t('account owner') : t('crew')) + '</div>' +
       '</div>' +
 
-      '<div class="section-head"><h2>Your details</h2></div>' +
+      '<div class="section-head"><h2>' + t('Settings') + '</h2></div>' +
+      '<div class="panel">' + langPickerHtml('pf-lang') + '</div>' +
+
+      '<div class="section-head"><h2>' + t('Your details') + '</h2></div>' +
       '<div class="panel">' +
-        '<div class="field"><label for="pf-name">Name shown on your entries</label>' +
+        '<div class="field"><label for="pf-name">' + t('Name shown on your entries') + '</label>' +
           '<input id="pf-name" type="text" autocomplete="name" value="' + esc(me.name || '') + '"></div>' +
-        '<div class="field"><label>Email</label>' +
+        '<div class="field"><label>' + t('Email') + '</label>' +
           '<p class="small muted" style="margin:0">' + esc(me.email) +
-            ' — ask the office if this needs changing.</p></div>' +
+            t(' — ask the office if this needs changing.') + '</p></div>' +
         '<div class="row" style="margin-top:14px">' +
-          '<button id="pf-save" class="btn grow">Save name</button>' +
+          '<button id="pf-save" class="btn grow">' + t('Save name') + '</button>' +
         '</div>' +
       '</div>' +
 
-      '<div class="section-head"><h2>Alerts</h2></div>' +
+      '<div class="section-head"><h2>' + t('Alerts') + '</h2></div>' +
       '<div class="panel">' +
         '<label class="switchrow" for="alerts-on">' +
           '<input type="checkbox" id="alerts-on"' + (org.email_alerts ? ' checked' : '') + '>' +
-          '<span><strong>Email me when someone posts to a job</strong>' +
-            '<span class="small muted" style="display:block">One email per entry, to ' +
-              esc(me.email) + '. Your own posts never email you.</span></span>' +
+          '<span><strong>' + t('Email me when someone posts to a job') + '</strong>' +
+            '<span class="small muted" style="display:block">' +
+              tf('One email per entry, to {0}. Your own posts never email you.', esc(me.email)) + '</span></span>' +
         '</label>' +
       '</div>' +
 
-      '<div class="section-head"><h2>Password</h2></div>' +
+      '<div class="section-head"><h2>' + t('Password') + '</h2></div>' +
       '<div class="panel">' +
-        '<div class="field"><label for="pf-pass">New password</label>' +
+        '<div class="field"><label for="pf-pass">' + t('New password') + '</label>' +
           '<input id="pf-pass" type="password" autocomplete="new-password" placeholder="••••••••"></div>' +
-        '<p class="small muted" style="margin:-4px 0 12px">At least 8 characters.</p>' +
-        '<div class="field"><label for="pf-pass2">Confirm new password</label>' +
+        '<p class="small muted" style="margin:-4px 0 12px">' + t('At least 8 characters.') + '</p>' +
+        '<div class="field"><label for="pf-pass2">' + t('Confirm new password') + '</label>' +
           '<input id="pf-pass2" type="password" autocomplete="new-password" placeholder="••••••••"></div>' +
         '<div class="row" style="margin-top:14px">' +
-          '<button id="pf-pass-save" class="btn btn-quiet grow">Change password</button>' +
+          '<button id="pf-pass-save" class="btn btn-quiet grow">' + t('Change password') + '</button>' +
         '</div>' +
       '</div>';
 
+    bindLangPicker('pf-lang');
+
     on('pf-save', 'click', function () {
       var name = document.getElementById('pf-name').value.trim();
-      if (name.length < 2) return toast('Enter your name.');
+      if (name.length < 2) return toast(t('Enter your name.'));
 
       var btn = document.getElementById('pf-save');
       btn.disabled = true;
-      btn.textContent = 'Saving…';
+      btn.textContent = t('Saving…');
 
       sb.rpc('set_my_display_name', { p_name: name }).then(function (res) {
         btn.disabled = false;
-        btn.textContent = 'Save name';
+        btn.textContent = t('Save name');
         if (res.error) return toast(cleanRpcError(res.error));
         me.name = name;
-        toast('Name saved');
+        toast(t('Name saved'));
       });
     });
 
@@ -2667,7 +3156,7 @@ window.CONFIG = {
           return toast(cleanRpcError(res.error));
         }
         org.email_alerts = on;
-        toast(on ? 'Alerts on' : 'Alerts off');
+        toast(on ? t('Alerts on') : t('Alerts off'));
       });
     });
 
@@ -2675,27 +3164,27 @@ window.CONFIG = {
       var a = document.getElementById('pf-pass').value;
       var b = document.getElementById('pf-pass2').value;
 
-      if (a.length < 8) return toast('Use a password of at least 8 characters.');
+      if (a.length < 8) return toast(t('Use a password of at least 8 characters.'));
       if (a !== b) {
         document.getElementById('pf-pass2').focus();
-        return toast('The two passwords do not match.');
+        return toast(t('The two passwords do not match.'));
       }
 
       var btn = document.getElementById('pf-pass-save');
       btn.disabled = true;
-      btn.textContent = 'Changing…';
+      btn.textContent = t('Changing…');
 
       sb.auth.updateUser({ password: a }).then(function (res) {
         btn.disabled = false;
-        btn.textContent = 'Change password';
+        btn.textContent = t('Change password');
         if (res.error) {
           var m = res.error.message || '';
-          if (/same.*password/i.test(m)) return toast('That is already your password.');
+          if (/same.*password/i.test(m)) return toast(t('That is already your password.'));
           return toast(m);
         }
         document.getElementById('pf-pass').value = '';
         document.getElementById('pf-pass2').value = '';
-        toast('Password changed');
+        toast(t('Password changed'));
       });
     });
   }
@@ -2711,7 +3200,7 @@ window.CONFIG = {
     if (!t) return '';
     var bits = t.split(':');
     var h = parseInt(bits[0], 10), m = bits[1];
-    var ap = h >= 12 ? 'pm' : 'am';
+    var ap = h >= 12 ? t('pm') : t('am');
     h = h % 12; if (h === 0) h = 12;
     return h + ':' + m + ' ' + ap;
   }
@@ -2731,16 +3220,16 @@ window.CONFIG = {
 
   function weekday(ymdStr) {
     var names = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-    return names[parseYmd(ymdStr).getDay()];
+    return t(names[parseYmd(ymdStr).getDay()]);
   }
 
   function weekdayShort(ymdStr) {
-    return ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][parseYmd(ymdStr).getDay()];
+    return t(['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][parseYmd(ymdStr).getDay()]);
   }
 
   function monthLabel(y, m) {
-    return ['January','February','March','April','May','June','July','August',
-            'September','October','November','December'][m] + ' ' + y;
+    return t(['January','February','March','April','MayMonth','June','July','August',
+            'September','October','November','December'][m]) + ' ' + y;
   }
 
   function addDaysYmd(dstr, n) {
@@ -2793,7 +3282,7 @@ window.CONFIG = {
   }
 
   function renderSchedule() {
-    app.innerHTML = '<p class="muted">Loading the schedule…</p>';
+    app.innerHTML = '<p class="muted">' + t('Loading the schedule…') + '</p>';
 
     var t = todayParts();
     if (!schedView) schedView = { year: t.y, month: t.m };
@@ -2835,15 +3324,15 @@ window.CONFIG = {
 
       app.innerHTML =
         '<div class="jobhead">' +
-          '<h1>Schedule</h1>' +
-          '<div class="jobhead-meta">' + thisMonthCount +
-            (thisMonthCount === 1 ? ' thing planned this month' : ' things planned this month') + '</div>' +
+          '<h1>' + t('Schedule') + '</h1>' +
+          '<div class="jobhead-meta">' +
+            (thisMonthCount === 1 ? tf('{0} thing planned this month', thisMonthCount) : tf('{0} things planned this month', thisMonthCount)) + '</div>' +
         '</div>' +
 
         '<div class="viewswitch">' +
           ['day', 'week', 'month'].map(function (m) {
             return '<button type="button" class="viewswitch-btn' + (schedMode === m ? ' is-on' : '') +
-              '" data-mode="' + m + '">' + m.charAt(0).toUpperCase() + m.slice(1) + '</button>';
+              '" data-mode="' + m + '">' + t(m.charAt(0).toUpperCase() + m.slice(1)) + '</button>';
           }).join('') +
         '</div>' +
 
@@ -2864,7 +3353,7 @@ window.CONFIG = {
           ? (schedNew
               ? addFormHtml(jobs, crew)
               : '<div class="dock"><div class="dock-inner">' +
-                  '<button id="sc-new" class="btn btn-block">Add to the schedule</button>' +
+                  '<button id="sc-new" class="btn btn-block">' + t('Add to the schedule') + '</button>' +
                 '</div></div>')
           : '');
 
@@ -2883,15 +3372,15 @@ window.CONFIG = {
     }
 
     return '<div class="cal-head">' +
-      '<button id="cal-prev" class="cal-nav" aria-label="Previous">&lsaquo;</button>' +
+      '<button id="cal-prev" class="cal-nav" aria-label="' + t('Previous') + '">&lsaquo;</button>' +
       '<span class="cal-title">' + esc(title) + '</span>' +
-      '<button id="cal-next" class="cal-nav" aria-label="Next">&rsaquo;</button>' +
+      '<button id="cal-next" class="cal-nav" aria-label="' + t('Next') + '">&rsaquo;</button>' +
     '</div>';
   }
 
   function calMonthHtml(cells, byDate, todayStr) {
     return '<div class="cal-dow">' +
-        ['S','M','T','W','T','F','S'].map(function (d) { return '<span>' + d + '</span>'; }).join('') +
+        ['S0','M1','T2','W3','T4','F5','S6'].map(function (d) { return '<span>' + t(d) + '</span>'; }).join('') +
       '</div>' +
       '<div class="cal-grid">' +
         cells.map(function (c) {
@@ -2911,7 +3400,7 @@ window.CONFIG = {
         }).join('') +
       '</div>' +
       '<div class="row" style="margin-top:10px">' +
-        '<button id="cal-today-btn" class="btn-plain">Today</button>' +
+        '<button id="cal-today-btn" class="btn-plain">' + t('Today') + '</button>' +
       '</div>';
   }
 
@@ -2928,40 +3417,40 @@ window.CONFIG = {
 
         return '<button type="button" class="' + cls + '" data-date="' + c.date + '">' +
           '<span class="cal-weekleft">' +
-            '<span class="cal-weekdow">' + weekdayShort(c.date) + (isToday ? ' · today' : '') + '</span>' +
+            '<span class="cal-weekdow">' + weekdayShort(c.date) + (isToday ? t(' · today') : '') + '</span>' +
             '<span class="cal-weeknum">' + parseYmd(c.date).getDate() + '</span>' +
           '</span>' +
           '<span class="cal-weekitems">' +
             (items.length
               ? items.slice(0, 4).map(function (it) {
                   var job = byJob[it.job_id];
-                  var label = job ? job.name : (it.note || 'Planned');
+                  var label = job ? job.name : (it.note || t('Planned'));
                   return '<span class="cal-weekbar">' +
                     '<span class="cal-weekbar-top">' +
                       (it.work_time ? '<span class="sc-time">' + esc(formatTime(it.work_time)) + '</span> ' : '') +
                       '<strong>' + esc(label) + '</strong>' +
                     '</span>' +
                     (job && it.note ? '<span class="cal-weekbar-note">' + esc(it.note) + '</span>' : '') +
-                    '<span class="cal-weekwho">' + esc(it.assignee_name || 'Whole crew') + '</span>' +
+                    '<span class="cal-weekwho">' + esc(it.assignee_name || t('Whole crew')) + '</span>' +
                   '</span>';
                 }).join('') +
-                (items.length > 4 ? '<span class="cal-weekmore">+' + (items.length - 4) + ' more</span>' : '')
-              : '<span class="cal-weeknone">Nothing planned</span>') +
+                (items.length > 4 ? '<span class="cal-weekmore">' + tf('+{0} more', items.length - 4) + '</span>' : '')
+              : '<span class="cal-weeknone">' + t('Nothing planned') + '</span>') +
           '</span>' +
         '</button>';
       }).join('') +
       '<div class="row" style="margin-top:10px">' +
-        '<button id="cal-today-btn" class="btn-plain">Today</button>' +
+        '<button id="cal-today-btn" class="btn-plain">' + t('Today') + '</button>' +
       '</div>' +
     '</div>';
   }
 
   function dayListHtml(dstr, items, byJob, todayStr, withHeading) {
     return (withHeading
-      ? '<div class="section-head"><h2>' + (dstr === todayStr ? 'Today' : esc(weekday(dstr))) +
+      ? '<div class="section-head"><h2>' + (dstr === todayStr ? t('Today') : esc(weekday(dstr))) +
           '</h2><span class="small muted">' + esc(longDate(dstr)) + '</span></div>'
       : '<div class="section-head"><h2>' +
-          (dstr === todayStr ? 'Today' : esc(weekday(dstr))) +
+          (dstr === todayStr ? t('Today') : esc(weekday(dstr))) +
         '</h2><span class="small muted">' + esc(longDate(dstr)) + '</span></div>') +
 
       (items.length
@@ -2971,50 +3460,50 @@ window.CONFIG = {
               '<div class="jobrow-top">' +
                 '<span class="jobrow-name">' +
                   (it.work_time ? '<span class="sc-time">' + esc(formatTime(it.work_time)) + '</span> ' : '') +
-                  esc(job ? job.name : 'No job set') + '</span>' +
-                '<span class="jobrow-when">' + esc(it.assignee_name || 'whole crew') + '</span>' +
+                  esc(job ? job.name : t('No job set')) + '</span>' +
+                '<span class="jobrow-when">' + esc(it.assignee_name || t('whole crew')) + '</span>' +
               '</div>' +
               (it.note ? '<div class="jobrow-meta" style="white-space:pre-wrap">' + esc(it.note) + '</div>' : '') +
             '</div>' +
             '<button type="button" class="jobact jobdel js-sc-del" data-id="' + esc(it.id) +
-              '" aria-label="Remove from schedule" title="Remove">' + TRASH_SVG + '</button>' +
+              '" aria-label="' + t('Remove from schedule') + '" title="' + t('Remove') + '">' + TRASH_SVG + '</button>' +
             '</li>';
           }).join('') + '</ul>'
-        : '<div class="empty" style="padding:20px"><p style="margin:0">Nothing planned this day.</p></div>');
+        : '<div class="empty" style="padding:20px"><p style="margin:0">' + t('Nothing planned this day.') + '</p></div>');
   }
 
   function addFormHtml(jobs, crew) {
     return '<div class="panel" style="margin-top:14px">' +
-        '<h2 style="font-size:22px;margin-bottom:12px">Plan some work</h2>' +
+        '<h2 style="font-size:22px;margin-bottom:12px">' + t('Plan some work') + '</h2>' +
         '<div class="row">' +
-          '<div class="grow"><label for="sc-date">Day</label>' +
+          '<div class="grow"><label for="sc-date">' + t('Day') + '</label>' +
             '<input id="sc-date" type="date" value="' + esc(schedSelected) + '"></div>' +
-          '<div class="grow"><label for="sc-time">Time <span class="muted">(optional)</span></label>' +
+          '<div class="grow"><label for="sc-time">' + tf('Time {0}', '<span class="muted">' + t('(optional)') + '</span>') + '</label>' +
             '<input id="sc-time" type="time"></div>' +
         '</div>' +
         '<div class="row">' +
-          '<div class="grow"><label for="sc-job">Job</label>' +
+          '<div class="grow"><label for="sc-job">' + t('Job') + '</label>' +
             '<select id="sc-job">' +
-              '<option value="">No particular job</option>' +
+              '<option value="">' + t('No particular job') + '</option>' +
               jobs.filter(function (j) { return j.status === 'Active'; }).map(function (j) {
                 return '<option value="' + esc(j.id) + '">' + esc(j.name) + '</option>';
               }).join('') +
             '</select></div>' +
         '</div>' +
-        '<div class="field"><label for="sc-who">Who</label>' +
+        '<div class="field"><label for="sc-who">' + t('Who') + '</label>' +
           '<select id="sc-who">' +
-            '<option value="">Anyone / the whole crew</option>' +
+            '<option value="">' + t('Anyone / the whole crew') + '</option>' +
             crew.map(function (m) {
               return '<option value="' + esc(m.email) + '">' +
                 esc(m.full_name || m.email.split('@')[0]) + '</option>';
             }).join('') +
           '</select></div>' +
-        '<div class="field"><label for="sc-note">What is the plan?</label>' +
+        '<div class="field"><label for="sc-note">' + t('What is the plan?') + '</label>' +
           '<textarea id="sc-note" style="min-height:80px" ' +
             'placeholder="Hang second floor. Bring the lift and 40 sheets of 5/8."></textarea></div>' +
         '<div class="row" style="margin-top:14px">' +
-          '<button id="sc-save" class="btn grow">Add to schedule</button>' +
-          '<button id="sc-cancel" class="btn btn-quiet">Cancel</button>' +
+          '<button id="sc-save" class="btn grow">' + t('Add to schedule') + '</button>' +
+          '<button id="sc-cancel" class="btn btn-quiet">' + t('Cancel') + '</button>' +
         '</div>' +
       '</div>';
   }
@@ -3066,8 +3555,8 @@ window.CONFIG = {
       var whoEmail = document.getElementById('sc-who').value;
       var note = document.getElementById('sc-note').value.trim();
 
-      if (!date) return toast('Pick a day.');
-      if (!jobId && !note) return toast('Pick a job, or say what the plan is.');
+      if (!date) return toast(t('Pick a day.'));
+      if (!jobId && !note) return toast(t('Pick a job, or say what the plan is.'));
 
       var whoName = '';
       if (whoEmail) {
@@ -3077,7 +3566,7 @@ window.CONFIG = {
 
       var btn = document.getElementById('sc-save');
       btn.disabled = true;
-      btn.textContent = 'Adding…';
+      btn.textContent = t('Adding…');
 
       sb.from('schedule').insert({
         company_id: org.company_id,
@@ -3090,23 +3579,23 @@ window.CONFIG = {
         created_by: me.email
       }).then(function (res) {
         btn.disabled = false;
-        btn.textContent = 'Add to schedule';
-        if (res.error) return toast('Could not add that: ' + res.error.message);
+        btn.textContent = t('Add to schedule');
+        if (res.error) return toast(tf('Could not add that: {0}', res.error.message));
         schedNew = false;
         schedSelected = date;
         var d = parseYmd(date);
         schedView = { year: d.getFullYear(), month: d.getMonth() };
-        toast('Added to the schedule');
+        toast(t('Added to the schedule'));
         renderSchedule();
       });
     });
 
     Array.prototype.forEach.call(document.querySelectorAll('.js-sc-del'), function (b) {
       b.addEventListener('click', function () {
-        if (!confirm('Take this off the schedule?')) return;
+        if (!confirm(t('Take this off the schedule?'))) return;
         sb.from('schedule').delete().eq('id', b.dataset.id).then(function (res) {
-          if (res.error) return toast('Could not remove that: ' + res.error.message);
-          toast('Removed');
+          if (res.error) return toast(tf('Could not remove that: {0}', res.error.message));
+          toast(t('Removed'));
           renderSchedule();
         });
       });
@@ -3116,7 +3605,7 @@ window.CONFIG = {
   /* ---------------- crew ---------------- */
 
   function renderCrew() {
-    app.innerHTML = '<p class="muted">Loading crew…</p>';
+    app.innerHTML = '<p class="muted">' + t('Loading crew…') + '</p>';
 
     sb.from('memberships')
       .select('user_id,email,full_name,role,created_at')
@@ -3128,79 +3617,74 @@ window.CONFIG = {
 
         app.innerHTML =
           '<div class="jobhead">' +
-            '<span class="kicker">Crew</span>' +
+            '<span class="kicker">' + t('Crew') + '</span>' +
             (owner
               ? '<div id="cn-view">' +
                   '<h1>' + esc(org.company_name) + '</h1>' +
-                  '<button id="cn-edit" class="btn-plain" style="padding:2px 0">Rename company</button>' +
+                  '<button id="cn-edit" class="btn-plain" style="padding:2px 0">' + t('Rename company') + '</button>' +
                 '</div>' +
                 '<div id="cn-form" hidden>' +
-                  '<div class="field"><label for="cn-input">Company name</label>' +
+                  '<div class="field"><label for="cn-input">' + t('Company name') + '</label>' +
                     '<input id="cn-input" type="text" value="' + esc(org.company_name) + '"></div>' +
                   '<div class="row" style="margin-top:10px">' +
-                    '<button id="cn-save" class="btn">Save name</button>' +
-                    '<button id="cn-cancel" class="btn btn-quiet">Cancel</button>' +
+                    '<button id="cn-save" class="btn">' + t('Save name') + '</button>' +
+                    '<button id="cn-cancel" class="btn btn-quiet">' + t('Cancel') + '</button>' +
                   '</div>' +
                 '</div>'
               : '<h1>' + esc(org.company_name) + '</h1>') +
-            '<div class="jobhead-meta">' + members.length + ' of ' +
-              (org.seat_limit == null ? 'unlimited' : org.seat_limit) + ' seats used' +
+            '<div class="jobhead-meta">' + tf('{0} of {1} seats used', members.length, (org.seat_limit == null ? t('unlimited') : org.seat_limit)) +
               (free != null && free > 0
-                ? ' · ' + free + (free === 1 ? ' seat free' : ' seats free')
+                ? (free === 1 ? tf(' · {0} seat free', free) : tf(' · {0} seats free', free))
                 : '') + '</div>' +
           '</div>' +
 
-          '<div class="section-head"><h2>Crew</h2></div>' +
+          '<div class="section-head"><h2>' + t('Crew') + '</h2></div>' +
 
           '<ul class="joblist">' + members.map(function (m) {
             var isMe = m.email === me.email;
             return '<li class="jobitem"><div class="jobrow">' +
               '<div class="jobrow-top"><span class="jobrow-name">' +
-                esc(m.full_name || m.email.split('@')[0]) + (isMe ? ' (you)' : '') + '</span>' +
-                '<span class="jobrow-when">' + esc(m.role) + '</span></div>' +
+                esc(m.full_name || m.email.split('@')[0]) + (isMe ? t(' (you)') : '') + '</span>' +
+                '<span class="jobrow-when">' + esc(roleLabel(m.role)) + '</span></div>' +
               '<div class="jobrow-meta">' + esc(m.email) + '</div>' +
             '</div>' +
             (owner && !isMe
               ? '<button type="button" class="jobact jobdel js-remove" data-id="' + esc(m.user_id) +
                   '" data-name="' + esc(m.full_name || m.email) + '" aria-label="Remove ' +
-                  esc(m.full_name || m.email) + '" title="Remove from crew">' + TRASH_SVG + '</button>'
+                  esc(m.full_name || m.email) + '" title="' + t('Remove from crew') + '">' + TRASH_SVG + '</button>'
               : '') +
             '</li>';
           }).join('') + '</ul>' +
 
           (owner
-            ? '<div class="section-head"><h2>Add someone to the crew</h2></div>' +
+            ? '<div class="section-head"><h2>' + t('Add someone to the crew') + '</h2></div>' +
               '<div class="panel">' +
                 (seatsFull(members.length)
-                  ? '<p style="margin:0 0 4px"><strong>Your crew is full.</strong></p>' +
-                    '<p class="small muted" style="margin:0">All ' + org.seat_limit +
-                      ' seats are in use. Remove someone above, or get in touch about adding seats.</p>'
-                  : '<div class="field"><label for="inv-email">Their email address</label>' +
+                  ? '<p style="margin:0 0 4px"><strong>' + t('Your crew is full.') + '</strong></p>' +
+                    '<p class="small muted" style="margin:0">' +
+                      tf('All {0} seats are in use. Remove someone above, or get in touch about adding seats.', org.seat_limit) + '</p>'
+                  : '<div class="field"><label for="inv-email">' + t('Their email address') + '</label>' +
                       '<input id="inv-email" type="email" inputmode="email" autocapitalize="off" ' +
                         'spellcheck="false" placeholder="dave@example.com"></div>' +
                     '<div class="row" style="margin-top:13px">' +
-                      '<button id="inv-send" class="btn grow">Send invite</button>' +
+                      '<button id="inv-send" class="btn grow">' + t('Send invite') + '</button>' +
                     '</div>' +
-                    '<p class="small muted" style="margin:11px 0 0">They get an email with a link to ' +
-                      'set their own password. You never handle it.</p>') +
+                    '<p class="small muted" style="margin:11px 0 0">' + t('They get an email with a link to set their own password. You never handle it.') + '</p>') +
               '</div>' +
 
-              '<div class="section-head"><h2>Company logo</h2></div>' +
+              '<div class="section-head"><h2>' + t('Company logo') + '</h2></div>' +
               '<div class="panel">' +
                 (org.logo_url
                   ? '<div class="logopreview"><img src="' + esc(org.logo_url) + '" alt="' +
-                      esc(org.company_name) + ' logo">' +
-                      '<button id="do-logo-clear" class="btn-soft-danger">Remove</button></div>'
-                  : '<p class="small muted" style="margin:0 0 12px">No logo yet — your company name ' +
-                    'shows at the top instead.</p>') +
+                      tf('{0} logo', esc(org.company_name)) + '">' +
+                      '<button id="do-logo-clear" class="btn-soft-danger">' + t('Remove') + '</button></div>'
+                  : '<p class="small muted" style="margin:0 0 12px">' + t('No logo yet — your company name shows at the top instead.') + '</p>') +
                 '<div class="filedrop">' +
                   '<input id="logo-file" type="file" accept="image/*">' +
                   '<label class="filedrop-label" for="logo-file">' +
-                    (org.logo_url ? 'Choose a different logo' : 'Choose a logo') + '</label>' +
+                    (org.logo_url ? t('Choose a different logo') : t('Choose a logo')) + '</label>' +
                 '</div>' +
-                '<p class="small muted" style="margin:10px 0 0">PNG, JPG or WebP. A wide logo works ' +
-                  'best, and a PNG with a transparent or white background looks cleanest against ' +
-                  'the white bar.</p>' +
+                '<p class="small muted" style="margin:10px 0 0">' + t('PNG, JPG or WebP. A wide logo works best, and a PNG with a transparent or white background looks cleanest against the white bar.') + '</p>' +
               '</div>'
             : '');
 
@@ -3217,19 +3701,19 @@ window.CONFIG = {
         });
         on('cn-save', 'click', function () {
           var name = document.getElementById('cn-input').value.trim();
-          if (name.length < 2) return toast('Enter a company name.');
+          if (name.length < 2) return toast(t('Enter a company name.'));
 
           var btn = document.getElementById('cn-save');
           btn.disabled = true;
-          btn.textContent = 'Saving…';
+          btn.textContent = t('Saving…');
 
           sb.rpc('set_company_name', { p_name: name }).then(function (res) {
             btn.disabled = false;
-            btn.textContent = 'Save name';
+            btn.textContent = t('Save name');
             if (res.error) return toast(cleanRpcError(res.error));
             org.company_name = name;
             paintBrand();
-            toast('Company renamed');
+            toast(t('Company renamed'));
             renderCrew();
           });
         });
@@ -3249,14 +3733,14 @@ window.CONFIG = {
         });
 
         on('do-logo-clear', 'click', function () {
-          if (!confirm('Remove the logo? Your company name will show at the top instead.')) return;
+          if (!confirm(t('Remove the logo? Your company name will show at the top instead.'))) return;
           var old = org.logo_path;
           sb.rpc('set_company_logo', { p_path: null }).then(function (res) {
             if (res.error) return toast(cleanRpcError(res.error));
             if (old) sb.storage.from(LOGO_BUCKET).remove([old]);
             return loadOrg().then(function () {
               paintBrand();
-              toast('Logo removed');
+              toast(t('Logo removed'));
               renderCrew();
             });
           });
@@ -3264,10 +3748,10 @@ window.CONFIG = {
 
         Array.prototype.forEach.call(document.querySelectorAll('.js-remove'), function (b) {
           b.addEventListener('click', function () {
-            if (!confirm('Remove ' + b.dataset.name + ' from the crew?\n\nTheir past entries and photos stay in the log. They lose access immediately.')) return;
+            if (!confirm(tf('Remove {0} from the crew?\n\nTheir past entries and photos stay in the log. They lose access immediately.', b.dataset.name))) return;
             sb.rpc('remove_member', { p_user: b.dataset.id }).then(function (res) {
               if (res.error) return toast(cleanRpcError(res.error));
-              toast('Removed');
+              toast(t('Removed'));
               loadOrg().then(renderCrew);
             });
           });
@@ -3278,7 +3762,7 @@ window.CONFIG = {
   /* ---------------- dashboard ---------------- */
 
   function renderDashboard() {
-    app.innerHTML = '<p class="muted">Loading jobs…</p>';
+    app.innerHTML = '<p class="muted">' + t('Loading jobs…') + '</p>';
 
     sb.from('jobs').select('*').order('updated_at', { ascending: false })
       .then(function (res) {
@@ -3323,41 +3807,38 @@ window.CONFIG = {
 
     app.innerHTML =
       '<div class="row" style="margin-bottom:4px">' +
-        '<div class="grow"><label for="dash-q">Search jobs</label>' +
-          '<input id="dash-q" type="text" value="' + esc(dash.q) + '" placeholder="Name, address or client"></div>' +
-        '<div style="flex:0 0 150px"><label for="dash-status">Show</label>' +
+        '<div class="grow"><label for="dash-q">' + t('Search jobs') + '</label>' +
+          '<input id="dash-q" type="text" value="' + esc(dash.q) + '" placeholder="' + t('Name, address or client') + '"></div>' +
+        '<div style="flex:0 0 150px"><label for="dash-status">' + t('Show') + '</label>' +
           '<select id="dash-status">' +
-            opt('Active', 'Active (' + counts.active + ')', dash.status) +
-            opt('Completed', 'Completed (' + counts.completed + ')', dash.status) +
-            opt('All', 'All jobs (' + jobs.length + ')', dash.status) +
+            opt('Active', tf('Active ({0})', counts.active), dash.status) +
+            opt('Completed', tf('Completed ({0})', counts.completed), dash.status) +
+            opt('All', tf('All jobs ({0})', jobs.length), dash.status) +
           '</select></div>' +
       '</div>' +
 
       (quiet.length
-        ? '<div class="section-head"><h2>Nothing posted lately</h2>' +
+        ? '<div class="section-head"><h2>' + t('Nothing posted lately') + '</h2>' +
             '<span class="small muted">' + quiet.length + '</span></div>' +
-          '<p class="small muted" style="margin:-4px 0 10px">No entry in ' + QUIET_DAYS +
-            ' days or more. Either the crew is off it, or nobody is logging.</p>' +
+          '<p class="small muted" style="margin:-4px 0 10px">' +
+            tf('No entry in {0} days or more. Either the crew is off it, or nobody is logging.', QUIET_DAYS) + '</p>' +
           group(quiet)
         : '') +
 
       (rest.length
         ? '<div class="section-head"><h2>' +
-            (dash.status === 'All' ? 'All jobs' : dash.status + ' jobs') + '</h2>' +
-            '<span class="small muted">Newest activity first</span></div>' +
+            (dash.status === 'All' ? t('All jobs') : dash.status === 'Completed' ? t('Completed jobs') : t('Active jobs')) + '</h2>' +
+            '<span class="small muted">' + t('Newest activity first') + '</span></div>' +
           group(rest)
         : '') +
 
       (stale.length
-        ? '<div class="section-head"><h2>Worth archiving</h2>' +
+        ? '<div class="section-head"><h2>' + t('Worth archiving') + '</h2>' +
             '<span class="small muted">' + stale.length + '</span></div>' +
           '<div class="panel" style="border-left:5px solid var(--steel);margin-bottom:10px">' +
-            '<p class="small" style="margin:0 0 6px"><strong>Nothing on these for ' + STALE_DAYS +
-              '+ days.</strong></p>' +
-            '<p class="small muted" style="margin:0">Save the notes and the client PDF onto your own ' +
-              'computer, then delete the job here. That keeps your photo storage down and leaves you ' +
-              'holding the record — worth doing while the job is still fresh enough to answer ' +
-              'questions about.</p>' +
+            '<p class="small" style="margin:0 0 6px"><strong>' +
+              tf('Nothing on these for {0}+ days.', STALE_DAYS) + '</strong></p>' +
+            '<p class="small muted" style="margin:0">' + t('Save the notes and the client PDF onto your own computer, then delete the job here. That keeps your photo storage down and leaves you holding the record — worth doing while the job is still fresh enough to answer questions about.') + '</p>' +
           '</div>' +
           group(stale)
         : '') +
@@ -3365,24 +3846,23 @@ window.CONFIG = {
       (!shown.length ? emptyJobsHtml(jobs.length) : '') +
 
       '<div id="newjob" class="panel" hidden style="margin-top:18px">' +
-        '<h2 style="font-size:22px;margin-bottom:12px">Add a job</h2>' +
-        '<div class="field"><label for="nj-name">Job name</label>' +
+        '<h2 style="font-size:22px;margin-bottom:12px">' + t('Add a job') + '</h2>' +
+        '<div class="field"><label for="nj-name">' + t('Job name') + '</label>' +
           '<input id="nj-name" type="text" placeholder="Hillcrest Apartments, Bldg C"></div>' +
-        '<div class="field"><label for="nj-address">Address</label>' +
+        '<div class="field"><label for="nj-address">' + t('Address') + '</label>' +
           '<input id="nj-address" type="text" autocomplete="street-address" ' +
             'placeholder="412 Hillcrest Dr, Morris MN">' +
-          '<p class="small muted" style="margin:6px 0 0">Your phone offers addresses you have used ' +
-            'before. Tap an address on a job to open it in maps.</p></div>' +
-        '<div class="field"><label for="nj-client">Client</label>' +
+          '<p class="small muted" style="margin:6px 0 0">' + t('Your phone offers addresses you have used before. Tap an address on a job to open it in maps.') + '</p></div>' +
+        '<div class="field"><label for="nj-client">' + t('Client') + '</label>' +
           '<input id="nj-client" type="text" placeholder="Barrett Construction"></div>' +
         '<div class="row" style="margin-top:14px">' +
-          '<button id="nj-save" class="btn grow">Save job</button>' +
-          '<button id="nj-cancel" class="btn btn-quiet">Cancel</button>' +
+          '<button id="nj-save" class="btn grow">' + t('Save job') + '</button>' +
+          '<button id="nj-cancel" class="btn btn-quiet">' + t('Cancel') + '</button>' +
         '</div>' +
       '</div>' +
 
       '<div class="dock"><div class="dock-inner">' +
-        '<button id="nj-open" class="btn btn-block">Add a job</button>' +
+        '<button id="nj-open" class="btn btn-block">' + t('Add a job') + '</button>' +
       '</div></div>';
 
     on('dash-q', 'input', function (e) { dash.q = e.target.value; paintDashboardKeepFocus(jobs, 'dash-q'); });
@@ -3429,41 +3909,41 @@ window.CONFIG = {
           '<span class="jobrow-name">' + esc(j.name) + '</span>' +
           '<span class="jobrow-when">' + esc(relTime(j.updated_at)) + '</span>' +
         '</div>' +
-        '<div class="jobrow-meta">' + esc(j.client_name || 'No client listed') +
+        '<div class="jobrow-meta">' + esc(j.client_name || t('No client listed')) +
           (j.address ? ' · ' + esc(j.address) : '') + '</div>' +
         (function () {
         var age = daysSince(j.updated_at);
         var chips = [];
-        if (j.status === 'Completed') chips.push('<span class="chip chip-done">Completed</span>');
-        if (age >= STALE_DAYS) chips.push('<span class="chip">' + age + ' days quiet</span>');
+        if (j.status === 'Completed') chips.push('<span class="chip chip-done">' + t('Completed') + '</span>');
+        if (age >= STALE_DAYS) chips.push('<span class="chip">' + tf('{0} days quiet', age) + '</span>');
         else if (j.status === 'Active' && age >= QUIET_DAYS) {
-          chips.push('<span class="chip chip-issue">' + age + ' days since an entry</span>');
+          chips.push('<span class="chip chip-issue">' + tf('{0} days since an entry', age) + '</span>');
         }
         return chips.length ? '<div style="margin-top:7px">' + chips.join(' ') + '</div>' : '';
       })() +
       '</a>' +
       '<button type="button" class="jobact jobtxt js-jobtxt" data-id="' + esc(j.id) +
-        '" aria-label="Save notes for ' + esc(j.name) + '" title="Save notes (.txt)">' + NOTES_SVG + '</button>' +
+        '" aria-label="' + tf('Save notes for {0}', esc(j.name)) + '" title="' + t('Save notes (.txt)') + '">' + NOTES_SVG + '</button>' +
       '<button type="button" class="jobact jobdel js-jobdel" data-id="' + esc(j.id) + '" data-name="' + esc(j.name) +
-        '" aria-label="Delete ' + esc(j.name) + '" title="Delete job">' + TRASH_SVG + '</button>' +
+        '" aria-label="' + tf('Delete {0}', esc(j.name)) + '" title="' + t('Delete job') + '">' + TRASH_SVG + '</button>' +
     '</li>';
   }
 
   function emptyJobsHtml(total) {
     if (total === 0) {
-      return '<div class="empty"><h2>No jobs yet</h2>' +
-        '<p>Add your first job below. Once it is in, your crew can post notes and photos to it from their phones.</p></div>';
+      return '<div class="empty"><h2>' + t('No jobs yet') + '</h2>' +
+        '<p>' + t('Add your first job below. Once it is in, your crew can post notes and photos to it from their phones.') + '</p></div>';
     }
-    return '<div class="empty"><h2>Nothing matches</h2>' +
-      '<p>Clear the search box, or switch “Show” to all jobs.</p></div>';
+    return '<div class="empty"><h2>' + t('Nothing matches') + '</h2>' +
+      '<p>' + t('Clear the search box, or switch “Show” to all jobs.') + '</p></div>';
   }
 
   function saveNewJob() {
     var name = document.getElementById('nj-name').value.trim();
-    if (name.length < 2) return toast('Give the job a name.');
+    if (name.length < 2) return toast(t('Give the job a name.'));
     var btn = document.getElementById('nj-save');
     btn.disabled = true;
-    btn.textContent = 'Saving…';
+    btn.textContent = t('Saving…');
 
     sb.from('jobs').insert({
       company_id: org.company_id,
@@ -3472,16 +3952,16 @@ window.CONFIG = {
       client_name: document.getElementById('nj-client').value.trim(),
       status: 'Active'
     }).select().single().then(function (res) {
-      if (res.error) { btn.disabled = false; btn.textContent = 'Save job'; return toast('Could not save: ' + res.error.message); }
-      toast('Job saved');
+      if (res.error) { btn.disabled = false; btn.textContent = t('Save job'); return toast(tf('Could not save: {0}', res.error.message)); }
+      toast(t('Job saved'));
       location.hash = '#/job/' + res.data.id;
     });
   }
 
   function deleteJob(id, name) {
-    if (!confirm('Delete "' + name + '"?\n\nEvery entry and photo on this job goes with it, for the whole crew. This cannot be undone.')) return;
+    if (!confirm(tf('Delete "{0}"?\n\nEvery entry and photo on this job goes with it, for the whole crew. This cannot be undone.', name))) return;
 
-    toast('Deleting…');
+    toast(t('Deleting…'));
 
     sb.from('entries').select('entry_photos(storage_path)').eq('job_id', id)
       .then(function (res) {
@@ -3496,17 +3976,17 @@ window.CONFIG = {
         return sb.from('jobs').delete().eq('id', id);
       })
       .then(function (res) {
-        if (res.error) return toast('Could not delete: ' + res.error.message);
-        toast('Job deleted');
+        if (res.error) return toast(tf('Could not delete: {0}', res.error.message));
+        toast(t('Job deleted'));
         renderDashboard();
       })
-      .catch(function (err) { toast('Could not delete: ' + (err.message || err)); });
+      .catch(function (err) { toast(tf('Could not delete: {0}', err.message || err)); });
   }
 
   /* ---------------- job page ---------------- */
 
   function renderJob(id) {
-    app.innerHTML = '<p class="muted">Loading job…</p>';
+    app.innerHTML = '<p class="muted">' + t('Loading job…') + '</p>';
 
     Promise.all([
       sb.from('jobs').select('*').eq('id', id).single(),
@@ -3519,7 +3999,7 @@ window.CONFIG = {
         .eq('job_id', id).gte('work_date', todayISO())
         .order('work_date').limit(6)
     ]).then(function (r) {
-      if (r[0].error) return renderError('That job could not be loaded. ' + r[0].error.message);
+      if (r[0].error) return renderError(tf('That job could not be loaded. {0}', r[0].error.message));
       if (r[1].error) return renderError(r[1].error.message);
       view.job = r[0].data;
       view.entries = r[1].data || [];
@@ -3534,70 +4014,74 @@ window.CONFIG = {
 
     app.innerHTML =
       '<div class="jobhead">' +
-        '<span class="kicker">' + (j.status === 'Completed' ? 'Completed job' : 'Active job') + '</span>' +
+        '<span class="kicker">' + (j.status === 'Completed' ? t('Completed job') : t('Active job')) + '</span>' +
         '<h1>' + esc(j.name) + '</h1>' +
-        '<div class="jobhead-meta">' + esc(j.client_name || 'No client listed') +
+        '<div class="jobhead-meta">' + esc(j.client_name || t('No client listed')) +
           (j.address
             ? '<br><a class="maplink" target="_blank" rel="noopener" href="' +
                 esc(mapsUrl(j.address)) + '">' + esc(j.address) + '</a>'
             : '') + '</div>' +
         '<div class="row">' +
           '<button id="toggle-status" class="btn btn-quiet">' +
-            (j.status === 'Completed' ? 'Reopen job' : 'Mark job completed') + '</button>' +
-          '<button id="do-pdf" class="btn btn-quiet">Client PDF</button>' +
+            (j.status === 'Completed' ? t('Reopen job') : t('Mark job completed')) + '</button>' +
+          '<button id="do-pdf" class="btn btn-quiet">' + t('Client PDF') + '</button>' +
+          '<button id="do-photos" class="btn btn-quiet">' + t('Save photos') + '</button>' +
+          '<button id="do-drive" class="btn btn-quiet">' + t('Save to Drive') + '</button>' +
         '</div>' +
       '</div>' +
 
       '<div id="compose" class="panel" hidden style="margin-top:14px">' +
-        '<div class="field"><label for="c-date">Date</label>' +
+        '<div class="field"><label for="c-date">' + t('Date') + '</label>' +
           '<input id="c-date" type="date" value="' + todayISO() + '" max="' + todayISO() + '"></div>' +
-        '<div class="field"><label for="c-notes">What happened on site?</label>' +
+        '<div class="field"><label for="c-notes">' + t('What happened on site?') + '</label>' +
           '<textarea id="c-notes" placeholder="Hung 42 sheets on the second floor. Need 20 more sheets of 5/8 by Thursday."></textarea></div>' +
         '<div class="field">' +
           '<div class="tagpick">' +
-            '<input type="radio" name="tag" id="tag-note" value="note" checked><label for="tag-note">Update</label>' +
-            '<input type="radio" name="tag" id="tag-issue" value="issue"><label for="tag-issue">Issue</label>' +
+            '<input type="radio" name="tag" id="tag-note" value="note" checked><label for="tag-note">' + t('Site note') + '</label>' +
+            '<input type="radio" name="tag" id="tag-issue" value="issue"><label for="tag-issue">' + t('Issue') + '</label>' +
           '</div></div>' +
         '<div class="field">' +
           '<div class="filedrop">' +
             '<input id="c-files" type="file" accept="image/*" multiple>' +
-            '<label class="filedrop-label" for="c-files">Add photos</label>' +
+            '<label class="filedrop-label" for="c-files">' + t('Add photos') + '</label>' +
             '<div id="c-thumbs" class="thumbs"></div>' +
           '</div></div>' +
         '<div class="row" style="margin-top:16px">' +
-          '<button id="c-save" class="btn grow">Post entry</button>' +
-          '<button id="c-cancel" class="btn btn-quiet">Cancel</button>' +
+          '<button id="c-save" class="btn grow">' + t('Post entry') + '</button>' +
+          '<button id="c-cancel" class="btn btn-quiet">' + t('Cancel') + '</button>' +
         '</div>' +
       '</div>' +
 
       (view.upcoming.length
-        ? '<div class="section-head"><h2>Coming up</h2></div>' +
+        ? '<div class="section-head"><h2>' + t('Coming up') + '</h2></div>' +
           '<ul class="codelist">' + view.upcoming.map(function (it) {
             return '<li><span class="grow"><strong>' + esc(longDate(it.work_date)) + '</strong>' +
               (it.note ? ' — ' + esc(it.note) : '') + '</span>' +
-              '<span class="chip">' + esc(it.assignee_name || 'whole crew') + '</span></li>';
+              '<span class="chip">' + esc(it.assignee_name || t('whole crew')) + '</span></li>';
           }).join('') + '</ul>'
         : '') +
 
-      '<div class="section-head"><h2>Daily log</h2>' +
-        '<span class="small muted">' + view.entries.length +
-        (view.entries.length === 1 ? ' entry' : ' entries') + '</span></div>' +
+      '<div class="section-head"><h2>' + t('Daily log') + '</h2>' +
+        '<span class="small muted">' +
+        (view.entries.length === 1 ? tf('{0} entry', view.entries.length) : tf('{0} entries', view.entries.length)) + '</span></div>' +
 
       '<div class="row" style="margin-bottom:12px">' +
-        '<div class="grow"><label for="f-q">Search notes</label>' +
-          '<input id="f-q" type="text" value="' + esc(view.q) + '" placeholder="Word, name or material"></div>' +
-        '<div style="flex:0 0 165px"><label for="f-date">On date</label>' +
+        '<div class="grow"><label for="f-q">' + t('Search notes') + '</label>' +
+          '<input id="f-q" type="text" value="' + esc(view.q) + '" placeholder="' + t('Word, name or material') + '"></div>' +
+        '<div style="flex:0 0 165px"><label for="f-date">' + t('On date') + '</label>' +
           '<input id="f-date" type="date" value="' + esc(view.date) + '"></div>' +
       '</div>' +
 
       feedHtml() +
 
       '<div class="dock"><div class="dock-inner">' +
-        '<button id="c-open" class="btn btn-block">Add entry</button>' +
+        '<button id="c-open" class="btn btn-block">' + t('Add entry') + '</button>' +
       '</div></div>';
 
     on('toggle-status', 'click', toggleStatus);
     on('do-pdf', 'click', exportPdf);
+    on('do-photos', 'click', saveJobPhotos);
+    on('do-drive', 'click', savePhotosToDrive);
 
     on('c-open', 'click', function () {
       document.getElementById('compose').hidden = false;
@@ -3646,11 +4130,11 @@ window.CONFIG = {
     var list = visibleEntries();
     if (!list.length) {
       if (view.entries.length === 0) {
-        return '<div class="empty"><h2>The log is empty</h2>' +
-          '<p>Post the first entry with the button at the bottom. Notes are dated automatically.</p></div>';
+        return '<div class="empty"><h2>' + t('The log is empty') + '</h2>' +
+          '<p>' + t('Post the first entry with the button at the bottom. Notes are dated automatically.') + '</p></div>';
       }
-      return '<div class="empty"><h2>Nothing matches</h2>' +
-        '<p>Clear the search box or the date to see the whole log again.</p></div>';
+      return '<div class="empty"><h2>' + t('Nothing matches') + '</h2>' +
+        '<p>' + t('Clear the search box or the date to see the whole log again.') + '</p></div>';
     }
     return '<ul class="feed">' + list.map(function (en) {
       if (view.editing === en.id) return entryEditHtml(en);
@@ -3683,15 +4167,15 @@ window.CONFIG = {
         (photos.length ? '<div class="gallery">' + photos.map(function (p) {
           var url = p.url || '';
           return '<button type="button" class="js-zoom" data-url="' + esc(url) + '">' +
-            '<img loading="lazy" src="' + esc(url) + '" alt="Photo from ' + esc(longDate(en.entry_date)) + '"></button>';
+            '<img loading="lazy" src="' + esc(url) + '" alt="' + tf('Photo from {0}', esc(longDate(en.entry_date))) + '"></button>';
         }).join('') + '</div>' : '') +
         ((mine || en.tag === 'issue') ? '<div class="entry-actions">' +
-            (mine ? '<button class="btn-mini js-edit" data-id="' + esc(en.id) + '">Edit</button>' : '') +
+            (mine ? '<button class="btn-mini js-edit" data-id="' + esc(en.id) + '">' + t('Edit') + '</button>' : '') +
             (en.tag === 'issue'
               ? '<button class="btn-mini js-issue" data-id="' + esc(en.id) + '">' +
-                  (en.issue_status === 'resolved' ? 'Reopen / update' : 'Add update') + '</button>'
+                  (en.issue_status === 'resolved' ? t('Reopen / update') : t('Add update')) + '</button>'
               : '') +
-            (mine ? '<button class="btn-mini btn-mini-danger js-del" data-id="' + esc(en.id) + '">Delete</button>' : '') +
+            (mine ? '<button class="btn-mini btn-mini-danger js-del" data-id="' + esc(en.id) + '">' + t('Delete') + '</button>' : '') +
           '</div>' : '') +
       '</div>' +
     '</article></li>';
@@ -3702,41 +4186,41 @@ window.CONFIG = {
     var photos = en.entry_photos || [];
 
     return '<li><div class="panel editpanel">' +
-      '<div class="editpanel-head">Editing your entry</div>' +
-      '<div class="field"><label for="e-date">Date</label>' +
+      '<div class="editpanel-head">' + t('Editing your entry') + '</div>' +
+      '<div class="field"><label for="e-date">' + t('Date') + '</label>' +
         '<input id="e-date" type="date" value="' + esc(en.entry_date) + '" max="' + todayISO() + '"></div>' +
-      '<div class="field"><label for="e-notes">What happened on site?</label>' +
+      '<div class="field"><label for="e-notes">' + t('What happened on site?') + '</label>' +
         '<textarea id="e-notes">' + esc(en.notes || '') + '</textarea></div>' +
       '<div class="field">' +
         '<div class="tagpick">' +
           '<input type="radio" name="etag" id="etag-note" value="note"' + (en.tag !== 'issue' ? ' checked' : '') + '>' +
-          '<label for="etag-note">Update</label>' +
+          '<label for="etag-note">' + t('Site note') + '</label>' +
           '<input type="radio" name="etag" id="etag-issue" value="issue"' + (en.tag === 'issue' ? ' checked' : '') + '>' +
-          '<label for="etag-issue">Issue</label>' +
+          '<label for="etag-issue">' + t('Issue') + '</label>' +
         '</div></div>' +
 
       (photos.length ?
-        '<div class="field"><label>Photos on this entry</label>' +
-          '<p class="small muted" style="margin:0 0 8px">Tap a photo to remove it when you save.</p>' +
+        '<div class="field"><label>' + t('Photos on this entry') + '</label>' +
+          '<p class="small muted" style="margin:0 0 8px">' + t('Tap a photo to remove it when you save.') + '</p>' +
           '<div class="thumbs">' + photos.map(function (p) {
             var marked = !!editRemove[p.id];
             return '<button type="button" class="photochip js-photo-toggle' + (marked ? ' marked' : '') + '" ' +
               'data-id="' + esc(p.id) + '">' +
-              '<img src="' + esc(p.url || '') + '" alt="Photo on this entry">' +
-              (marked ? '<span class="photochip-x">Removing</span>' : '') +
+              '<img src="' + esc(p.url || '') + '" alt="' + t('Photo on this entry') + '">' +
+              (marked ? '<span class="photochip-x">' + t('Removing') + '</span>' : '') +
             '</button>';
           }).join('') + '</div></div>' : '') +
 
       '<div class="field">' +
         '<div class="filedrop">' +
           '<input id="e-files" type="file" accept="image/*" multiple>' +
-          '<label class="filedrop-label" for="e-files">Add photos</label>' +
+          '<label class="filedrop-label" for="e-files">' + t('Add photos') + '</label>' +
           '<div id="e-thumbs" class="thumbs"></div>' +
         '</div></div>' +
 
       '<div class="row" style="margin-top:16px">' +
-        '<button id="e-save" class="btn grow" data-id="' + esc(en.id) + '">Save changes</button>' +
-        '<button id="e-cancel" class="btn btn-quiet">Cancel</button>' +
+        '<button id="e-save" class="btn grow" data-id="' + esc(en.id) + '">' + t('Save changes') + '</button>' +
+        '<button id="e-cancel" class="btn btn-quiet">' + t('Cancel') + '</button>' +
       '</div>' +
     '</div></li>';
   }
@@ -3746,28 +4230,27 @@ window.CONFIG = {
     var count = (en.issue_updates || []).length;
 
     return '<li><div class="panel editpanel">' +
-      '<div class="editpanel-head">Add an update</div>' +
-      '<p class="small muted" style="margin:-6px 0 12px">Logged by ' + esc(en.author_name) +
-        ' on ' + esc(longDate(en.entry_date)) +
-        (count ? ' · ' + count + (count === 1 ? ' update so far' : ' updates so far') : '') +
-        '. Updates are added to the record — nothing gets overwritten.</p>' +
+      '<div class="editpanel-head">' + t('Add an update') + '</div>' +
+      '<p class="small muted" style="margin:-6px 0 12px">' + tf('Logged by {0} on {1}', esc(en.author_name), esc(longDate(en.entry_date))) +
+        (count ? (count === 1 ? tf(' · {0} update so far', count) : tf(' · {0} updates so far', count)) : '') +
+        t('. Updates are added to the record — nothing gets overwritten.') + '</p>' +
 
       '<div class="field">' +
         '<div class="tagpick tagpick-3">' +
           '<input type="radio" name="istat" id="ist-open" value="open"' +
-            (st === 'open' ? ' checked' : '') + '><label for="ist-open">Open</label>' +
+            (st === 'open' ? ' checked' : '') + '><label for="ist-open">' + t('Open') + '</label>' +
           '<input type="radio" name="istat" id="ist-working" value="working"' +
-            (st === 'working' ? ' checked' : '') + '><label for="ist-working">Being fixed</label>' +
+            (st === 'working' ? ' checked' : '') + '><label for="ist-working">' + t('Being fixed') + '</label>' +
           '<input type="radio" name="istat" id="ist-resolved" value="resolved"' +
-            (st === 'resolved' ? ' checked' : '') + '><label for="ist-resolved">Fixed</label>' +
+            (st === 'resolved' ? ' checked' : '') + '><label for="ist-resolved">' + t('Fixed') + '</label>' +
         '</div></div>' +
 
-      '<div class="field"><label for="ist-notes">What has happened?</label>' +
+      '<div class="field"><label for="ist-notes">' + t('What has happened?') + '</label>' +
         '<textarea id="ist-notes" placeholder="Called the plumber. He is back Wednesday to move the rough-in."></textarea></div>' +
 
       '<div class="row" style="margin-top:14px">' +
-        '<button id="ist-save" class="btn grow" data-id="' + esc(en.id) + '">Add update</button>' +
-        '<button id="ist-cancel" class="btn btn-quiet">Cancel</button>' +
+        '<button id="ist-save" class="btn grow" data-id="' + esc(en.id) + '">' + t('Add update') + '</button>' +
+        '<button id="ist-cancel" class="btn btn-quiet">' + t('Cancel') + '</button>' +
       '</div>' +
     '</div></li>';
   }
@@ -3778,19 +4261,19 @@ window.CONFIG = {
 
     if (!notes) {
       document.getElementById('ist-notes').focus();
-      return toast('Say what has happened, so the history means something later.');
+      return toast(t('Say what has happened, so the history means something later.'));
     }
 
     var btn = document.getElementById('ist-save');
     btn.disabled = true;
-    btn.textContent = 'Saving…';
+    btn.textContent = t('Saving…');
 
     sb.rpc('update_issue', { p_entry: id, p_status: status, p_notes: notes }).then(function (res) {
       btn.disabled = false;
-      btn.textContent = 'Add update';
+      btn.textContent = t('Add update');
       if (res.error) return toast(cleanRpcError(res.error));
       view.issueEditing = null;
-      toast(status === 'resolved' ? 'Marked fixed' : 'Update added');
+      toast(status === 'resolved' ? t('Marked fixed') : t('Update added'));
       renderJob(view.job.id);
     });
   }
@@ -3821,12 +4304,11 @@ window.CONFIG = {
     if (!ups.length) return '';
 
     return '<div class="history">' +
-      '<div class="history-head">' + ups.length +
-        (ups.length === 1 ? ' update' : ' updates') + '</div>' +
+      '<div class="history-head">' + (ups.length === 1 ? tf('{0} update', ups.length) : tf('{0} updates', ups.length)) + '</div>' +
       ups.map(function (u) {
-        var label = u.status === 'resolved' ? 'Fixed'
-                  : u.status === 'working' ? 'Being fixed'
-                  : 'Still open';
+        var label = u.status === 'resolved' ? t('Fixed')
+                  : u.status === 'working' ? t('Being fixed')
+                  : t('Still open');
         return '<div class="history-item h-' + esc(u.status) + '">' +
           '<div class="history-meta">' +
             '<strong>' + esc(label) + '</strong> · ' + esc(u.author_name || '') +
@@ -3896,9 +4378,9 @@ window.CONFIG = {
     var wrap = document.getElementById(thumbsId);
     if (!wrap) return;
     wrap.innerHTML = into.map(function (f) {
-      return '<img alt="Selected photo" src="' + URL.createObjectURL(f) + '">';
-    }).join('') + (into.length ? '<div class="small muted" style="width:100%">' + into.length +
-      (into.length === 1 ? ' photo ready' : ' photos ready') + '</div>' : '');
+      return '<img alt="' + t('Selected photo') + '" src="' + URL.createObjectURL(f) + '">';
+    }).join('') + (into.length ? '<div class="small muted" style="width:100%">' +
+      (into.length === 1 ? tf('{0} photo ready', into.length) : tf('{0} photos ready', into.length)) + '</div>' : '');
   }
 
   function postEntry() {
@@ -3906,11 +4388,11 @@ window.CONFIG = {
     var tag = (document.querySelector('input[name=tag]:checked') || {}).value || 'note';
     var when = document.getElementById('c-date').value || todayISO();
 
-    if (!notes && !staged.length) return toast('Add a note or a photo first.');
+    if (!notes && !staged.length) return toast(t('Add a note or a photo first.'));
 
     var btn = document.getElementById('c-save');
     btn.disabled = true;
-    btn.textContent = 'Posting…';
+    btn.textContent = t('Posting…');
 
     // No signal: shrink the photos now and keep the lot on the phone.
     if (!navigator.onLine) return queueEntry(notes, tag, when, btn);
@@ -3927,7 +4409,7 @@ window.CONFIG = {
       var entry = res.data;
       return uploadPhotos(entry, staged, btn).then(function () { return entry; });
     }).then(function (entry) {
-      toast('Entry posted');
+      toast(t('Entry posted'));
       staged = [];
       notifyEntry(entry && entry.id);
       renderJob(view.job.id);
@@ -3937,13 +4419,13 @@ window.CONFIG = {
         return queueEntry(notes, tag, when, btn);
       }
       btn.disabled = false;
-      btn.textContent = 'Post entry';
-      toast('Could not post: ' + (err.message || err));
+      btn.textContent = t('Post entry');
+      toast(tf('Could not post: {0}', err.message || err));
     });
   }
 
   function queueEntry(notes, tag, when, btn) {
-    if (btn) btn.textContent = 'Saving on this phone…';
+    if (btn) btn.textContent = t('Saving on this phone…');
 
     // Shrink before storing, so a queued entry takes the same room it would
     // have taken uploaded.
@@ -3967,13 +4449,13 @@ window.CONFIG = {
     }).then(function () {
       staged = [];
       toast(navigator.onLine
-        ? 'Saved on this phone — it will post shortly.'
-        : 'Saved on this phone. It posts as soon as you have signal.');
+        ? t('Saved on this phone — it will post shortly.')
+        : t('Saved on this phone. It posts as soon as you have signal.'));
       paintQueueBanner();
       renderJob(view.job.id);
     }).catch(function (err) {
-      if (btn) { btn.disabled = false; btn.textContent = 'Post entry'; }
-      toast('Could not save that entry: ' + (err.message || err));
+      if (btn) { btn.disabled = false; btn.textContent = t('Post entry'); }
+      toast(tf('Could not save that entry: {0}', err.message || err));
     });
   }
 
@@ -4015,7 +4497,7 @@ window.CONFIG = {
               if (up.error) throw up.error;
               rows.push({ entry_id: entry.id, storage_path: path });
               done++;
-              if (btn) btn.textContent = 'Uploading photo ' + done + ' of ' + files.length + '…';
+              if (btn) btn.textContent = tf('Uploading photo {0} of {1}…', done, files.length);
             });
         });
       });
@@ -4043,7 +4525,7 @@ window.CONFIG = {
           resolve(blob || file);
         }, 'image/jpeg', JPEG_Q);
       };
-      img.onerror = function () { URL.revokeObjectURL(url); reject(new Error('That photo could not be read.')); };
+        img.onerror = function () { URL.revokeObjectURL(url); reject(new Error(t('That photo could not be read.'))); };
       img.src = url;
     });
   }
@@ -4061,12 +4543,12 @@ window.CONFIG = {
     var keeping = photos.length - dropping.length;
 
     if (!notes && !editStaged.length && keeping === 0) {
-      return toast('An entry needs a note or a photo.');
+      return toast(t('An entry needs a note or a photo.'));
     }
 
     var btn = document.getElementById('e-save');
     btn.disabled = true;
-    btn.textContent = 'Saving…';
+    btn.textContent = t('Saving…');
 
     sb.from('entries')
       .update({ notes: notes, tag: tag, entry_date: when })
@@ -4084,21 +4566,21 @@ window.CONFIG = {
       })
       .then(function () { return uploadPhotos(en, editStaged, btn); })
       .then(function () {
-        toast('Entry updated');
+        toast(t('Entry updated'));
         clearEditState();
         renderJob(view.job.id);
       })
       .catch(function (err) {
         btn.disabled = false;
-        btn.textContent = 'Save changes';
-        toast('Could not save: ' + (err.message || err));
+        btn.textContent = t('Save changes');
+        toast(tf('Could not save: {0}', err.message || err));
       });
   }
 
   function deleteEntry(id) {
     var en = view.entries.filter(function (x) { return x.id === id; })[0];
     if (!en) return;
-    if (!confirm('Delete this entry and its photos? This cannot be undone.')) return;
+    if (!confirm(t('Delete this entry and its photos? This cannot be undone.'))) return;
 
     var paths = (en.entry_photos || []).map(function (p) { return p.storage_path; });
     var first = paths.length ? sb.storage.from(BUCKET).remove(paths) : Promise.resolve({});
@@ -4106,8 +4588,8 @@ window.CONFIG = {
     first.then(function () {
       return sb.from('entries').delete().eq('id', id).eq('author_email', me.email);
     }).then(function (res) {
-      if (res.error) return toast('Could not delete: ' + res.error.message);
-      toast('Entry deleted');
+      if (res.error) return toast(tf('Could not delete: {0}', res.error.message));
+      toast(t('Entry deleted'));
       renderJob(view.job.id);
     });
   }
@@ -4117,9 +4599,9 @@ window.CONFIG = {
     sb.from('jobs').update({ status: next, updated_at: new Date().toISOString() })
       .eq('id', view.job.id).select().single()
       .then(function (res) {
-        if (res.error) return toast('Could not update: ' + res.error.message);
+        if (res.error) return toast(tf('Could not update: {0}', res.error.message));
         view.job = res.data;
-        toast(next === 'Completed' ? 'Job marked completed' : 'Job reopened');
+        toast(next === 'Completed' ? t('Job marked completed') : t('Job reopened'));
         paintJob();
       });
   }
@@ -4142,7 +4624,7 @@ window.CONFIG = {
   // One file per job: notes only, oldest day first, no photos.
   function exportJobNotes(job, btn) {
     btn.disabled = true;
-    toast('Building notes file…');
+    toast(t('Building notes file…'));
 
     sb.from('entries')
       .select('id,author_name,notes,tag,entry_date,created_at,issue_status,issue_updates(status,note,author_name,created_at)')
@@ -4198,11 +4680,11 @@ window.CONFIG = {
                      L.join('\r\n'), 'text/plain;charset=utf-8');
 
         btn.disabled = false;
-        toast('Notes saved');
+        toast(t('Notes saved'));
       })
       .catch(function (err) {
         btn.disabled = false;
-        toast('Could not build the file: ' + (err.message || err));
+        toast(tf('Could not build the file: {0}', err.message || err));
       });
   }
 
@@ -4216,12 +4698,258 @@ window.CONFIG = {
     setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 2000);
   }
 
+  /* ---------------- saving the job photos to the computer ---------------- */
+
+  function fileStem(name) {
+    return String(name || 'job').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase();
+  }
+
+  // Oldest first, numbered within each day. The same photo always lands on
+  // the same filename, so saving twice updates rather than duplicates.
+  function jobPhotoFiles() {
+    var stem = fileStem(view.job.name);
+    var seen = {};
+    var out = [];
+
+    view.entries.slice().reverse().forEach(function (en) {
+      (en.entry_photos || []).forEach(function (p) {
+        if (!p.url) return;
+        seen[en.entry_date] = (seen[en.entry_date] || 0) + 1;
+        out.push({
+          url: p.url,
+          name: stem + '-' + en.entry_date + '-' + pad(seen[en.entry_date]) + '.jpg'
+        });
+      });
+    });
+
+    return out;
+  }
+
+  function pickPhotoFolder() {
+    if (!window.showDirectoryPicker) return Promise.resolve(null);
+    return window.showDirectoryPicker({ id: 'jobsite-photos', mode: 'readwrite', startIn: 'pictures' });
+  }
+
+  function writeIntoFolder(dir, name, blob) {
+    return dir.getFileHandle(name, { create: true }).then(function (handle) {
+      return handle.createWritable().then(function (out) {
+        return out.write(blob).then(function () { return out.close(); });
+      });
+    });
+  }
+
+  function downloadBlob(filename, blob) {
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 2000);
+    // A burst of downloads gets throttled; a beat between them keeps them all.
+    return new Promise(function (resolve) { setTimeout(resolve, 350); });
+  }
+
+  function saveJobPhotos() {
+    var btn = document.getElementById('do-photos');
+    var files = jobPhotoFiles();
+
+    if (!files.length) return toast(t('This job has no photos yet.'));
+
+    btn.disabled = true;
+
+    // The picker has to be opened from the click itself, before any waiting.
+    pickPhotoFolder().then(function (dir) {
+      return files.reduce(function (chain, file, i) {
+        return chain.then(function () {
+          btn.textContent = tf('Saving photo {0} of {1}…', i + 1, files.length);
+          return fetch(file.url)
+            .then(function (r) { return r.blob(); })
+            .then(function (blob) {
+              return dir ? writeIntoFolder(dir, file.name, blob) : downloadBlob(file.name, blob);
+            });
+        });
+      }, Promise.resolve()).then(function () {
+        toast(files.length === 1
+          ? tf('{0} photo saved', files.length)
+          : tf('{0} photos saved', files.length));
+      });
+    }).catch(function (err) {
+      if (err && err.name === 'AbortError') return;   // they closed the folder picker
+      toast(tf('Could not save the photos: {0}', err.message || err));
+    }).then(function () {
+      btn.disabled = false;
+      btn.textContent = t('Save photos');
+    });
+  }
+
+  /* ---------------- saving the job photos to Google Drive ---------------- */
+
+  // drive.file only ever lets the app see files it created itself, so it
+  // needs no Google review — but it also means the folder lookups below
+  // only find folders this app made.
+  var DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+  var DRIVE_HOME = 'Jobsite Logger';
+  var driveToken = null;     // { value, expires } — Google hands these out for an hour
+  var driveFolderIds = {};
+
+  function driveConfigured() {
+    var id = (window.CONFIG || {}).GOOGLE_CLIENT_ID || '';
+    return id.indexOf('.apps.googleusercontent.com') > -1;
+  }
+
+  function driveAccessToken() {
+    if (driveToken && driveToken.expires > Date.now() + 60000) {
+      return Promise.resolve(driveToken.value);
+    }
+    if (!window.google || !google.accounts || !google.accounts.oauth2) {
+      return Promise.reject(new Error(t('Google sign-in did not load. Check the connection and try again.')));
+    }
+
+    return new Promise(function (resolve, reject) {
+      google.accounts.oauth2.initTokenClient({
+        client_id: window.CONFIG.GOOGLE_CLIENT_ID,
+        scope: DRIVE_SCOPE,
+        callback: function (res) {
+          if (res.error) return reject(new Error(res.error_description || res.error));
+          driveToken = {
+            value: res.access_token,
+            expires: Date.now() + (Number(res.expires_in) || 3600) * 1000
+          };
+          resolve(driveToken.value);
+        },
+        error_callback: function (err) {
+          var type = err && err.type;
+          if (type === 'popup_closed') return reject({ name: 'AbortError' });
+          if (type === 'popup_failed_to_open') {
+            return reject(new Error(t('Google blocked the sign-in window — allow pop-ups for this site and try again.')));
+          }
+          reject(new Error((err && err.message) || t('Google sign-in failed.')));
+        }
+      }).requestAccessToken();
+    });
+  }
+
+  function driveFetch(url, opts) {
+    var o = opts || {};
+    return driveAccessToken().then(function (token) {
+      o.headers = o.headers || {};
+      o.headers.Authorization = 'Bearer ' + token;
+      return fetch(url, o);
+    }).then(function (r) {
+      return r.text().then(function (body) {
+        var parsed = {};
+        try { parsed = body ? JSON.parse(body) : {}; } catch (e) {}
+        if (!r.ok) {
+          // An expired or withdrawn token should ask for a new one next time.
+          if (r.status === 401) driveToken = null;
+          throw new Error((parsed.error && (parsed.error.message || parsed.error)) || ('Drive ' + r.status));
+        }
+        return parsed;
+      });
+    });
+  }
+
+  function driveFolder(name, parentId) {
+    var parent = parentId || 'root';
+    var key = parent + '/' + name;
+    if (driveFolderIds[key]) return Promise.resolve(driveFolderIds[key]);
+
+    var q = "mimeType='application/vnd.google-apps.folder' and trashed=false and name='" +
+      String(name).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "' and '" + parent + "' in parents";
+
+    return driveFetch('https://www.googleapis.com/drive/v3/files?fields=files(id)&q=' + encodeURIComponent(q))
+      .then(function (body) {
+        var found = (body.files || [])[0];
+        if (found) return found.id;
+        return driveFetch('https://www.googleapis.com/drive/v3/files?fields=id', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: name,
+            mimeType: 'application/vnd.google-apps.folder',
+            parents: [parent]
+          })
+        }).then(function (made) { return made.id; });
+      })
+      .then(function (id) { driveFolderIds[key] = id; return id; });
+  }
+
+  function driveNamesIn(folderId) {
+    var q = "'" + folderId + "' in parents and trashed=false";
+    return driveFetch('https://www.googleapis.com/drive/v3/files?pageSize=1000&fields=files(name)&q=' +
+      encodeURIComponent(q)).then(function (body) {
+      var have = {};
+      (body.files || []).forEach(function (f) { have[f.name] = true; });
+      return have;
+    });
+  }
+
+  function driveUpload(folderId, name, blob) {
+    var form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify({ name: name, parents: [folderId] })],
+      { type: 'application/json' }));
+    form.append('file', blob);
+
+    return driveFetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+      method: 'POST',
+      body: form
+    });
+  }
+
+  function savePhotosToDrive() {
+    var btn = document.getElementById('do-drive');
+    var files = jobPhotoFiles();
+
+    if (!driveConfigured()) {
+      return toast(t('Add your Google client ID to the SETTINGS block in index.html first.'));
+    }
+    if (!files.length) return toast(t('This job has no photos yet.'));
+
+    btn.disabled = true;
+    btn.textContent = t('Opening Google…');
+
+    // Asked for first and on the click itself, or the browser eats the popup.
+    driveAccessToken()
+      .then(function () { return driveFolder(DRIVE_HOME); })
+      .then(function (homeId) { return driveFolder(view.job.name, homeId); })
+      .then(function (folderId) {
+        return driveNamesIn(folderId).then(function (have) {
+          var todo = files.filter(function (f) { return !have[f.name]; });
+          if (!todo.length) return 0;
+
+          return todo.reduce(function (chain, file, i) {
+            return chain.then(function () {
+              btn.textContent = tf('Saving photo {0} of {1}…', i + 1, todo.length);
+              return fetch(file.url)
+                .then(function (r) { return r.blob(); })
+                .then(function (blob) { return driveUpload(folderId, file.name, blob); });
+            });
+          }, Promise.resolve()).then(function () { return todo.length; });
+        });
+      })
+      .then(function (n) {
+        if (!n) return toast(t('Google Drive already has these photos.'));
+        toast(n === 1
+          ? tf('{0} photo saved to Google Drive', n)
+          : tf('{0} photos saved to Google Drive', n));
+      })
+      .catch(function (err) {
+        if (err && err.name === 'AbortError') return;
+        toast(tf('Could not save to Google Drive: {0}', err.message || err));
+      })
+      .then(function () {
+        btn.disabled = false;
+        btn.textContent = t('Save to Drive');
+      });
+  }
+
   /* ---------------- PDF report ---------------- */
 
   function exportPdf() {
     var btn = document.getElementById('do-pdf');
     btn.disabled = true;
-    btn.textContent = 'Building…';
+    btn.textContent = t('Building…');
 
     var list = visibleEntries().slice().reverse();   // oldest first reads better for a client
     var doc = new window.jspdf.jsPDF({ unit: 'pt', format: 'letter' });
@@ -4237,11 +4965,11 @@ window.CONFIG = {
 
     doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
     [
-      view.job.client_name ? 'Client: ' + view.job.client_name : '',
+      view.job.client_name ? t('Client: {0}').replace('{0}', view.job.client_name) : '',
       view.job.address || '',
-      'Status: ' + view.job.status,
-      'Report prepared by ' + companyName() + ' on ' + longDate(todayISO()),
-      list.length + (list.length === 1 ? ' entry' : ' entries')
+      tf('Status: {0}', view.job.status === 'Completed' ? t('Completed') : view.job.status),
+      tf('Report prepared by {0} on {1}', companyName(), longDate(todayISO())),
+      list.length === 1 ? tf('{0} entry', list.length) : tf('{0} entries', list.length)
     ].filter(Boolean).forEach(function (line) {
       doc.text(line, M, y); y += 15;
     });
@@ -4257,9 +4985,9 @@ window.CONFIG = {
         doc.setFont('helvetica', 'normal'); doc.setFontSize(10);
         var right = en.author_name;
         if (en.tag === 'issue') {
-          right += '  ·  ISSUE' +
-            (en.issue_status === 'resolved' ? ' (FIXED)' :
-             en.issue_status === 'working' ? ' (BEING FIXED)' : ' (OPEN)');
+          right += '  ·  ' + t('ISSUE') +
+            (en.issue_status === 'resolved' ? t(' (FIXED)') :
+             en.issue_status === 'working' ? t(' (BEING FIXED)') : t(' (OPEN)'));
         }
         doc.text(right, PW - M, y, { align: 'right' });
         y += 16;
@@ -4277,8 +5005,8 @@ window.CONFIG = {
         if (ups.length) {
           doc.setFontSize(10);
           ups.forEach(function (u) {
-            var label = u.status === 'resolved' ? 'Fixed'
-                      : u.status === 'working' ? 'Being fixed' : 'Still open';
+            var label = u.status === 'resolved' ? t('Fixed')
+                      : u.status === 'working' ? t('Being fixed') : t('Still open');
             space(16);
             doc.setFont('helvetica', 'bold');
             doc.text(label + ' — ' + (u.author_name || '') + ', ' +
@@ -4320,16 +5048,16 @@ window.CONFIG = {
         doc.setPage(p);
         doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(110);
         doc.text(companyName() + '  —  ' + view.job.name, M, PH - 26);
-        doc.text('Page ' + p + ' of ' + pages, PW - M, PH - 26, { align: 'right' });
+        doc.text(tf('Page {0} of {1}', p, pages), PW - M, PH - 26, { align: 'right' });
       }
       var safe = view.job.name.replace(/[^a-z0-9]+/gi, '-').toLowerCase();
       doc.save(safe + '-report-' + todayISO() + '.pdf');
       btn.disabled = false;
-      btn.textContent = 'Client PDF';
+      btn.textContent = t('Client PDF');
     }).catch(function (err) {
       btn.disabled = false;
-      btn.textContent = 'Client PDF';
-      toast('PDF failed: ' + (err.message || err));
+      btn.textContent = t('Client PDF');
+      toast(tf('PDF failed: {0}', err.message || err));
     });
   }
 
@@ -4357,12 +5085,10 @@ window.CONFIG = {
   /* ---------------- errors ---------------- */
 
   function renderError(msg) {
-    app.innerHTML = '<div class="error"><h2 style="font-size:20px;margin-bottom:6px">Could not reach your data</h2>' +
+    app.innerHTML = '<div class="error"><h2 style="font-size:20px;margin-bottom:6px">' + t('Could not reach your data') + '</h2>' +
       '<p class="small" style="margin:0 0 10px">' + esc(msg) + '</p>' +
-      '<p class="small muted" style="margin:0">If this mentions a missing table, relationship or column, ' +
-      'one of the SQL files in <code>db/</code> has not been run yet against this database — check which ' +
-      'feature the error names and run the matching file.</p>' +
-      '<a class="backlink" href="#/">Back to jobs</a></div>';
+      '<p class="small muted" style="margin:0">' + t('If this mentions a missing table, relationship or column, one of the SQL files in db/ has not been run yet against this database — check which feature the error names and run the matching file.') + '</p>' +
+      '<a class="backlink" href="#/">' + t('Back to jobs') + '</a></div>';
   }
 
   boot();
