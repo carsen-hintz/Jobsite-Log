@@ -859,6 +859,40 @@ textarea { min-height: 120px; resize: vertical; }
   text-underline-offset: 2px;
 }
 
+/* ---------- Language switch ---------- */
+
+.lang-switch {
+  display: inline-flex;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-pill);
+  padding: 3px;
+  gap: 3px;
+  background: var(--wall);
+}
+
+.lang-opt {
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--steel);
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: background-color var(--ease), color var(--ease);
+}
+
+.lang-opt:hover { color: var(--ink); }
+
+.lang-opt.active {
+  background: var(--board);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+
+.gate .lang-switch { margin-bottom: 14px; }
+
 /* ---------- Settings switch row ---------- */
 
 .switchrow {
@@ -1287,6 +1321,103 @@ window.CONFIG = {
   var LOGO_BUCKET = 'company-logos';
   var lightbox = document.getElementById('lightbox');
   var lightboxImg = document.getElementById('lightbox-img');
+
+  /* ---------------- language ---------------- */
+
+  var LANG_KEY = 'jsl_lang';
+  var STRINGS = {
+    en: {
+      langName: 'English',
+      signInKicker: 'Crew log',
+      signInTitle: 'Sign in',
+      signInSub: 'Use the email and password you were given.',
+      emailLabel: 'Email',
+      passwordLabel: 'Password',
+      signInBtn: 'Sign in',
+      signingIn: 'Signing in…',
+      forgotBtn: 'Forgot your password?',
+      sending: 'Sending…',
+      noSignupNote: 'Accounts are set up for you — there is no sign-up here. Need a login? Ask whoever set up your crew.',
+      enterEmail: 'Enter your email address.',
+      enterPassword: 'Enter your password.',
+      noMatch: 'That email and password do not match.',
+      notConfirmed: 'This account is not confirmed yet — ask the office.',
+      typeEmailFirst: 'Type your email address above first, then tap this.',
+      resetSent: 'If that address has an account, a reset link is on its way. Check your junk folder too.',
+      menuProfile: 'My profile',
+      menuSchedule: 'Schedule',
+      menuCrew: 'Crew',
+      menuAdmin: 'Admin console',
+      menuSignOut: 'Sign out',
+      language: 'Language',
+      languageNote: 'Choose the language used for the sign-in screen and menus.'
+    },
+    es: {
+      langName: 'Español',
+      signInKicker: 'Registro de cuadrilla',
+      signInTitle: 'Iniciar sesión',
+      signInSub: 'Usa el correo electrónico y la contraseña que te dieron.',
+      emailLabel: 'Correo electrónico',
+      passwordLabel: 'Contraseña',
+      signInBtn: 'Iniciar sesión',
+      signingIn: 'Iniciando sesión…',
+      forgotBtn: '¿Olvidaste tu contraseña?',
+      sending: 'Enviando…',
+      noSignupNote: 'Las cuentas ya están creadas para ti; aquí no hay registro. ¿Necesitas acceso? Pregúntale a quien organizó tu cuadrilla.',
+      enterEmail: 'Escribe tu correo electrónico.',
+      enterPassword: 'Escribe tu contraseña.',
+      noMatch: 'Ese correo y esa contraseña no coinciden.',
+      notConfirmed: 'Esta cuenta aún no está confirmada; consulta con la oficina.',
+      typeEmailFirst: 'Primero escribe tu correo electrónico arriba y luego toca esto.',
+      resetSent: 'Si esa dirección tiene una cuenta, un enlace para restablecer la contraseña va en camino. Revisa también tu carpeta de correo no deseado.',
+      menuProfile: 'Mi perfil',
+      menuSchedule: 'Calendario',
+      menuCrew: 'Cuadrilla',
+      menuAdmin: 'Panel de administración',
+      menuSignOut: 'Cerrar sesión',
+      language: 'Idioma',
+      languageNote: 'Elige el idioma de la pantalla de inicio de sesión y los menús.'
+    }
+  };
+  var LANG = (function () {
+    var saved = null;
+    try { saved = localStorage.getItem(LANG_KEY); } catch (e) {}
+    if (saved === 'en' || saved === 'es') return saved;
+    return (navigator.language || '').slice(0, 2) === 'es' ? 'es' : 'en';
+  })();
+  document.documentElement.lang = LANG;
+
+  function t(key) {
+    var pack = STRINGS[LANG] || STRINGS.en;
+    return (key in pack) ? pack[key] : STRINGS.en[key];
+  }
+
+  function setLang(l) {
+    if (l !== 'en' && l !== 'es') return;
+    LANG = l;
+    try { localStorage.setItem(LANG_KEY, l); } catch (e) {}
+    document.documentElement.lang = l;
+  }
+
+  // Two-button EN/ES switcher, reused on the sign-in screen and in settings.
+  function langSwitchHtml(idPrefix) {
+    return '<div class="lang-switch" role="group" aria-label="' + esc(t('language')) + '">' +
+      '<button type="button" class="lang-opt' + (LANG === 'en' ? ' active' : '') +
+        '" data-lang="en" id="' + idPrefix + '-en">English</button>' +
+      '<button type="button" class="lang-opt' + (LANG === 'es' ? ' active' : '') +
+        '" data-lang="es" id="' + idPrefix + '-es">Español</button>' +
+    '</div>';
+  }
+
+  function wireLangSwitch(idPrefix, onChange) {
+    ['en', 'es'].forEach(function (l) {
+      on(idPrefix + '-' + l, 'click', function () {
+        if (l === LANG) return;
+        setLang(l);
+        onChange();
+      });
+    });
+  }
 
   var sb = null;
   var me = null;
@@ -1755,12 +1886,12 @@ window.CONFIG = {
     var items = [];
 
     if (org) {
-      items.push({ label: 'My profile', hash: '#/profile' });
-      items.push({ label: 'Schedule', hash: '#/schedule' });
-      items.push({ label: 'Crew', hash: '#/crew' });
+      items.push({ label: t('menuProfile'), hash: '#/profile' });
+      items.push({ label: t('menuSchedule'), hash: '#/schedule' });
+      items.push({ label: t('menuCrew'), hash: '#/crew' });
     }
-    if (isAdmin) items.push({ label: 'Admin console', hash: '#/admin' });
-    items.push({ label: 'Sign out', action: 'out', danger: true });
+    if (isAdmin) items.push({ label: t('menuAdmin'), hash: '#/admin' });
+    items.push({ label: t('menuSignOut'), action: 'out', danger: true });
 
     menuEl.innerHTML = items.map(function (it, i) {
       return '<button type="button" role="menuitem" class="menu-item' +
@@ -1809,22 +1940,25 @@ window.CONFIG = {
   /* ---------------- sign in ---------------- */
 
   function renderAuth() {
+    var keepEmail = document.getElementById('in-email') ? document.getElementById('in-email').value : '';
+
     app.innerHTML =
       '<div class="gate panel">' +
-        '<span class="kicker">Crew log</span>' +
-        '<h1>Sign in</h1>' +
-        '<p>Use the email and password you were given.</p>' +
-        '<div class="field"><label for="in-email">Email</label>' +
+        langSwitchHtml('auth-lang') +
+        '<span class="kicker">' + esc(t('signInKicker')) + '</span>' +
+        '<h1>' + esc(t('signInTitle')) + '</h1>' +
+        '<p>' + esc(t('signInSub')) + '</p>' +
+        '<div class="field"><label for="in-email">' + esc(t('emailLabel')) + '</label>' +
           '<input id="in-email" type="email" autocomplete="username" inputmode="email" ' +
-            'autocapitalize="off" spellcheck="false" placeholder="dave@example.com"></div>' +
-        '<div class="field"><label for="in-pass">Password</label>' +
+            'autocapitalize="off" spellcheck="false" placeholder="dave@example.com" value="' + esc(keepEmail) + '"></div>' +
+        '<div class="field"><label for="in-pass">' + esc(t('passwordLabel')) + '</label>' +
           '<input id="in-pass" type="password" autocomplete="current-password" placeholder="••••••••"></div>' +
-        '<div class="field"><button id="do-auth" class="btn btn-block">Sign in</button></div>' +
-        '<button id="do-forgot" class="btn-plain">Forgot your password?</button>' +
-        '<p class="small muted" style="margin:0">Accounts are set up for you — there is no sign-up here. ' +
-          'Need a login? Ask whoever set up your crew.</p>' +
+        '<div class="field"><button id="do-auth" class="btn btn-block">' + esc(t('signInBtn')) + '</button></div>' +
+        '<button id="do-forgot" class="btn-plain">' + esc(t('forgotBtn')) + '</button>' +
+        '<p class="small muted" style="margin:0">' + esc(t('noSignupNote')) + '</p>' +
       '</div>';
 
+    wireLangSwitch('auth-lang', renderAuth);
     on('do-forgot', 'click', doForgot);
     on('do-auth', 'click', doSignIn);
     on('in-pass', 'keydown', function (e) { if (e.key === 'Enter') doSignIn(); });
@@ -1835,20 +1969,20 @@ window.CONFIG = {
     var email = document.getElementById('in-email').value.trim().toLowerCase();
     var pass = document.getElementById('in-pass').value;
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast('Enter your email address.');
-    if (!pass) return toast('Enter your password.');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return toast(t('enterEmail'));
+    if (!pass) return toast(t('enterPassword'));
 
     var btn = document.getElementById('do-auth');
     btn.disabled = true;
-    btn.textContent = 'Signing in…';
+    btn.textContent = t('signingIn');
 
     sb.auth.signInWithPassword({ email: email, password: pass }).then(function (res) {
       if (res.error) {
         btn.disabled = false;
-        btn.textContent = 'Sign in';
+        btn.textContent = t('signInBtn');
         var m = res.error.message || '';
-        if (/invalid login/i.test(m)) return toast('That email and password do not match.');
-        if (/not confirmed/i.test(m)) return toast('This account is not confirmed yet — ask the office.');
+        if (/invalid login/i.test(m)) return toast(t('noMatch'));
+        if (/not confirmed/i.test(m)) return toast(t('notConfirmed'));
         return toast(m);
       }
       me = meFromSession(res.data.session);
@@ -1860,21 +1994,21 @@ window.CONFIG = {
     var email = document.getElementById('in-email').value.trim().toLowerCase();
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       document.getElementById('in-email').focus();
-      return toast('Type your email address above first, then tap this.');
+      return toast(t('typeEmailFirst'));
     }
 
     var btn = document.getElementById('do-forgot');
     btn.disabled = true;
-    btn.textContent = 'Sending…';
+    btn.textContent = t('sending');
 
     sb.auth.resetPasswordForEmail(email, {
       redirectTo: location.origin + location.pathname
     }).then(function (res) {
       btn.disabled = false;
-      btn.textContent = 'Forgot your password?';
+      btn.textContent = t('forgotBtn');
       if (res.error) return toast(res.error.message);
       // Deliberately vague: confirming which addresses exist would leak them.
-      toast('If that address has an account, a reset link is on its way. Check your junk folder too.');
+      toast(t('resetSent'));
     });
   }
 
@@ -2630,6 +2764,12 @@ window.CONFIG = {
         '</label>' +
       '</div>' +
 
+      '<div class="section-head"><h2>' + esc(t('language')) + '</h2></div>' +
+      '<div class="panel">' +
+        '<p class="small muted" style="margin:0 0 10px">' + esc(t('languageNote')) + '</p>' +
+        langSwitchHtml('pf-lang') +
+      '</div>' +
+
       '<div class="section-head"><h2>Password</h2></div>' +
       '<div class="panel">' +
         '<div class="field"><label for="pf-pass">New password</label>' +
@@ -2641,6 +2781,8 @@ window.CONFIG = {
           '<button id="pf-pass-save" class="btn btn-quiet grow">Change password</button>' +
         '</div>' +
       '</div>';
+
+    wireLangSwitch('pf-lang', renderProfile);
 
     on('pf-save', 'click', function () {
       var name = document.getElementById('pf-name').value.trim();
