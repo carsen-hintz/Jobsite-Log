@@ -1332,6 +1332,7 @@ window.CONFIG = {
   var view = { entries: [], job: null, q: '', date: '', editing: null, issueEditing: null };
   var toastTimer = null;
   var LANG_KEY = 'jobsite-lang';
+  var GOOGLE_ID_KEY = 'jobsite-google-client-id';
   var lang = 'en';
   try {
     var saved = localStorage.getItem(LANG_KEY);
@@ -1576,7 +1577,14 @@ window.CONFIG = {
     '{0} photo saved to Google Drive': '{0} foto guardada en Google Drive',
     '{0} photos saved to Google Drive': '{0} fotos guardadas en Google Drive',
     'Could not save to Google Drive: {0}': 'No se pudo guardar en Google Drive: {0}',
-    'Add your Google client ID to the SETTINGS block in index.html first.': 'Primero agrega tu client ID de Google en el bloque SETTINGS de index.html.',
+    'Add your Google client ID under My profile first.': 'Primero agrega tu client ID de Google en Mi perfil.',
+    'Google Drive': 'Google Drive',
+    'Google client ID': 'Client ID de Google',
+    'Paste the Web client ID from Google Cloud. Save to Drive then signs into your Google account and puts this job’s photos in a Jobsite Logger folder.': 'Pega el client ID web de Google Cloud. Guardar en Drive inicia sesión en tu cuenta de Google y pone las fotos de este trabajo en una carpeta Jobsite Logger.',
+    'Save Google ID': 'Guardar ID de Google',
+    'That does not look like a Google client ID — it should end in .apps.googleusercontent.com.': 'Eso no parece un client ID de Google — debe terminar en .apps.googleusercontent.com.',
+    'Google client ID saved': 'Client ID de Google guardado',
+    'Google client ID cleared': 'Client ID de Google borrado',
     'Google sign-in did not load. Check the connection and try again.': 'No cargó el inicio de sesión de Google. Revisa la conexión e inténtalo de nuevo.',
     'Google blocked the sign-in window — allow pop-ups for this site and try again.': 'Google bloqueó la ventana de inicio de sesión — permite ventanas emergentes en este sitio e inténtalo de nuevo.',
     'Google sign-in failed.': 'Falló el inicio de sesión de Google.',
@@ -3117,6 +3125,17 @@ window.CONFIG = {
         '</label>' +
       '</div>' +
 
+      '<div class="section-head"><h2>' + t('Google Drive') + '</h2></div>' +
+      '<div class="panel">' +
+        '<div class="field"><label for="pf-drive">' + t('Google client ID') + '</label>' +
+          '<input id="pf-drive" type="text" autocapitalize="off" spellcheck="false" ' +
+            'placeholder="….apps.googleusercontent.com" value="' + esc(driveClientId()) + '"></div>' +
+        '<p class="small muted" style="margin:-4px 0 12px">' + t('Paste the Web client ID from Google Cloud. Save to Drive then signs into your Google account and puts this job’s photos in a Jobsite Logger folder.') + '</p>' +
+        '<div class="row">' +
+          '<button id="pf-drive-save" class="btn grow">' + t('Save Google ID') + '</button>' +
+        '</div>' +
+      '</div>' +
+
       '<div class="section-head"><h2>' + t('Password') + '</h2></div>' +
       '<div class="panel">' +
         '<div class="field"><label for="pf-pass">' + t('New password') + '</label>' +
@@ -3158,6 +3177,17 @@ window.CONFIG = {
         org.email_alerts = on;
         toast(on ? t('Alerts on') : t('Alerts off'));
       });
+    });
+
+    on('pf-drive-save', 'click', function () {
+      var id = document.getElementById('pf-drive').value.trim();
+      if (id && id.indexOf('.apps.googleusercontent.com') === -1) {
+        document.getElementById('pf-drive').focus();
+        return toast(t('That does not look like a Google client ID — it should end in .apps.googleusercontent.com.'));
+      }
+      saveDriveClientId(id);
+      driveToken = null;
+      toast(id ? t('Google client ID saved') : t('Google client ID cleared'));
     });
 
     on('pf-pass-save', 'click', function () {
@@ -4793,9 +4823,23 @@ window.CONFIG = {
   var driveToken = null;     // { value, expires } — Google hands these out for an hour
   var driveFolderIds = {};
 
+  function driveClientId() {
+    try {
+      var saved = localStorage.getItem(GOOGLE_ID_KEY);
+      if (saved) return saved;
+    } catch (e) {}
+    return ((window.CONFIG || {}).GOOGLE_CLIENT_ID || '').trim();
+  }
+
+  function saveDriveClientId(id) {
+    try {
+      if (id) localStorage.setItem(GOOGLE_ID_KEY, id);
+      else localStorage.removeItem(GOOGLE_ID_KEY);
+    } catch (e) {}
+  }
+
   function driveConfigured() {
-    var id = (window.CONFIG || {}).GOOGLE_CLIENT_ID || '';
-    return id.indexOf('.apps.googleusercontent.com') > -1;
+    return driveClientId().indexOf('.apps.googleusercontent.com') > -1;
   }
 
   function driveAccessToken() {
@@ -4808,7 +4852,7 @@ window.CONFIG = {
 
     return new Promise(function (resolve, reject) {
       google.accounts.oauth2.initTokenClient({
-        client_id: window.CONFIG.GOOGLE_CLIENT_ID,
+        client_id: driveClientId(),
         scope: DRIVE_SCOPE,
         callback: function (res) {
           if (res.error) return reject(new Error(res.error_description || res.error));
@@ -4902,7 +4946,7 @@ window.CONFIG = {
     var files = jobPhotoFiles();
 
     if (!driveConfigured()) {
-      return toast(t('Add your Google client ID to the SETTINGS block in index.html first.'));
+      return toast(t('Add your Google client ID under My profile first.'));
     }
     if (!files.length) return toast(t('This job has no photos yet.'));
 
