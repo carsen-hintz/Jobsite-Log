@@ -3119,15 +3119,17 @@ window.CONFIG = {
         '</div>' +
       '</div>' +
 
-      '<div class="section-head"><h2>' + t('Alerts') + '</h2></div>' +
-      '<div class="panel">' +
-        '<label class="switchrow" for="alerts-on">' +
-          '<input type="checkbox" id="alerts-on"' + (org.email_alerts ? ' checked' : '') + '>' +
-          '<span><strong>' + t('Email me when someone posts to a job') + '</strong>' +
-            '<span class="small muted" style="display:block">' +
-              tf('One email per entry, to {0}. Your own posts never email you.', esc(me.email)) + '</span></span>' +
-        '</label>' +
-      '</div>' +
+      (org.role === 'owner'
+        ? '<div class="section-head"><h2>' + t('Alerts') + '</h2></div>' +
+          '<div class="panel">' +
+            '<label class="switchrow" for="alerts-on">' +
+              '<input type="checkbox" id="alerts-on"' + (org.email_alerts ? ' checked' : '') + '>' +
+              '<span><strong>' + t('Email me when someone posts to a job') + '</strong>' +
+                '<span class="small muted" style="display:block">' +
+                  tf('One email per entry, to {0}. Your own posts never email you.', esc(me.email)) + '</span></span>' +
+            '</label>' +
+          '</div>'
+        : '') +
 
       '<div class="section-head"><h2>' + t('Password') + '</h2></div>' +
       '<div class="panel">' +
@@ -3160,17 +3162,19 @@ window.CONFIG = {
       });
     });
 
-    on('alerts-on', 'change', function (e) {
-      var on = e.target.checked;
-      sb.rpc('set_email_alerts', { p_on: on }).then(function (res) {
-        if (res.error) {
-          e.target.checked = !on;
-          return toast(cleanRpcError(res.error));
-        }
-        org.email_alerts = on;
-        toast(on ? t('Alerts on') : t('Alerts off'));
+    if (org.role === 'owner') {
+      on('alerts-on', 'change', function (e) {
+        var on = e.target.checked;
+        sb.rpc('set_email_alerts', { p_on: on }).then(function (res) {
+          if (res.error) {
+            e.target.checked = !on;
+            return toast(cleanRpcError(res.error));
+          }
+          org.email_alerts = on;
+          toast(on ? t('Alerts on') : t('Alerts off'));
+        });
       });
-    });
+    }
 
     on('pf-pass-save', 'click', function () {
       var a = document.getElementById('pf-pass').value;
