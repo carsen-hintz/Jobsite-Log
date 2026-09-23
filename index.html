@@ -1772,7 +1772,7 @@ window.CONFIG = {
   var staged = [];                       // photos picked but not yet uploaded
   var editStaged = [];                   // photos added while editing an entry
   var editRemove = {};                   // existing photo ids marked for removal
-  var dash = { q: '', status: 'Active' };
+  var dash = { q: '', status: 'All' };
   var view = { entries: [], job: null, q: '', date: '', editing: null, issueEditing: null };
   var toastTimer = null;
   var LANG_KEY = 'jobsite-lang';
@@ -1998,6 +1998,7 @@ window.CONFIG = {
     'Active jobs': 'Trabajos activos',
     'Completed jobs': 'Trabajos terminados',
     'Newest activity first': 'Actividad más reciente primero',
+    'Active first, then newest': 'Activos primero, luego lo más reciente',
     'Worth archiving': 'Conviene archivar',
     'Nothing on these for {0}+ days.': 'Nada en estos por {0}+ días.',
     'Save the notes and the client PDF onto your own computer, then delete the job here. That keeps your photo storage down and leaves you holding the record — worth doing while the job is still fresh enough to answer questions about.': 'Guarda las notas y el PDF del cliente en tu computadora y luego borra el trabajo aquí. Así bajas el almacenamiento de fotos y te quedas con el registro — conviene hacerlo mientras el trabajo aún está fresco.',
@@ -4555,7 +4556,7 @@ window.CONFIG = {
   function paintDashboard(jobs) {
     var q = dash.q.toLowerCase();
     var shown = jobs.filter(function (j) {
-      var okStatus = dash.status === 'All' || j.status === dash.status;
+      var okStatus = dash.status === 'All' || (j.status || 'Active') === dash.status;
       var hay = (j.name + ' ' + (j.address || '') + ' ' + (j.client_name || '') + ' ' +
         (j.customer_phone || '') + ' ' + (j.customer_email || '')).toLowerCase();
       return okStatus && (!q || hay.indexOf(q) > -1);
@@ -4577,6 +4578,13 @@ window.CONFIG = {
       if (age >= STALE_DAYS) stale.push(j);
       else if (j.status === 'Active' && age >= QUIET_DAYS) quiet.push(j);
       else rest.push(j);
+    });
+
+    // Within a bucket the order is Active, On Halt, Upcoming, Completed.
+    // jobs arrives newest first, and sort is stable, so recency still holds
+    // inside each status.
+    [stale, quiet, rest].forEach(function (list) {
+      list.sort(function (a, b) { return statusRank(a.status) - statusRank(b.status); });
     });
 
     function group(list) {
@@ -4608,7 +4616,9 @@ window.CONFIG = {
       (rest.length
         ? '<div class="section-head"><h2>' +
             dashStatusHeading(dash.status) + '</h2>' +
-            '<span class="small muted">' + t('Newest activity first') + '</span></div>' +
+            '<span class="small muted">' +
+              t(dash.status === 'All' ? 'Active first, then newest' : 'Newest activity first') +
+            '</span></div>' +
           group(rest)
         : '') +
 
@@ -4715,9 +4725,7 @@ window.CONFIG = {
         (function () {
         var age = daysSince(j.updated_at);
         var chips = [];
-        if (j.status && j.status !== 'Active') {
-          chips.push('<span class="chip ' + statusChipClass(j.status) + '">' + t(j.status) + '</span>');
-        }
+        chips.push('<span class="chip ' + statusChipClass(j.status) + '">' + t(j.status || 'Active') + '</span>');
         if (age >= STALE_DAYS) chips.push('<span class="chip">' + tf('{0} days quiet', age) + '</span>');
         else if (j.status === 'Active' && age >= QUIET_DAYS) {
           chips.push('<span class="chip chip-issue">' + tf('{0} days since an entry', age) + '</span>');
@@ -4947,6 +4955,13 @@ window.CONFIG = {
     if (st === 'On Halt') return 'chip-halt';
     if (st === 'Completed') return 'chip-done';
     return 'chip-active';
+  }
+
+  function statusRank(st) {
+    if (st === 'On Halt') return 1;
+    if (st === 'Upcoming') return 2;
+    if (st === 'Completed') return 3;
+    return 0;
   }
 
   function jobItemClass(j) {
