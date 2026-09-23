@@ -1808,9 +1808,8 @@ window.CONFIG = {
     'What happened on site?': '¿Qué pasó en la obra?',
     'Issue': 'Problema',
     'Site note': 'Nota',
-    'Add photos': 'Agregar fotos',
-    'Add photos or videos': 'Agregar fotos o videos',
-    'Open camera': 'Abrir cámara',
+    'Upload photos/videos': 'Subir fotos/videos',
+    'Take photos/video': 'Tomar fotos/video',
     'Photo': 'Foto',
     'Video': 'Video',
     'Start recording': 'Grabar',
@@ -1872,10 +1871,10 @@ window.CONFIG = {
     '{0} videos taken': '{0} videos tomados',
     '{0} photos and videos taken': '{0} fotos y videos tomados',
     'No photos taken.': 'No se tomó ninguna foto.',
-    'This browser will not open the camera. Use Add photos instead.': 'Este navegador no abre la cámara. Usa Agregar fotos.',
-    'This browser cannot record video. Use Add photos or videos instead.': 'Este navegador no puede grabar video. Usa Agregar fotos o videos.',
-    'Camera access was blocked. Allow the camera, or use Add photos.': 'Se bloqueó el acceso a la cámara. Permite la cámara o usa Agregar fotos.',
-    'Could not open the camera. Use Add photos instead.': 'No se pudo abrir la cámara. Usa Agregar fotos.',
+    'This browser will not open the camera. Use Upload photos/videos instead.': 'Este navegador no abre la cámara. Usa Subir fotos/videos.',
+    'This browser cannot record video. Use Upload photos/videos instead.': 'Este navegador no puede grabar video. Usa Subir fotos/videos.',
+    'Camera access was blocked. Allow the camera, or use Upload photos/videos.': 'Se bloqueó el acceso a la cámara. Permite la cámara o usa Subir fotos/videos.',
+    'Could not open the camera. Use Upload photos/videos instead.': 'No se pudo abrir la cámara. Usa Subir fotos/videos.',
     'That photo could not be saved.': 'No se pudo guardar esa foto.',
     'That video could not be saved.': 'No se pudo guardar ese video.',
     'That video is too large. Keep clips under 50 MB, or record in the app.': 'Ese video es demasiado grande. Deja los clips por debajo de 50 MB, o graba en la app.',
@@ -4527,8 +4526,8 @@ window.CONFIG = {
           '<div class="filedrop">' +
             '<input id="c-files" type="file" accept="image/*,video/*" multiple>' +
             '<div class="filedrop-actions">' +
-              '<label class="filedrop-label" for="c-files">' + t('Add photos or videos') + '</label>' +
-              (cameraSupported() ? '<button type="button" id="c-camera" class="btn btn-quiet">' + t('Open camera') + '</button>' : '') +
+              '<label class="filedrop-label" for="c-files">' + t('Upload photos/videos') + '</label>' +
+              (cameraSupported() ? '<button type="button" id="c-camera" class="btn btn-quiet">' + t('Take photos/video') + '</button>' : '') +
             '</div>' +
             '<div id="c-thumbs" class="thumbs"></div>' +
           '</div></div>' +
@@ -4705,8 +4704,8 @@ window.CONFIG = {
         '<div class="filedrop">' +
           '<input id="e-files" type="file" accept="image/*,video/*" multiple>' +
           '<div class="filedrop-actions">' +
-            '<label class="filedrop-label" for="e-files">' + t('Add photos or videos') + '</label>' +
-            (cameraSupported() ? '<button type="button" id="e-camera" class="btn btn-quiet">' + t('Open camera') + '</button>' : '') +
+            '<label class="filedrop-label" for="e-files">' + t('Upload photos/videos') + '</label>' +
+            (cameraSupported() ? '<button type="button" id="e-camera" class="btn btn-quiet">' + t('Take photos/video') + '</button>' : '') +
           '</div>' +
           '<div id="e-thumbs" class="thumbs"></div>' +
         '</div></div>' +
@@ -5258,7 +5257,7 @@ window.CONFIG = {
     if (camRecorder) return;
     if (next === 'video' && useNativeVideo()) return shootNativeVideo();
     if (next === 'video' && !videoRecSupported()) {
-      return toast(t('This browser cannot record video. Use Add photos or videos instead.'));
+      return toast(t('This browser cannot record video. Use Upload photos/videos instead.'));
     }
     if (camMode === next) return;
     camMode = next;
@@ -5268,7 +5267,7 @@ window.CONFIG = {
 
   function openCamera(into, thumbsId) {
     if (!cameraSupported()) {
-      return toast(t('This browser will not open the camera. Use Add photos instead.'));
+      return toast(t('This browser will not open the camera. Use Upload photos/videos instead.'));
     }
     camInto = into;
     camThumbs = thumbsId;
@@ -5284,8 +5283,8 @@ window.CONFIG = {
       camInto = null;
       var blocked = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
       toast(blocked
-        ? t('Camera access was blocked. Allow the camera, or use Add photos.')
-        : t('Could not open the camera. Use Add photos instead.'));
+        ? t('Camera access was blocked. Allow the camera, or use Upload photos/videos.')
+        : t('Could not open the camera. Use Upload photos/videos instead.'));
     });
   }
 
@@ -5463,7 +5462,7 @@ window.CONFIG = {
   function startRec() {
     if (!camStream || !camInto || camRecorder) return;
     if (!videoRecSupported()) {
-      return toast(t('This browser cannot record video. Use Add photos or videos instead.'));
+      return toast(t('This browser cannot record video. Use Upload photos/videos instead.'));
     }
     var mime = recMime();
     var opts = { videoBitsPerSecond: recBitrate(), audioBitsPerSecond: 128000 };
@@ -5477,7 +5476,7 @@ window.CONFIG = {
         camRecorder = mime ? new MediaRecorder(camStream, { mimeType: mime }) : new MediaRecorder(camStream);
       } catch (err2) {
         camRecorder = null;
-        return toast(t('This browser cannot record video. Use Add photos or videos instead.'));
+        return toast(t('This browser cannot record video. Use Upload photos/videos instead.'));
       }
     }
     camChunks = [];
