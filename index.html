@@ -1485,7 +1485,7 @@ window.CONFIG = {
     '</svg>';
   // Bump this whenever you upload a new index.html, alongside the CACHE name
   // in sw.js. It shows at the bottom of My profile.
-  var BUILD = '2026-09-23b';
+  var BUILD = '2026-09-23c';
   var MAX_PX = 1600;        // photos are shrunk to this on the long edge before upload
   var JPEG_Q = 0.72;
   var MAX_VIDEO_BYTES = 50 * 1024 * 1024;   // typical Supabase file cap; site radio cannot carry more
@@ -5185,20 +5185,14 @@ window.CONFIG = {
     return cameraSupported() && typeof MediaRecorder === 'function';
   }
 
-  // An iPhone will not give a web page the camera its Camera app uses. A
-  // getUserMedia stream comes off a low capture preset with none of the
-  // processing or stabilisation, so anything recorded in-page looks soft next
-  // to a clip shot natively, and no bitrate makes that back. So on iOS we hand
-  // recording to the system camera and take the finished file back.
-  function isIOS() {
-    var ua = navigator.userAgent || '';
-    return /iPad|iPhone|iPod/.test(ua) ||
-      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  }
-
+  // Do NOT route iOS video at the system camera through a file input. HTML
+  // Media Capture records at 480x360 on iPhone unless the device happens to be
+  // set to 1080p60, and the Photos picker re-encodes what it hands over. In-page
+  // MediaRecorder is the better path on iOS: it writes MP4/H.264 and honours
+  // videoBitsPerSecond to within about 15%. The native input is kept only for
+  // browsers with no MediaRecorder at all.
   function useNativeVideo() {
-    if (!camNative) return false;
-    return isIOS() || !videoRecSupported();
+    return !!camNative && !videoRecSupported();
   }
 
   // Never name an H.264 level here. Asking for avc1.42E01E (Baseline 3.0) caps
@@ -5234,13 +5228,14 @@ window.CONFIG = {
     return out;
   }
 
-  // Left to itself a browser picks a bitrate that turns drywall seams, framing
-  // and anything with text on it into mush. These are sized to the frame the
-  // camera actually gave us.
+  // Left to itself a browser records at about 2.5 Mbps, which turns drywall
+  // seams, framing and anything with text on it into mush. iOS and macOS treat
+  // this as a real target and land within about 15% of it, so ask for what the
+  // frame actually needs.
   function recBitrate() {
     var h = camTrackSize().h || 720;
-    if (h >= 1080) return 8000000;
-    if (h >= 720) return 5000000;
+    if (h >= 1080) return 10000000;
+    if (h >= 720) return 6000000;
     return 3000000;
   }
 
@@ -5294,17 +5289,27 @@ window.CONFIG = {
     });
   }
 
-  // "floor" demands at least 720 on the short side. Plenty of cameras hand out
-  // 640x480 when all you give them is an ideal, so ask for a minimum first and
-  // drop the demand only if the camera cannot meet it. The minimum goes on
-  // both dimensions rather than 1280x720, because a phone held upright reports
-  // the frame the other way round and a landscape minimum just fails there.
-  function camConstraints(withAudio, floor) {
+  // Given only a preference, iOS will happily emulate the size you asked for
+  // by scaling and cropping a smaller feed, and hand back something grainy at
+  // the right dimensions. An exact request either gets real 1080p or fails
+  // outright, which is why this works down a ladder instead. The portrait pair
+  // comes second because a phone held upright reports the frame the other way
+  // round, and a landscape-only request would fail there for no good reason.
+  var CAM_SIZES = [
+    { width: { exact: 1920 }, height: { exact: 1080 } },
+    { width: { exact: 1080 }, height: { exact: 1920 } },
+    { width: { min: 1280 }, height: { min: 720 } },
+    { width: { min: 720 }, height: { min: 720 } },
+    { width: { ideal: 1920 }, height: { ideal: 1080 } }
+  ];
+
+  function camConstraints(withAudio, tier) {
+    var size = CAM_SIZES[tier] || CAM_SIZES[CAM_SIZES.length - 1];
     return {
       video: {
         facingMode: { ideal: camFacing },
-        width: floor ? { min: 720, ideal: 1920 } : { ideal: 1920 },
-        height: floor ? { min: 720, ideal: 1080 } : { ideal: 1080 },
+        width: size.width,
+        height: size.height,
         frameRate: { ideal: 30 }
       },
       audio: !!withAudio
@@ -5314,8 +5319,10 @@ window.CONFIG = {
   function startCamStream() {
     stopCamStream();
     var wantAudio = camMode === 'video';
-    var tries = [camConstraints(wantAudio, true), camConstraints(wantAudio, false)];
-    if (wantAudio) tries.push(camConstraints(false, false));
+    var tries = [];
+    for (var i = 0; i < CAM_SIZES.length; i++) tries.push(camConstraints(wantAudio, i));
+    // Last resort: the camera without sound beats no camera at all.
+    if (wantAudio) tries.push(camConstraints(false, CAM_SIZES.length - 1));
 
     return nextCamStream(tries, 0).then(function (stream) {
       camStream = stream;
