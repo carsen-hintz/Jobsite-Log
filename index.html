@@ -521,19 +521,21 @@ textarea { min-height: 120px; resize: vertical; }
 }
 
 .jobhead-top h1 { min-width: 0; overflow-wrap: anywhere; }
+
+/* The pencil hugs the end of the name rather than floating out to the right,
+   so it reads as "edit this title" and not as another toolbar button. */
 .jobhead-title {
   display: flex;
   align-items: flex-start;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
-  flex: 1;
+  flex: 0 1 auto;
 }
-.jobhead-title h1 { flex: 1; }
 .jobedit-btn {
   flex: none;
-  width: 40px;
-  height: 40px;
-  margin-top: 2px;
+  width: 34px;
+  height: 34px;
+  margin-top: 3px;
   border: none;
   background: none;
   color: var(--steel);
@@ -545,9 +547,26 @@ textarea { min-height: 120px; resize: vertical; }
 }
 .jobedit-btn:hover { color: var(--chalk); background: var(--wall); }
 
-.statuspick { position: relative; flex: none; }
+.statuspick { position: relative; flex: none; margin-left: auto; }
 button.chip { font: inherit; cursor: pointer; }
-.statuspick > .chip { margin-top: 4px; padding-right: 10px; }
+
+/* The caret is the whole point of this control: without it nobody knows the
+   status is the thing you click to change it. */
+.statuspick > .chip {
+  margin-top: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip-caret {
+  display: block;
+  flex: none;
+  opacity: 0.9;
+  transition: transform var(--ease);
+}
+
+.statuspick > .chip[aria-expanded="true"] .chip-caret { transform: rotate(180deg); }
 .chip-upcoming { color: #fff; background: #7C3AED; border-color: #7C3AED; }
 .chip-active { color: #fff; background: var(--fixed); border-color: var(--fixed); }
 .chip-halt { color: #fff; background: var(--working); border-color: var(--working); }
@@ -1707,10 +1726,15 @@ window.CONFIG = {
       'fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
       '<path d="M4 20h4l10.5-10.5-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>' +
     '</svg>';
+  var CARET_SVG =
+    '<svg class="chip-caret" viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" focusable="false" ' +
+      'fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M6 9.5l6 6 6-6"/>' +
+    '</svg>';
   var JOB_STATUSES = ['Upcoming', 'Active', 'On Halt', 'Completed'];
   // Bump this whenever you upload a new index.html, alongside the CACHE name
   // in sw.js. It shows at the bottom of My profile.
-  var BUILD = '2026-09-23f';
+  var BUILD = '2026-09-23g';
   var MAX_PX = 1600;        // photos are shrunk to this on the long edge before upload
   var JPEG_Q = 0.72;
   var MAX_VIDEO_BYTES = 50 * 1024 * 1024;   // typical Supabase file cap; site radio cannot carry more
@@ -4967,7 +4991,7 @@ window.CONFIG = {
           '<div class="statuspick">' +
             '<button id="status-btn" class="chip ' + statusChipClass(j.status) + '" type="button" ' +
               'aria-haspopup="listbox" aria-expanded="false" aria-label="' + t('Job status') + '">' +
-              t(j.status || 'Active') + '</button>' +
+              '<span>' + t(j.status || 'Active') + '</span>' + CARET_SVG + '</button>' +
             '<div id="status-menu" class="status-menu" role="listbox" hidden>' +
               JOB_STATUSES.map(function (st) {
                 return '<button type="button" role="option" class="chip ' + statusChipClass(st) +
