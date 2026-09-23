@@ -1421,6 +1421,7 @@ textarea { min-height: 120px; resize: vertical; }
     <div id="cam-timer" class="camera-timer" hidden>0:00</div>
     <div id="cam-strip" class="camera-strip"></div>
     <button id="cam-done" class="camera-done" type="button">Done</button>
+    <input id="cam-native" type="file" accept="video/*" capture="environment" hidden>
   </div>
   <div class="camera-bar">
     <button id="cam-cancel" class="camera-text" type="button">Cancel</button>
@@ -1501,6 +1502,7 @@ window.CONFIG = {
   var camEl = document.getElementById('camera');
   var camVideo = document.getElementById('cam-video');
   var camStrip = document.getElementById('cam-strip');
+  var camNative = document.getElementById('cam-native');
 
   var sb = null;
   var me = null;
@@ -1877,6 +1879,8 @@ window.CONFIG = {
     'That video is too large to upload.': 'Ese video es demasiado grande para subirlo.',
     'Recording stopped at two minutes.': 'La grabación se detuvo a los dos minutos.',
     'Recording stopped — the clip reached the size limit.': 'La grabación se detuvo — el clip llegó al límite de tamaño.',
+    'This camera only records {0}×{1} — that is its own limit.': 'Esta cámara solo graba {0}×{1} — es su propio límite.',
+    'Keep it under a minute — longer clips are too large to upload.': 'Que dure menos de un minuto — los clips largos son demasiado grandes para subir.',
     'Only one camera on this phone.': 'Este teléfono solo tiene una cámara.',
     'Add a note, a photo, or a video first.': 'Agrega una nota, una foto o un video primero.',
     'An entry needs a note, a photo, or a video.': 'Una nota necesita texto, una foto o un video.',
@@ -2085,8 +2089,12 @@ window.CONFIG = {
   function mediaContentType(file) {
     if (isVideoFile(file)) {
       // A recorder reports "video/mp4;codecs=avc1…". Storage matches its
-      // allowed types on the bare type, so send that.
+      // allowed types on the bare type, so send that. An iPhone hands back
+      // video/quicktime, which is H.264 in a near-identical container and
+      // plays everywhere as mp4 — call it that so it matches the .mp4 name we
+      // store it under and clears the usual bucket allow-list.
       var type = ((file && file.type) || '').split(';')[0].trim();
+      if (/quicktime/i.test(type)) return 'video/mp4';
       return type || (mediaExt(file) === 'mp4' ? 'video/mp4' : 'video/webm');
     }
     return 'image/jpeg';
@@ -2413,6 +2421,21 @@ window.CONFIG = {
     on('cam-cancel', 'click', cancelCamera);
     on('cam-mode-photo', 'click', function () { setCamMode('photo'); });
     on('cam-mode-video', 'click', function () { setCamMode('video'); });
+    on('cam-native', 'change', function (e) {
+      var files = e.target.files;
+      tookNativeVideo(files);
+      e.target.value = '';
+    });
+    // Backing out of the system camera fires no change event, so the preview
+    // has to come back on its own.
+    window.addEventListener('focus', function () {
+      if (!camNativeOpen) return;
+      setTimeout(function () {
+        if (!camNativeOpen) return;
+        camNativeOpen = false;
+        resumeCamStream();
+      }, 600);
+    });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && camEl && !camEl.hidden) cancelCamera();
     });
@@ -5095,6 +5118,8 @@ window.CONFIG = {
   var camRecStarted = 0;
   var camRecWait = null;
   var camRecBytes = 0;
+  var camRecSize = null;
+  var camNativeOpen = false;
 
   function cameraSupported() {
     return !!(camEl && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -5104,13 +5129,32 @@ window.CONFIG = {
     return cameraSupported() && typeof MediaRecorder === 'function';
   }
 
-  // H.264 first: phones encode it in hardware, so it holds detail at a given
-  // bitrate and plays back anywhere. VP9 beats VP8 per bit, so it comes next.
+  // An iPhone will not give a web page the camera its Camera app uses. A
+  // getUserMedia stream comes off a low capture preset with none of the
+  // processing or stabilisation, so anything recorded in-page looks soft next
+  // to a clip shot natively, and no bitrate makes that back. So on iOS we hand
+  // recording to the system camera and take the finished file back.
+  function isIOS() {
+    var ua = navigator.userAgent || '';
+    return /iPad|iPhone|iPod/.test(ua) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+
+  function useNativeVideo() {
+    if (!camNative) return false;
+    return isIOS() || !videoRecSupported();
+  }
+
+  // Never name an H.264 level here. Asking for avc1.42E01E (Baseline 3.0) caps
+  // the encoder at about 720x480, so the browser quietly shrinks a 1080p frame
+  // to fit it — the exact thing that made the first recordings mush. Plain
+  // video/mp4 lets it pick a profile that suits the frame; High 4.0 is only a
+  // named fallback because it covers 1080p30.
   function recMime() {
     if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return '';
     var types = [
-      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
       'video/mp4',
+      'video/mp4;codecs=avc1.640028,mp4a.40.2',
       'video/webm;codecs=h264,opus',
       'video/webm;codecs=vp9,opus',
       'video/webm;codecs=vp8,opus',
@@ -5123,20 +5167,25 @@ window.CONFIG = {
     return '';
   }
 
-  // Left to itself a browser picks a bitrate that turns drywall seams and
-  // framing into mush. These are sized to the frame the camera actually gave
-  // us, which is what "record it so I can see the detail" needs.
-  function recBitrate() {
-    var h = 720;
+  function camTrackSize() {
+    var out = { w: 0, h: 0 };
     if (camStream && camStream.getVideoTracks) {
       var track = camStream.getVideoTracks()[0];
       var set = track && track.getSettings ? track.getSettings() : null;
-      if (set && set.height) h = set.height;
-      else if (camVideo && camVideo.videoHeight) h = camVideo.videoHeight;
+      if (set) { out.w = set.width || 0; out.h = set.height || 0; }
     }
-    if (h >= 1080) return 6000000;
-    if (h >= 720) return 4000000;
-    return 2500000;
+    if (!out.h && camVideo) { out.w = camVideo.videoWidth || 0; out.h = camVideo.videoHeight || 0; }
+    return out;
+  }
+
+  // Left to itself a browser picks a bitrate that turns drywall seams, framing
+  // and anything with text on it into mush. These are sized to the frame the
+  // camera actually gave us.
+  function recBitrate() {
+    var h = camTrackSize().h || 720;
+    if (h >= 1080) return 8000000;
+    if (h >= 720) return 5000000;
+    return 3000000;
   }
 
   function paintCamMode() {
@@ -5156,6 +5205,7 @@ window.CONFIG = {
 
   function setCamMode(next) {
     if (camRecorder) return;
+    if (next === 'video' && useNativeVideo()) return shootNativeVideo();
     if (next === 'video' && !videoRecSupported()) {
       return toast(t('This browser cannot record video. Use Add photos or videos instead.'));
     }
@@ -5188,12 +5238,17 @@ window.CONFIG = {
     });
   }
 
-  function camConstraints(withAudio) {
+  // "floor" demands at least 720 on the short side. Plenty of cameras hand out
+  // 640x480 when all you give them is an ideal, so ask for a minimum first and
+  // drop the demand only if the camera cannot meet it. The minimum goes on
+  // both dimensions rather than 1280x720, because a phone held upright reports
+  // the frame the other way round and a landscape minimum just fails there.
+  function camConstraints(withAudio, floor) {
     return {
       video: {
         facingMode: { ideal: camFacing },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
+        width: floor ? { min: 720, ideal: 1920 } : { ideal: 1920 },
+        height: floor ? { min: 720, ideal: 1080 } : { ideal: 1080 },
         frameRate: { ideal: 30 }
       },
       audio: !!withAudio
@@ -5203,17 +5258,54 @@ window.CONFIG = {
   function startCamStream() {
     stopCamStream();
     var wantAudio = camMode === 'video';
-    return navigator.mediaDevices.getUserMedia(camConstraints(wantAudio))
-      .catch(function (err) {
-        if (wantAudio) return navigator.mediaDevices.getUserMedia(camConstraints(false));
-        throw err;
-      })
-      .then(function (stream) {
-        camStream = stream;
-        camVideo.srcObject = stream;
-        var playing = camVideo.play();
-        if (playing && playing.catch) playing.catch(function () {});
-      });
+    var tries = [camConstraints(wantAudio, true), camConstraints(wantAudio, false)];
+    if (wantAudio) tries.push(camConstraints(false, false));
+
+    return nextCamStream(tries, 0).then(function (stream) {
+      camStream = stream;
+      camVideo.srcObject = stream;
+      var playing = camVideo.play();
+      if (playing && playing.catch) playing.catch(function () {});
+    });
+  }
+
+  function nextCamStream(tries, i) {
+    return navigator.mediaDevices.getUserMedia(tries[i]).catch(function (err) {
+      if (i + 1 >= tries.length) throw err;
+      return nextCamStream(tries, i + 1);
+    });
+  }
+
+  // The system camera wants the hardware to itself, so drop our stream while
+  // it is up and take it back when the user returns.
+  function shootNativeVideo() {
+    if (!camNative || !camInto) return;
+    stopCamStream();
+    camNativeOpen = true;
+    camNative.value = '';
+    camNative.click();
+    // The system camera enforces no limit of ours, and a long clip only fails
+    // once it has been shot, so say it before they start.
+    toast(t('Keep it under a minute — longer clips are too large to upload.'));
+  }
+
+  function tookNativeVideo(files) {
+    camNativeOpen = false;
+    var big = false;
+    Array.prototype.slice.call(files || []).forEach(function (file) {
+      if (!camInto) return;
+      if (file.size > MAX_VIDEO_BYTES) { big = true; return; }
+      camInto.push(file);
+      addCamThumb(file);
+    });
+    paintCamCount();
+    if (big) toast(t('That video is too large to upload.'));
+    resumeCamStream();
+  }
+
+  function resumeCamStream() {
+    if (!camEl || camEl.hidden || camStream) return;
+    startCamStream().catch(function () {});
   }
 
   function stopCamStream() {
@@ -5248,7 +5340,10 @@ window.CONFIG = {
     if (!on) { el.hidden = true; el.textContent = '0:00'; return; }
     var sec = Math.floor((ms || 0) / 1000);
     el.hidden = false;
-    el.textContent = Math.floor(sec / 60) + ':' + pad(sec % 60);
+    // The size is on the badge on purpose: if a clip looks soft, this says
+    // straight away whether the camera or the recording was the limit.
+    el.textContent = Math.floor(sec / 60) + ':' + pad(sec % 60) +
+      (camRecSize && camRecSize.h ? ' · ' + camRecSize.h + 'p' : '');
   }
 
   function addCamThumb(blob) {
@@ -5321,6 +5416,7 @@ window.CONFIG = {
     }
     camChunks = [];
     camRecBytes = 0;
+    camRecSize = camTrackSize();
     camKeepRec = true;
     camRecStarted = Date.now();
     camRecorder.ondataavailable = function (e) {
@@ -5351,6 +5447,15 @@ window.CONFIG = {
           camInto.push(blob);
           addCamThumb(blob);
           paintCamCount();
+          if (window.console) {
+            console.info('[jobsite-logger] clip ' +
+              (camRecSize && camRecSize.h ? camRecSize.w + 'x' + camRecSize.h : 'size unknown') +
+              ' · ' + ((rec && rec.mimeType) || 'type unknown') +
+              ' · ' + Math.round(blob.size / 1024) + ' KB');
+          }
+          if (camRecSize && camRecSize.h && camRecSize.h < 720) {
+            toast(tf('This camera only records {0}×{1} — that is its own limit.', camRecSize.w, camRecSize.h));
+          }
         }
       }
       if (camRecWait) {
