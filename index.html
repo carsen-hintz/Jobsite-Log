@@ -510,6 +510,66 @@ textarea { min-height: 120px; resize: vertical; }
 .jobhead .jobhead-meta { margin-top: 6px; color: var(--steel); font-size: 15px; }
 .jobhead .row { margin-top: 14px; }
 
+/* Name on the left, status on the right, both on the same baseline. */
+.jobhead-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.jobhead-top h1 { min-width: 0; overflow-wrap: anywhere; }
+.jobhead-top .chip { flex: none; margin-top: 4px; }
+.chip-active { color: #fff; background: var(--fixed); border-color: var(--fixed); }
+
+/* Labelled facts read far better than a run of lines with no idea which is
+   the client and which is the address. */
+.jobfacts {
+  margin: 16px 0 0;
+  display: grid;
+  gap: 12px 20px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.jobfacts > div { min-width: 0; }
+
+.jobfacts dt {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--steel);
+}
+
+.jobfacts dd {
+  margin: 3px 0 0;
+  font-size: 15px;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.jobnotes {
+  margin-top: 16px;
+  padding: 12px 14px;
+  background: var(--wall);
+  border-left: 3px solid var(--chalk);
+  border-radius: var(--radius);
+  font-size: 15px;
+}
+
+.jobnotes .kicker { margin-bottom: 5px; }
+
+/* Four actions wrapped 3-then-1 looked accidental. An even grid keeps them
+   the same width however many fit on the row. */
+.jobacts {
+  margin-top: 18px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+}
+
+.jobacts .btn { width: 100%; }
+
 .backlink {
   display: inline-block;
   padding: 8px 0;
@@ -1485,7 +1545,7 @@ window.CONFIG = {
     '</svg>';
   // Bump this whenever you upload a new index.html, alongside the CACHE name
   // in sw.js. It shows at the bottom of My profile.
-  var BUILD = '2026-09-23c';
+  var BUILD = '2026-09-23d';
   var MAX_PX = 1600;        // photos are shrunk to this on the long edge before upload
   var JPEG_Q = 0.72;
   var MAX_VIDEO_BYTES = 50 * 1024 * 1024;   // typical Supabase file cap; site radio cannot carry more
@@ -1751,6 +1811,14 @@ window.CONFIG = {
     'No client listed': 'Sin cliente',
     'No contractor or home owner listed': 'Sin contratista ni dueño de casa',
     'Completed': 'Terminado',
+    'Active': 'Activo',
+    'Edit details': 'Editar detalles',
+    'Edit job details': 'Editar detalles del trabajo',
+    'Save changes': 'Guardar cambios',
+    'Job updated': 'Trabajo actualizado',
+    'The new start day is on the schedule, but the old one had to stay — remove it there.': 'El nuevo día de inicio está en el calendario, pero el anterior tuvo que quedarse — quítalo desde allí.',
+    'Changing this moves the job’s start day on the schedule.': 'Cambiar esto mueve el día de inicio del trabajo en el calendario.',
+    'Job saved, but the notes and start date could not be stored. Run add-job-details.sql in Supabase.': 'Se guardó el trabajo, pero no se pudieron guardar las notas ni la fecha de inicio. Ejecuta add-job-details.sql en Supabase.',
     '{0} days quiet': '{0} días en silencio',
     '{0} days since an entry': '{0} días desde una nota',
     'Save notes for {0}': 'Guardar notas de {0}',
@@ -4403,17 +4471,23 @@ window.CONFIG = {
   // The notes and the start date are kept on the job itself. A database that
   // predates those two columns still gets a saved job and a scheduled start,
   // so creating work never fails over a column that is only for display.
-  function saveJobExtras(id, notes, start) {
+  // "force" is for editing, where clearing the notes or the start date has to
+  // actually clear them rather than be read as "leave it alone".
+  function saveJobExtras(id, notes, start, force) {
     var patch = {};
-    if (notes) patch.notes = notes;
-    if (start) patch.start_date = start;
-    if (!notes && !start) return Promise.resolve();
+    if (notes || force) patch.notes = notes || null;
+    if (start || force) patch.start_date = start || null;
+    if (!notes && !start && !force) return Promise.resolve();
 
     return sb.from('jobs').update(patch).eq('id', id).then(function (res) {
-      if (res.error && window.console) {
+      if (!res.error) return;
+      // Silently dropping these is what made the notes look like a display
+      // bug. Say it out loud instead.
+      if (window.console) {
         console.warn('[jobsite-logger] Job notes / start date were not stored — ' +
           'run add-job-details.sql in the Supabase SQL Editor. ' + res.error.message);
       }
+      toast(t('Job saved, but the notes and start date could not be stored. Run add-job-details.sql in Supabase.'));
     }, function () {});
   }
 
@@ -4434,6 +4508,62 @@ window.CONFIG = {
         toast(tf('Job saved, but the start date did not reach the schedule: {0}', res.error.message));
       }
     });
+  }
+
+  // Editing a job keeps the same two-step shape as creating one: the columns
+  // that have always existed go first, so a rename or an address fix is never
+  // lost to a database that has not had add-job-details.sql run on it.
+  function saveJobEdits() {
+    var j = view.job;
+    var desc = document.getElementById('je-name').value.trim();
+    if (desc.length < 2) return toast(t('Say what the job is.'));
+
+    var notes = document.getElementById('je-notes').value.trim();
+    var start = document.getElementById('je-start').value || '';
+    var moved = start !== (j.start_date || '');
+    var btn = document.getElementById('je-save');
+    btn.disabled = true;
+    btn.textContent = t('Saving…');
+
+    sb.from('jobs').update({
+      name: desc,
+      address: document.getElementById('je-address').value.trim(),
+      client_name: document.getElementById('je-client').value.trim(),
+      updated_at: new Date().toISOString()
+    }).eq('id', j.id).select().single().then(function (res) {
+      if (res.error) throw res.error;
+      view.job = res.data;
+      return saveJobExtras(j.id, notes, start, true).then(function () {
+        return moved ? moveJobStart(j, start) : null;
+      });
+    }).then(function () {
+      // The follow-up update does not hand back a row, so mirror locally what
+      // was just written rather than re-reading the job.
+      view.job.notes = notes || null;
+      view.job.start_date = start || null;
+      toast(t('Job updated'));
+      paintJob();
+    }).catch(function (err) {
+      btn.disabled = false;
+      btn.textContent = t('Save changes');
+      toast(tf('Could not save: {0}', (err && err.message) || err));
+    });
+  }
+
+  // A changed start date has to move the marker on the schedule, not leave a
+  // second "Job starts" day sitting there.
+  function moveJobStart(job, start) {
+    return sb.from('schedule').delete()
+      .eq('job_id', job.id).eq('note', 'Job starts').select()
+      .then(function (res) {
+        // A schedule table with no delete policy removes nothing and reports
+        // no error either, which would quietly leave two start days on the
+        // calendar. Say so rather than let the crew find both.
+        if (!res.error && !(res.data || []).length && job.start_date) {
+          toast(t('The new start day is on the schedule, but the old one had to stay — remove it there.'));
+        }
+        return start ? scheduleJobStart(job, start) : null;
+      });
   }
 
   function deleteJob(id, name) {
@@ -4487,28 +4617,63 @@ window.CONFIG = {
     });
   }
 
+  function jobFact(label, valueHtml) {
+    return '<div><dt>' + label + '</dt><dd>' + valueHtml + '</dd></div>';
+  }
+
   function paintJob() {
     var j = view.job;
 
     app.innerHTML =
       '<div class="jobhead">' +
-        '<span class="kicker">' + (j.status === 'Completed' ? t('Completed job') : t('Active job')) + '</span>' +
-        '<h1>' + esc(j.name) + '</h1>' +
-        '<div class="jobhead-meta">' + esc(j.client_name || t('No contractor or home owner listed')) +
-          (j.start_date ? '<br>' + esc(tf('Starts {0}', longDate(j.start_date))) : '') +
+        '<div class="jobhead-top">' +
+          '<h1>' + esc(j.name) + '</h1>' +
+          '<span class="chip ' + (j.status === 'Completed' ? 'chip-done' : 'chip-active') + '">' +
+            (j.status === 'Completed' ? t('Completed') : t('Active')) + '</span>' +
+        '</div>' +
+
+        '<dl class="jobfacts">' +
+          jobFact(t('Contractor / Home owner'),
+            esc(j.client_name || t('No contractor or home owner listed'))) +
+          (j.start_date ? jobFact(t('Start date'), esc(longDate(j.start_date))) : '') +
           (j.address
-            ? '<br><a class="maplink" target="_blank" rel="noopener" href="' +
-                esc(mapsUrl(j.address)) + '">' + esc(j.address) + '</a>'
-            : '') + '</div>' +
+            ? jobFact(t('Address'), '<a class="maplink" target="_blank" rel="noopener" href="' +
+                esc(mapsUrl(j.address)) + '">' + esc(j.address) + '</a>')
+            : '') +
+        '</dl>' +
+
         (j.notes
-          ? '<p class="entry-note" style="margin-top:11px">' + esc(j.notes) + '</p>'
+          ? '<div class="jobnotes"><span class="kicker">' + t('Job notes') + '</span>' +
+              '<p class="entry-note">' + esc(j.notes) + '</p></div>'
           : '') +
-        '<div class="row">' +
+
+        '<div class="jobacts">' +
           '<button id="toggle-status" class="btn btn-quiet">' +
             (j.status === 'Completed' ? t('Reopen job') : t('Mark job completed')) + '</button>' +
           '<button id="do-pdf" class="btn btn-quiet">' + t('Client PDF') + '</button>' +
           '<button id="do-photos" class="btn btn-quiet">' + t('Save photos') + '</button>' +
           '<button id="do-drive" class="btn btn-quiet">' + t('Save to Drive') + '</button>' +
+          '<button id="do-edit" class="btn btn-quiet">' + t('Edit details') + '</button>' +
+        '</div>' +
+      '</div>' +
+
+      '<div id="jobedit" class="panel" hidden style="margin-top:14px">' +
+        '<h2 style="font-size:22px;margin-bottom:12px">' + t('Edit job details') + '</h2>' +
+        '<div class="field"><label for="je-name">' + t('Job description') + '</label>' +
+          '<input id="je-name" type="text" value="' + esc(j.name || '') + '"></div>' +
+        '<div class="field"><label for="je-notes">' + t('Job notes') + '</label>' +
+          '<textarea id="je-notes">' + esc(j.notes || '') + '</textarea></div>' +
+        '<div class="field"><label for="je-start">' + t('Start date') + '</label>' +
+          '<input id="je-start" type="date" value="' + esc(j.start_date || '') + '">' +
+          '<p class="small muted" style="margin:6px 0 0">' +
+            t('Changing this moves the job’s start day on the schedule.') + '</p></div>' +
+        '<div class="field"><label for="je-address">' + t('Address') + '</label>' +
+          '<input id="je-address" type="text" autocomplete="street-address" value="' + esc(j.address || '') + '"></div>' +
+        '<div class="field"><label for="je-client">' + t('Contractor / Home owner') + '</label>' +
+          '<input id="je-client" type="text" value="' + esc(j.client_name || '') + '"></div>' +
+        '<div class="row" style="margin-top:14px">' +
+          '<button id="je-save" class="btn grow">' + t('Save changes') + '</button>' +
+          '<button id="je-cancel" class="btn btn-quiet">' + t('Cancel') + '</button>' +
         '</div>' +
       '</div>' +
 
@@ -4567,6 +4732,17 @@ window.CONFIG = {
     on('do-pdf', 'click', exportPdf);
     on('do-photos', 'click', saveJobPhotos);
     on('do-drive', 'click', savePhotosToDrive);
+
+    on('do-edit', 'click', function () {
+      var panel = document.getElementById('jobedit');
+      panel.hidden = false;
+      document.getElementById('je-name').focus();
+      panel.scrollIntoView({ block: 'start' });
+    });
+    on('je-cancel', 'click', function () {
+      document.getElementById('jobedit').hidden = true;
+    });
+    on('je-save', 'click', saveJobEdits);
 
     on('c-open', 'click', function () {
       document.getElementById('compose').hidden = false;
