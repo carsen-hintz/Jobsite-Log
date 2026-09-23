@@ -612,6 +612,98 @@ textarea { min-height: 120px; resize: vertical; }
   cursor: pointer;
 }
 
+/* ---------- In-app camera ---------- */
+
+.camera {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+}
+
+.camera-stage { position: relative; flex: 1; min-height: 0; }
+.camera-view { display: block; width: 100%; height: 100%; object-fit: cover; background: #000; }
+
+.camera-strip {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 10px;
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 0 12px;
+}
+
+.camera-strip img {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border: 2px solid #fff;
+  border-radius: var(--radius-sm);
+}
+
+.camera-done {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  right: 12px;
+  min-height: 44px;
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 600;
+  color: var(--ink);
+  background: #fff;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.camera-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  background: #000;
+}
+
+/* A shutter you can hit with a glove on, and that keeps the preview open so the
+   next shot is one tap away. */
+.camera-shutter {
+  width: 68px;
+  height: 68px;
+  flex: 0 0 auto;
+  border: 4px solid #fff;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.28);
+  cursor: pointer;
+}
+
+.camera-shutter:active { background: #fff; }
+.camera-shutter[disabled] { opacity: 0.5; }
+
+.camera-text {
+  min-height: 44px;
+  padding: 0 14px;
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.filedrop-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 /* ---------- Sign-in / setup ---------- */
 
 .gate {
@@ -1254,6 +1346,19 @@ textarea { min-height: 120px; resize: vertical; }
   <img id="lightbox-img" alt="Jobsite photo, full size">
 </div>
 
+<div id="camera" class="camera" hidden>
+  <div class="camera-stage">
+    <video id="cam-video" class="camera-view" playsinline autoplay muted></video>
+    <div id="cam-strip" class="camera-strip"></div>
+    <button id="cam-done" class="camera-done" type="button">Done</button>
+  </div>
+  <div class="camera-bar">
+    <button id="cam-cancel" class="camera-text" type="button">Cancel</button>
+    <button id="cam-shoot" class="camera-shutter" type="button" aria-label="Take photo"></button>
+    <button id="cam-flip" class="camera-text" type="button">Flip</button>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -1319,6 +1424,9 @@ window.CONFIG = {
   var LOGO_BUCKET = 'company-logos';
   var lightbox = document.getElementById('lightbox');
   var lightboxImg = document.getElementById('lightbox-img');
+  var camEl = document.getElementById('camera');
+  var camVideo = document.getElementById('cam-video');
+  var camStrip = document.getElementById('cam-strip');
 
   var sb = null;
   var me = null;
@@ -1392,6 +1500,18 @@ window.CONFIG = {
       close.setAttribute('aria-label', t('Close photo'));
     }
     if (lightboxImg) lightboxImg.alt = t('Jobsite photo, full size');
+
+    var camDone = document.getElementById('cam-done');
+    if (camDone) camDone.textContent = t('Done');
+    var camCancelBtn = document.getElementById('cam-cancel');
+    if (camCancelBtn) camCancelBtn.textContent = t('Cancel');
+    var camFlipBtn = document.getElementById('cam-flip');
+    if (camFlipBtn) {
+      camFlipBtn.textContent = t('Flip');
+      camFlipBtn.setAttribute('aria-label', t('Switch camera'));
+    }
+    var camShootBtn = document.getElementById('cam-shoot');
+    if (camShootBtn) camShootBtn.setAttribute('aria-label', t('Take photo'));
   }
 
   function langPickerHtml(id) {
@@ -1637,6 +1757,19 @@ window.CONFIG = {
     'Selected photo': 'Foto elegida',
     '{0} photo ready': '{0} foto lista',
     '{0} photos ready': '{0} fotos listas',
+    'Take photos': 'Tomar fotos',
+    'Take photo': 'Tomar foto',
+    'Done': 'Listo',
+    'Flip': 'Girar',
+    'Switch camera': 'Cambiar de cámara',
+    '{0} photo taken': '{0} foto tomada',
+    '{0} photos taken': '{0} fotos tomadas',
+    'No photos taken.': 'No se tomó ninguna foto.',
+    'This browser will not open the camera. Use Add photos instead.': 'Este navegador no abre la cámara. Usa Agregar fotos.',
+    'Camera access was blocked. Allow the camera, or use Add photos.': 'Se bloqueó el acceso a la cámara. Permite la cámara o usa Agregar fotos.',
+    'Could not open the camera. Use Add photos instead.': 'No se pudo abrir la cámara. Usa Agregar fotos.',
+    'That photo could not be saved.': 'No se pudo guardar esa foto.',
+    'Only one camera on this phone.': 'Este teléfono solo tiene una cámara.',
     'Add a note or a photo first.': 'Agrega una nota o una foto primero.',
     'Posting…': 'Publicando…',
     'Entry posted': 'Nota publicada',
@@ -2087,6 +2220,16 @@ window.CONFIG = {
     document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
     lightbox.addEventListener('click', function (e) { if (e.target === lightbox) closeLightbox(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeLightbox(); });
+
+    on('cam-shoot', 'click', shootPhoto);
+    on('cam-flip', 'click', flipCamera);
+    on('cam-done', 'click', finishCamera);
+    on('cam-cancel', 'click', cancelCamera);
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && camEl && !camEl.hidden) cancelCamera();
+    });
+    // Never hold the camera open behind a backgrounded tab.
+    window.addEventListener('pagehide', stopCamStream);
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(function () {
@@ -4059,7 +4202,10 @@ window.CONFIG = {
         '<div class="field">' +
           '<div class="filedrop">' +
             '<input id="c-files" type="file" accept="image/*" multiple>' +
-            '<label class="filedrop-label" for="c-files">' + t('Add photos') + '</label>' +
+            '<div class="filedrop-actions">' +
+              '<label class="filedrop-label" for="c-files">' + t('Add photos') + '</label>' +
+              (cameraSupported() ? '<button type="button" id="c-camera" class="btn btn-quiet">' + t('Take photos') + '</button>' : '') +
+            '</div>' +
             '<div id="c-thumbs" class="thumbs"></div>' +
           '</div></div>' +
         '<div class="row" style="margin-top:16px">' +
@@ -4115,6 +4261,7 @@ window.CONFIG = {
       document.getElementById('c-thumbs').innerHTML = '';
     });
     on('c-files', 'change', onPickFiles);
+    on('c-camera', 'click', function () { openCamera(staged, 'c-thumbs'); });
     on('c-save', 'click', postEntry);
 
     on('f-q', 'input', function (e) {
@@ -4230,7 +4377,10 @@ window.CONFIG = {
       '<div class="field">' +
         '<div class="filedrop">' +
           '<input id="e-files" type="file" accept="image/*" multiple>' +
-          '<label class="filedrop-label" for="e-files">' + t('Add photos') + '</label>' +
+          '<div class="filedrop-actions">' +
+            '<label class="filedrop-label" for="e-files">' + t('Add photos') + '</label>' +
+            (cameraSupported() ? '<button type="button" id="e-camera" class="btn btn-quiet">' + t('Take photos') + '</button>' : '') +
+          '</div>' +
           '<div id="e-thumbs" class="thumbs"></div>' +
         '</div></div>' +
 
@@ -4378,6 +4528,7 @@ window.CONFIG = {
 
     on('e-cancel', 'click', function () { clearEditState(); refreshFeed(); });
     on('e-files', 'change', function (e) { collectFiles(e, editStaged, 'e-thumbs'); });
+    on('e-camera', 'click', function () { openCamera(editStaged, 'e-thumbs'); });
     var save = document.getElementById('e-save');
     if (save) save.addEventListener('click', function () { saveEdit(save.dataset.id); });
   }
@@ -4391,6 +4542,10 @@ window.CONFIG = {
       if (f.type.indexOf('image/') === 0) into.push(f);
     });
     e.target.value = '';
+    paintThumbs(into, thumbsId);
+  }
+
+  function paintThumbs(into, thumbsId) {
     var wrap = document.getElementById(thumbsId);
     if (!wrap) return;
     wrap.innerHTML = into.map(function (f) {
@@ -4633,6 +4788,142 @@ window.CONFIG = {
   function closeLightbox() {
     lightbox.hidden = true;
     lightboxImg.src = '';
+  }
+
+  /* ---------------- in-app camera ---------------- */
+
+  // The file picker's camera hands back one shot and closes itself, which is
+  // wrong for a walkaround: you want the whole run of photos in one go. This
+  // holds a live preview open and drops every shot straight into the staged
+  // list, so the shutter is the only button you touch until you are done.
+  var camStream = null;
+  var camFacing = 'environment';
+  var camInto = null;
+  var camThumbs = '';
+  var camBaseline = 0;
+
+  function cameraSupported() {
+    return !!(camEl && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  }
+
+  function openCamera(into, thumbsId) {
+    if (!cameraSupported()) {
+      return toast(t('This browser will not open the camera. Use Add photos instead.'));
+    }
+    camInto = into;
+    camThumbs = thumbsId;
+    camBaseline = into.length;
+    clearCamStrip();
+    camEl.hidden = false;
+    paintCamCount();
+    startCamStream().catch(function (err) {
+      hideCamera();
+      camInto = null;
+      var blocked = err && (err.name === 'NotAllowedError' || err.name === 'SecurityError');
+      toast(blocked
+        ? t('Camera access was blocked. Allow the camera, or use Add photos.')
+        : t('Could not open the camera. Use Add photos instead.'));
+    });
+  }
+
+  function startCamStream() {
+    stopCamStream();
+    return navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: camFacing }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    }).then(function (stream) {
+      camStream = stream;
+      camVideo.srcObject = stream;
+      var playing = camVideo.play();
+      if (playing && playing.catch) playing.catch(function () {});
+    });
+  }
+
+  function stopCamStream() {
+    if (camStream) {
+      camStream.getTracks().forEach(function (track) { track.stop(); });
+      camStream = null;
+    }
+    if (camVideo) camVideo.srcObject = null;
+  }
+
+  function clearCamStrip() {
+    Array.prototype.slice.call(camStrip.children).forEach(function (img) {
+      URL.revokeObjectURL(img.src);
+    });
+    camStrip.innerHTML = '';
+  }
+
+  function camShotCount() {
+    return camInto ? Math.max(0, camInto.length - camBaseline) : 0;
+  }
+
+  function paintCamCount() {
+    var done = document.getElementById('cam-done');
+    if (!done) return;
+    var n = camShotCount();
+    done.textContent = n ? t('Done') + ' · ' + n : t('Done');
+  }
+
+  function shootPhoto() {
+    if (!camStream || !camInto) return;
+    var w = camVideo.videoWidth, h = camVideo.videoHeight;
+    if (!w || !h) return;
+
+    var canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext('2d').drawImage(camVideo, 0, 0, w, h);
+
+    var shoot = document.getElementById('cam-shoot');
+    if (shoot) shoot.disabled = true;
+    canvas.toBlob(function (blob) {
+      if (shoot) shoot.disabled = false;
+      if (!blob) return toast(t('That photo could not be saved.'));
+      if (!camInto) return;
+      camInto.push(blob);
+      var img = document.createElement('img');
+      img.alt = t('Selected photo');
+      img.src = URL.createObjectURL(blob);
+      camStrip.appendChild(img);
+      camStrip.scrollLeft = camStrip.scrollWidth;
+      paintCamCount();
+    }, 'image/jpeg', 0.92);
+  }
+
+  function flipCamera() {
+    var was = camFacing;
+    camFacing = (camFacing === 'environment') ? 'user' : 'environment';
+    startCamStream().catch(function () {
+      camFacing = was;
+      startCamStream().catch(function () {});
+      toast(t('Only one camera on this phone.'));
+    });
+  }
+
+  function hideCamera() {
+    stopCamStream();
+    clearCamStrip();
+    camEl.hidden = true;
+  }
+
+  function finishCamera() {
+    var n = camShotCount();
+    var into = camInto, thumbs = camThumbs;
+    hideCamera();
+    camInto = null;
+    if (into) paintThumbs(into, thumbs);
+    toast(n ? (n === 1 ? tf('{0} photo taken', n) : tf('{0} photos taken', n)) : t('No photos taken.'));
+  }
+
+  // Cancel means cancel: the shots from this session leave the staged list,
+  // anything picked before the camera opened stays.
+  function cancelCamera() {
+    var into = camInto, thumbs = camThumbs;
+    if (into) into.splice(camBaseline);
+    hideCamera();
+    camInto = null;
+    if (into) paintThumbs(into, thumbs);
   }
 
   /* ---------------- plain text export ---------------- */
