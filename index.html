@@ -479,7 +479,23 @@ textarea { min-height: 120px; resize: vertical; }
 
 .gallery button:hover { box-shadow: 0 0 0 2px var(--chalk); }
 
-.gallery img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gallery img,
+.gallery video { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+.media-thumb { position: relative; display: block; width: 100%; height: 100%; }
+.play-badge {
+  position: absolute;
+  left: 4px;
+  bottom: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(26, 24, 21, 0.72);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  pointer-events: none;
+}
 
 /* ---------- Job header ---------- */
 
@@ -540,7 +556,8 @@ textarea { min-height: 120px; resize: vertical; }
 }
 
 .thumbs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
-.thumbs img { width: 64px; height: 64px; object-fit: cover; border: 1px solid var(--rule); border-radius: var(--radius-sm); }
+.thumbs img,
+.thumbs video { width: 64px; height: 64px; object-fit: cover; border: 1px solid var(--rule); border-radius: var(--radius-sm); background: #111; }
 
 /* ---------- Empty + loading states ---------- */
 
@@ -595,7 +612,8 @@ textarea { min-height: 120px; resize: vertical; }
   padding: 16px;
 }
 
-.lightbox img { max-width: 100%; max-height: 88vh; }
+.lightbox img,
+.lightbox video { max-width: 100%; max-height: 88vh; }
 
 .lightbox-close {
   position: absolute;
@@ -637,13 +655,57 @@ textarea { min-height: 120px; resize: vertical; }
   padding: 0 12px;
 }
 
-.camera-strip img {
+.camera-strip img,
+.camera-strip video {
   flex: 0 0 auto;
   width: 56px;
   height: 56px;
   object-fit: cover;
   border: 2px solid #fff;
   border-radius: var(--radius-sm);
+  background: #111;
+}
+
+.camera-modes {
+  position: absolute;
+  top: calc(12px + env(safe-area-inset-top));
+  left: 12px;
+  display: flex;
+  padding: 3px;
+  background: rgba(0, 0, 0, 0.45);
+  border-radius: 999px;
+}
+
+.camera-modes button {
+  min-height: 36px;
+  padding: 0 14px;
+  font: inherit;
+  font-weight: 600;
+  color: #fff;
+  background: none;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.camera-modes button.is-on { background: #fff; color: #111; }
+
+.camera-timer {
+  position: absolute;
+  top: calc(16px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #c0392b;
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.camera-shutter.is-rec {
+  background: #c0392b;
+  border-color: #fff;
 }
 
 .camera-done {
@@ -809,10 +871,12 @@ textarea { min-height: 120px; resize: vertical; }
   cursor: pointer;
 }
 
-.photochip img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photochip img,
+.photochip video { width: 100%; height: 100%; object-fit: cover; display: block; }
 
 .photochip.marked { border-color: var(--keel); border-width: 2px; }
-.photochip.marked img { opacity: 0.32; }
+.photochip.marked img,
+.photochip.marked video { opacity: 0.32; }
 
 .photochip-x {
   position: absolute;
@@ -1344,11 +1408,17 @@ textarea { min-height: 120px; resize: vertical; }
 <div id="lightbox" class="lightbox" hidden>
   <button id="lightbox-close" class="lightbox-close" type="button" aria-label="Close photo">Close</button>
   <img id="lightbox-img" alt="Jobsite photo, full size">
+  <video id="lightbox-vid" controls playsinline hidden></video>
 </div>
 
 <div id="camera" class="camera" hidden>
   <div class="camera-stage">
     <video id="cam-video" class="camera-view" playsinline autoplay muted></video>
+    <div class="camera-modes" role="group" aria-label="Camera mode">
+      <button type="button" id="cam-mode-photo" class="is-on">Photo</button>
+      <button type="button" id="cam-mode-video">Video</button>
+    </div>
+    <div id="cam-timer" class="camera-timer" hidden>0:00</div>
     <div id="cam-strip" class="camera-strip"></div>
     <button id="cam-done" class="camera-done" type="button">Done</button>
   </div>
@@ -1414,6 +1484,8 @@ window.CONFIG = {
     '</svg>';
   var MAX_PX = 1600;        // photos are shrunk to this on the long edge before upload
   var JPEG_Q = 0.72;
+  var MAX_VIDEO_BYTES = 50 * 1024 * 1024;   // typical Supabase file cap; site radio cannot carry more
+  var MAX_VIDEO_MS = 120 * 1000;            // two minutes keeps uploads on a jobsite radio
   var app = document.getElementById('app');
   var toastEl = document.getElementById('toast');
   var whoamiBtn = document.getElementById('whoami');
@@ -1424,6 +1496,7 @@ window.CONFIG = {
   var LOGO_BUCKET = 'company-logos';
   var lightbox = document.getElementById('lightbox');
   var lightboxImg = document.getElementById('lightbox-img');
+  var lightboxVid = document.getElementById('lightbox-vid');
   var camEl = document.getElementById('camera');
   var camVideo = document.getElementById('cam-video');
   var camStrip = document.getElementById('cam-strip');
@@ -1512,6 +1585,10 @@ window.CONFIG = {
     }
     var camShootBtn = document.getElementById('cam-shoot');
     if (camShootBtn) camShootBtn.setAttribute('aria-label', t('Take photo'));
+    var camModePhoto = document.getElementById('cam-mode-photo');
+    if (camModePhoto) camModePhoto.textContent = t('Photo');
+    var camModeVideo = document.getElementById('cam-mode-video');
+    if (camModeVideo) camModeVideo.textContent = t('Video');
   }
 
   function langPickerHtml(id) {
@@ -1717,6 +1794,13 @@ window.CONFIG = {
     'Issue': 'Problema',
     'Site note': 'Nota',
     'Add photos': 'Agregar fotos',
+    'Add photos or videos': 'Agregar fotos o videos',
+    'Open camera': 'Abrir cámara',
+    'Photo': 'Foto',
+    'Video': 'Video',
+    'Start recording': 'Grabar',
+    'Stop recording': 'Detener',
+    'Camera mode': 'Modo de cámara',
     'Post entry': 'Publicar nota',
     'Coming up': 'Próximo',
     'Daily log': 'Registro diario',
@@ -1730,15 +1814,17 @@ window.CONFIG = {
     'Post the first entry with the button at the bottom. Notes are dated automatically.': 'Publica la primera nota con el botón de abajo. Las notas se fechan solas.',
     'Clear the search box or the date to see the whole log again.': 'Limpia la búsqueda o la fecha para ver todo el registro otra vez.',
     'Photo from {0}': 'Foto del {0}',
+    'Video from {0}': 'Video del {0}',
     'Edit': 'Editar',
     'Reopen / update': 'Reabrir / actualizar',
     'Add update': 'Agregar actualización',
     'Add an update': 'Agregar una actualización',
     'Delete': 'Borrar',
     'Editing your entry': 'Editando tu nota',
-    'Photos on this entry': 'Fotos en esta nota',
-    'Tap a photo to remove it when you save.': 'Toca una foto para quitarla al guardar.',
+    'Photos on this entry': 'Fotos y videos en esta nota',
+    'Tap a photo to remove it when you save.': 'Toca una foto o un video para quitarlo al guardar.',
     'Photo on this entry': 'Foto en esta nota',
+    'Video on this entry': 'Video en esta nota',
     'Removing': 'Quitando',
     'Logged by {0} on {1}': 'Registrado por {0} el {1}',
     ' · {0} update so far': ' · {0} actualización hasta ahora',
@@ -1757,6 +1843,9 @@ window.CONFIG = {
     'Selected photo': 'Foto elegida',
     '{0} photo ready': '{0} foto lista',
     '{0} photos ready': '{0} fotos listas',
+    '{0} video ready': '{0} video listo',
+    '{0} videos ready': '{0} videos listos',
+    '{0} photos and videos ready': '{0} fotos y videos listos',
     'Take photos': 'Tomar fotos',
     'Take photo': 'Tomar foto',
     'Done': 'Listo',
@@ -1764,12 +1853,25 @@ window.CONFIG = {
     'Switch camera': 'Cambiar de cámara',
     '{0} photo taken': '{0} foto tomada',
     '{0} photos taken': '{0} fotos tomadas',
+    '{0} video taken': '{0} video tomado',
+    '{0} videos taken': '{0} videos tomados',
+    '{0} photos and videos taken': '{0} fotos y videos tomados',
     'No photos taken.': 'No se tomó ninguna foto.',
     'This browser will not open the camera. Use Add photos instead.': 'Este navegador no abre la cámara. Usa Agregar fotos.',
+    'This browser cannot record video. Use Add photos or videos instead.': 'Este navegador no puede grabar video. Usa Agregar fotos o videos.',
     'Camera access was blocked. Allow the camera, or use Add photos.': 'Se bloqueó el acceso a la cámara. Permite la cámara o usa Agregar fotos.',
     'Could not open the camera. Use Add photos instead.': 'No se pudo abrir la cámara. Usa Agregar fotos.',
     'That photo could not be saved.': 'No se pudo guardar esa foto.',
+    'That video could not be saved.': 'No se pudo guardar ese video.',
+    'That video is too large. Keep clips under 50 MB, or record in the app.': 'Ese video es demasiado grande. Deja los clips por debajo de 50 MB, o graba en la app.',
+    'That video is too large to upload.': 'Ese video es demasiado grande para subirlo.',
+    'Recording stopped at two minutes.': 'La grabación se detuvo a los dos minutos.',
     'Only one camera on this phone.': 'Este teléfono solo tiene una cámara.',
+    'Add a note, a photo, or a video first.': 'Agrega una nota, una foto o un video primero.',
+    'An entry needs a note, a photo, or a video.': 'Una nota necesita texto, una foto o un video.',
+    'Uploading {0} of {1}…': 'Subiendo {0} de {1}…',
+    'Video — watch in the app': 'Video — verlo en la app',
+    'Videos — watch in the app': 'Videos — verlos en la app',
     'Add a note or a photo first.': 'Agrega una nota o una foto primero.',
     'Posting…': 'Publicando…',
     'Entry posted': 'Nota publicada',
@@ -1948,6 +2050,76 @@ window.CONFIG = {
   }
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  function isVideoFile(file) {
+    var type = (file && file.type) || '';
+    if (type.indexOf('video/') === 0) return true;
+    return isVideoPath((file && (file.name || file.storage_path)) || '');
+  }
+
+  function isVideoPath(path) {
+    return /\.(mp4|webm|mov|m4v|3gp)$/i.test(path || '');
+  }
+
+  function mediaExt(file) {
+    if (!isVideoFile(file)) return 'jpg';
+    var type = (file && file.type) || '';
+    if (/mp4|quicktime/i.test(type)) return 'mp4';
+    if (/webm/i.test(type)) return 'webm';
+    var name = (file && (file.name || file.storage_path)) || '';
+    var m = name.match(/\.([a-z0-9]+)$/i);
+    return m ? m[1].toLowerCase() : 'webm';
+  }
+
+  function mediaContentType(file) {
+    if (isVideoFile(file)) {
+      return (file && file.type) || (mediaExt(file) === 'mp4' ? 'video/mp4' : 'video/webm');
+    }
+    return 'image/jpeg';
+  }
+
+  function mediaCounts(list) {
+    var v = 0, p = 0, i;
+    for (i = 0; i < (list || []).length; i++) {
+      if (isVideoFile(list[i]) || isVideoPath(list[i] && list[i].storage_path)) v++;
+      else p++;
+    }
+    return { v: v, p: p, n: (list || []).length };
+  }
+
+  function readyLabel(list) {
+    var c = mediaCounts(list);
+    if (!c.n) return '';
+    if (c.v && c.p) return tf('{0} photos and videos ready', c.n);
+    if (c.v) return c.v === 1 ? tf('{0} video ready', c.v) : tf('{0} videos ready', c.v);
+    return c.p === 1 ? tf('{0} photo ready', c.p) : tf('{0} photos ready', c.p);
+  }
+
+  function takenLabel(list) {
+    var c = mediaCounts(list);
+    if (!c.n) return t('No photos taken.');
+    if (c.v && c.p) return tf('{0} photos and videos taken', c.n);
+    if (c.v) return c.v === 1 ? tf('{0} video taken', c.v) : tf('{0} videos taken', c.v);
+    return c.p === 1 ? tf('{0} photo taken', c.p) : tf('{0} photos taken', c.p);
+  }
+
+  function thumbTag(url, video, alt) {
+    return '<span class="media-thumb">' +
+      (video
+        ? '<video src="' + esc(url) + '" muted playsinline preload="metadata"></video><span class="play-badge">▶</span>'
+        : '<img loading="lazy" src="' + esc(url) + '" alt="' + alt + '">') +
+      '</span>';
+  }
+
+  function prepareMedia(file) {
+    if (isVideoFile(file)) {
+      if (file.size > MAX_VIDEO_BYTES) {
+        return Promise.reject(new Error(t('That video is too large to upload.')));
+      }
+      return Promise.resolve(file);
+    }
+    return shrink(file);
+  }
 
   var MONTHS_EN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -2221,15 +2393,19 @@ window.CONFIG = {
     lightbox.addEventListener('click', function (e) { if (e.target === lightbox) closeLightbox(); });
     document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeLightbox(); });
 
-    on('cam-shoot', 'click', shootPhoto);
+    on('cam-shoot', 'click', shutterClick);
     on('cam-flip', 'click', flipCamera);
     on('cam-done', 'click', finishCamera);
     on('cam-cancel', 'click', cancelCamera);
+    on('cam-mode-photo', 'click', function () { setCamMode('photo'); });
+    on('cam-mode-video', 'click', function () { setCamMode('video'); });
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && camEl && !camEl.hidden) cancelCamera();
     });
-    // Never hold the camera open behind a backgrounded tab.
-    window.addEventListener('pagehide', stopCamStream);
+    window.addEventListener('pagehide', function () {
+      stopRec(false);
+      stopCamStream();
+    });
 
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').catch(function () {
@@ -4201,10 +4377,10 @@ window.CONFIG = {
           '</div></div>' +
         '<div class="field">' +
           '<div class="filedrop">' +
-            '<input id="c-files" type="file" accept="image/*" multiple>' +
+            '<input id="c-files" type="file" accept="image/*,video/*" multiple>' +
             '<div class="filedrop-actions">' +
-              '<label class="filedrop-label" for="c-files">' + t('Add photos') + '</label>' +
-              (cameraSupported() ? '<button type="button" id="c-camera" class="btn btn-quiet">' + t('Take photos') + '</button>' : '') +
+              '<label class="filedrop-label" for="c-files">' + t('Add photos or videos') + '</label>' +
+              (cameraSupported() ? '<button type="button" id="c-camera" class="btn btn-quiet">' + t('Open camera') + '</button>' : '') +
             '</div>' +
             '<div id="c-thumbs" class="thumbs"></div>' +
           '</div></div>' +
@@ -4329,8 +4505,10 @@ window.CONFIG = {
         issueHistoryHtml(en) +
         (photos.length ? '<div class="gallery">' + photos.map(function (p) {
           var url = p.url || '';
-          return '<button type="button" class="js-zoom" data-url="' + esc(url) + '">' +
-            '<img loading="lazy" src="' + esc(url) + '" alt="' + tf('Photo from {0}', esc(longDate(en.entry_date))) + '"></button>';
+          var video = isVideoPath(p.storage_path);
+          return '<button type="button" class="js-zoom" data-url="' + esc(url) + '" data-kind="' + (video ? 'video' : 'photo') + '">' +
+            thumbTag(url, video, tf(video ? 'Video from {0}' : 'Photo from {0}', esc(longDate(en.entry_date)))) +
+            '</button>';
         }).join('') + '</div>' : '') +
         ((mine || en.tag === 'issue') ? '<div class="entry-actions">' +
             (mine ? '<button class="btn-mini js-edit" data-id="' + esc(en.id) + '">' + t('Edit') + '</button>' : '') +
@@ -4367,19 +4545,20 @@ window.CONFIG = {
           '<p class="small muted" style="margin:0 0 8px">' + t('Tap a photo to remove it when you save.') + '</p>' +
           '<div class="thumbs">' + photos.map(function (p) {
             var marked = !!editRemove[p.id];
+            var video = isVideoPath(p.storage_path);
             return '<button type="button" class="photochip js-photo-toggle' + (marked ? ' marked' : '') + '" ' +
               'data-id="' + esc(p.id) + '">' +
-              '<img src="' + esc(p.url || '') + '" alt="' + t('Photo on this entry') + '">' +
+              thumbTag(p.url || '', video, t(video ? 'Video on this entry' : 'Photo on this entry')) +
               (marked ? '<span class="photochip-x">' + t('Removing') + '</span>' : '') +
             '</button>';
           }).join('') + '</div></div>' : '') +
 
       '<div class="field">' +
         '<div class="filedrop">' +
-          '<input id="e-files" type="file" accept="image/*" multiple>' +
+          '<input id="e-files" type="file" accept="image/*,video/*" multiple>' +
           '<div class="filedrop-actions">' +
-            '<label class="filedrop-label" for="e-files">' + t('Add photos') + '</label>' +
-            (cameraSupported() ? '<button type="button" id="e-camera" class="btn btn-quiet">' + t('Take photos') + '</button>' : '') +
+            '<label class="filedrop-label" for="e-files">' + t('Add photos or videos') + '</label>' +
+            (cameraSupported() ? '<button type="button" id="e-camera" class="btn btn-quiet">' + t('Open camera') + '</button>' : '') +
           '</div>' +
           '<div id="e-thumbs" class="thumbs"></div>' +
         '</div></div>' +
@@ -4489,7 +4668,7 @@ window.CONFIG = {
 
   function wireFeed() {
     Array.prototype.forEach.call(document.querySelectorAll('.js-zoom'), function (b) {
-      b.addEventListener('click', function () { openLightbox(b.dataset.url); });
+      b.addEventListener('click', function () { openLightbox(b.dataset.url, b.dataset.kind); });
     });
     Array.prototype.forEach.call(document.querySelectorAll('.js-del'), function (b) {
       b.addEventListener('click', function () { deleteEntry(b.dataset.id); });
@@ -4539,7 +4718,15 @@ window.CONFIG = {
 
   function collectFiles(e, into, thumbsId) {
     Array.prototype.slice.call(e.target.files || []).forEach(function (f) {
-      if (f.type.indexOf('image/') === 0) into.push(f);
+      var type = f.type || '';
+      if (type.indexOf('image/') === 0) into.push(f);
+      else if (type.indexOf('video/') === 0 || isVideoFile(f)) {
+        if (f.size > MAX_VIDEO_BYTES) {
+          toast(t('That video is too large. Keep clips under 50 MB, or record in the app.'));
+          return;
+        }
+        into.push(f);
+      }
     });
     e.target.value = '';
     paintThumbs(into, thumbsId);
@@ -4549,9 +4736,9 @@ window.CONFIG = {
     var wrap = document.getElementById(thumbsId);
     if (!wrap) return;
     wrap.innerHTML = into.map(function (f) {
-      return '<img alt="' + t('Selected photo') + '" src="' + URL.createObjectURL(f) + '">';
-    }).join('') + (into.length ? '<div class="small muted" style="width:100%">' +
-      (into.length === 1 ? tf('{0} photo ready', into.length) : tf('{0} photos ready', into.length)) + '</div>' : '');
+      var url = URL.createObjectURL(f);
+      return thumbTag(url, isVideoFile(f), t('Selected photo'));
+    }).join('') + (into.length ? '<div class="small muted" style="width:100%">' + readyLabel(into) + '</div>' : '');
   }
 
   function postEntry() {
@@ -4559,7 +4746,7 @@ window.CONFIG = {
     var tag = (document.querySelector('input[name=tag]:checked') || {}).value || 'note';
     var when = document.getElementById('c-date').value || todayISO();
 
-    if (!notes && !staged.length) return toast(t('Add a note or a photo first.'));
+    if (!notes && !staged.length) return toast(t('Add a note, a photo, or a video first.'));
 
     var btn = document.getElementById('c-save');
     btn.disabled = true;
@@ -4602,8 +4789,11 @@ window.CONFIG = {
     // have taken uploaded.
     return staged.reduce(function (chain, file) {
       return chain.then(function (out) {
-        return shrink(file).then(function (blob) { out.push(blob); return out; },
-                                 function () { out.push(file); return out; });
+        return prepareMedia(file).then(function (blob) { out.push(blob); return out; },
+                                 function (err) {
+                                   if (isVideoFile(file)) throw err;
+                                   out.push(file); return out;
+                                 });
       });
     }, Promise.resolve([])).then(function (blobs) {
       return qAdd({
@@ -4661,14 +4851,15 @@ window.CONFIG = {
 
     return files.reduce(function (chain, file, i) {
       return chain.then(function () {
-        return shrink(file).then(function (blob) {
-          var path = org.company_id + '/' + view.job.id + '/' + entry.id + '/' + Date.now() + '-' + i + '.jpg';
-          return sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' })
+        return prepareMedia(file).then(function (blob) {
+          var ext = mediaExt(blob.type ? blob : file);
+          var path = org.company_id + '/' + view.job.id + '/' + entry.id + '/' + Date.now() + '-' + i + '.' + ext;
+          return sb.storage.from(BUCKET).upload(path, blob, { contentType: mediaContentType(blob.type ? blob : file) })
             .then(function (up) {
               if (up.error) throw up.error;
               rows.push({ entry_id: entry.id, storage_path: path });
               done++;
-              if (btn) btn.textContent = tf('Uploading photo {0} of {1}…', done, files.length);
+              if (btn) btn.textContent = tf('Uploading {0} of {1}…', done, files.length);
             });
         });
       });
@@ -4714,7 +4905,7 @@ window.CONFIG = {
     var keeping = photos.length - dropping.length;
 
     if (!notes && !editStaged.length && keeping === 0) {
-      return toast(t('An entry needs a note or a photo.'));
+      return toast(t('An entry needs a note, a photo, or a video.'));
     }
 
     var btn = document.getElementById('e-save');
@@ -4779,8 +4970,23 @@ window.CONFIG = {
 
   /* ---------------- lightbox ---------------- */
 
-  function openLightbox(url) {
-    lightboxImg.src = url;
+  function openLightbox(url, kind) {
+    if (kind === 'video') {
+      lightboxImg.hidden = true;
+      lightboxImg.removeAttribute('src');
+      lightboxVid.hidden = false;
+      lightboxVid.src = url || '';
+      var playing = lightboxVid.play();
+      if (playing && playing.catch) playing.catch(function () {});
+    } else {
+      if (lightboxVid) {
+        lightboxVid.pause();
+        lightboxVid.removeAttribute('src');
+        lightboxVid.hidden = true;
+      }
+      lightboxImg.hidden = false;
+      lightboxImg.src = url || '';
+    }
     lightbox.hidden = false;
     document.getElementById('lightbox-close').focus();
   }
@@ -4788,6 +4994,12 @@ window.CONFIG = {
   function closeLightbox() {
     lightbox.hidden = true;
     lightboxImg.src = '';
+    if (lightboxVid) {
+      lightboxVid.pause();
+      lightboxVid.removeAttribute('src');
+      lightboxVid.hidden = true;
+    }
+    lightboxImg.hidden = false;
   }
 
   /* ---------------- in-app camera ---------------- */
@@ -4796,14 +5008,63 @@ window.CONFIG = {
   // wrong for a walkaround: you want the whole run of photos in one go. This
   // holds a live preview open and drops every shot straight into the staged
   // list, so the shutter is the only button you touch until you are done.
+  // Video uses the same overlay: Photo / Video at the top, and the shutter
+  // starts and stops a clip without leaving the preview.
   var camStream = null;
   var camFacing = 'environment';
   var camInto = null;
   var camThumbs = '';
   var camBaseline = 0;
+  var camMode = 'photo';
+  var camRecorder = null;
+  var camChunks = [];
+  var camKeepRec = true;
+  var camRecTimer = null;
+  var camRecStarted = 0;
+  var camRecWait = null;
 
   function cameraSupported() {
     return !!(camEl && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
+  }
+
+  function videoRecSupported() {
+    return cameraSupported() && typeof MediaRecorder === 'function';
+  }
+
+  function recMime() {
+    if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return '';
+    var types = ['video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'];
+    var i;
+    for (i = 0; i < types.length; i++) {
+      if (MediaRecorder.isTypeSupported(types[i])) return types[i];
+    }
+    return '';
+  }
+
+  function paintCamMode() {
+    var photo = document.getElementById('cam-mode-photo');
+    var video = document.getElementById('cam-mode-video');
+    if (photo) photo.className = camMode === 'photo' ? 'is-on' : '';
+    if (video) video.className = camMode === 'video' ? 'is-on' : '';
+    var shoot = document.getElementById('cam-shoot');
+    if (shoot) {
+      shoot.setAttribute('aria-label', camMode === 'video'
+        ? (camRecorder ? t('Stop recording') : t('Start recording'))
+        : t('Take photo'));
+      if (camRecorder) shoot.classList.add('is-rec');
+      else shoot.classList.remove('is-rec');
+    }
+  }
+
+  function setCamMode(next) {
+    if (camRecorder) return;
+    if (next === 'video' && !videoRecSupported()) {
+      return toast(t('This browser cannot record video. Use Add photos or videos instead.'));
+    }
+    if (camMode === next) return;
+    camMode = next;
+    paintCamMode();
+    startCamStream().catch(function () {});
   }
 
   function openCamera(into, thumbsId) {
@@ -4813,7 +5074,10 @@ window.CONFIG = {
     camInto = into;
     camThumbs = thumbsId;
     camBaseline = into.length;
+    camMode = 'photo';
     clearCamStrip();
+    paintCamMode();
+    paintCamTimer(false, 0);
     camEl.hidden = false;
     paintCamCount();
     startCamStream().catch(function (err) {
@@ -4826,17 +5090,31 @@ window.CONFIG = {
     });
   }
 
+  function camConstraints(withAudio) {
+    return {
+      video: {
+        facingMode: { ideal: camFacing },
+        width: { ideal: camMode === 'video' ? 1280 : 1920 },
+        height: { ideal: camMode === 'video' ? 720 : 1080 }
+      },
+      audio: !!withAudio
+    };
+  }
+
   function startCamStream() {
     stopCamStream();
-    return navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: camFacing }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-      audio: false
-    }).then(function (stream) {
-      camStream = stream;
-      camVideo.srcObject = stream;
-      var playing = camVideo.play();
-      if (playing && playing.catch) playing.catch(function () {});
-    });
+    var wantAudio = camMode === 'video';
+    return navigator.mediaDevices.getUserMedia(camConstraints(wantAudio))
+      .catch(function (err) {
+        if (wantAudio) return navigator.mediaDevices.getUserMedia(camConstraints(false));
+        throw err;
+      })
+      .then(function (stream) {
+        camStream = stream;
+        camVideo.srcObject = stream;
+        var playing = camVideo.play();
+        if (playing && playing.catch) playing.catch(function () {});
+      });
   }
 
   function stopCamStream() {
@@ -4848,8 +5126,8 @@ window.CONFIG = {
   }
 
   function clearCamStrip() {
-    Array.prototype.slice.call(camStrip.children).forEach(function (img) {
-      URL.revokeObjectURL(img.src);
+    Array.prototype.slice.call(camStrip.children).forEach(function (el) {
+      if (el.src) URL.revokeObjectURL(el.src);
     });
     camStrip.innerHTML = '';
   }
@@ -4865,8 +5143,43 @@ window.CONFIG = {
     done.textContent = n ? t('Done') + ' · ' + n : t('Done');
   }
 
+  function paintCamTimer(on, ms) {
+    var el = document.getElementById('cam-timer');
+    if (!el) return;
+    if (!on) { el.hidden = true; el.textContent = '0:00'; return; }
+    var sec = Math.floor((ms || 0) / 1000);
+    el.hidden = false;
+    el.textContent = Math.floor(sec / 60) + ':' + pad(sec % 60);
+  }
+
+  function addCamThumb(blob) {
+    var url = URL.createObjectURL(blob);
+    var el;
+    if (isVideoFile(blob)) {
+      el = document.createElement('video');
+      el.muted = true;
+      el.setAttribute('playsinline', '');
+      el.preload = 'metadata';
+    } else {
+      el = document.createElement('img');
+      el.alt = t('Selected photo');
+    }
+    el.src = url;
+    camStrip.appendChild(el);
+    camStrip.scrollLeft = camStrip.scrollWidth;
+  }
+
+  function shutterClick() {
+    if (camMode === 'video') {
+      if (camRecorder) stopRec(true);
+      else startRec();
+      return;
+    }
+    shootPhoto();
+  }
+
   function shootPhoto() {
-    if (!camStream || !camInto) return;
+    if (!camStream || !camInto || camRecorder) return;
     var w = camVideo.videoWidth, h = camVideo.videoHeight;
     if (!w || !h) return;
 
@@ -4882,16 +5195,88 @@ window.CONFIG = {
       if (!blob) return toast(t('That photo could not be saved.'));
       if (!camInto) return;
       camInto.push(blob);
-      var img = document.createElement('img');
-      img.alt = t('Selected photo');
-      img.src = URL.createObjectURL(blob);
-      camStrip.appendChild(img);
-      camStrip.scrollLeft = camStrip.scrollWidth;
+      addCamThumb(blob);
       paintCamCount();
     }, 'image/jpeg', 0.92);
   }
 
+  function startRec() {
+    if (!camStream || !camInto || camRecorder) return;
+    if (!videoRecSupported()) {
+      return toast(t('This browser cannot record video. Use Add photos or videos instead.'));
+    }
+    var mime = recMime();
+    try {
+      camRecorder = mime ? new MediaRecorder(camStream, { mimeType: mime }) : new MediaRecorder(camStream);
+    } catch (err) {
+      camRecorder = null;
+      return toast(t('This browser cannot record video. Use Add photos or videos instead.'));
+    }
+    camChunks = [];
+    camKeepRec = true;
+    camRecStarted = Date.now();
+    camRecorder.ondataavailable = function (e) {
+      if (e.data && e.data.size) camChunks.push(e.data);
+    };
+    camRecorder.onstop = function () {
+      var rec = camRecorder;
+      camRecorder = null;
+      if (camRecTimer) { clearInterval(camRecTimer); camRecTimer = null; }
+      paintCamTimer(false, 0);
+      paintCamMode();
+      var keep = camKeepRec;
+      var chunks = camChunks;
+      camChunks = [];
+      if (keep && chunks.length && camInto) {
+        var blob = new Blob(chunks, { type: (rec && rec.mimeType) || 'video/webm' });
+        if (!blob.size) toast(t('That video could not be saved.'));
+        else if (blob.size > MAX_VIDEO_BYTES) toast(t('That video is too large to upload.'));
+        else {
+          camInto.push(blob);
+          addCamThumb(blob);
+          paintCamCount();
+        }
+      }
+      if (camRecWait) {
+        var done = camRecWait;
+        camRecWait = null;
+        done();
+      }
+    };
+    camRecorder.start(1000);
+    camRecTimer = setInterval(function () {
+      var elapsed = Date.now() - camRecStarted;
+      paintCamTimer(true, elapsed);
+      if (elapsed >= MAX_VIDEO_MS) {
+        stopRec(true);
+        toast(t('Recording stopped at two minutes.'));
+      }
+    }, 250);
+    paintCamTimer(true, 0);
+    paintCamMode();
+  }
+
+  function stopRec(keep) {
+    camKeepRec = keep !== false;
+    if (camRecTimer) { clearInterval(camRecTimer); camRecTimer = null; }
+    if (camRecorder && camRecorder.state !== 'inactive') {
+      try { camRecorder.stop(); } catch (e) { camRecorder = null; }
+    }
+  }
+
+  function stopRecPromise(keep) {
+    return new Promise(function (resolve) {
+      if (!camRecorder || camRecorder.state === 'inactive') {
+        stopRec(keep);
+        return resolve();
+      }
+      camRecWait = resolve;
+      stopRec(keep);
+    });
+  }
+
   function flipCamera() {
+    if (camRecorder) return;
     var was = camFacing;
     camFacing = (camFacing === 'environment') ? 'user' : 'environment';
     startCamStream().catch(function () {
@@ -4902,28 +5287,36 @@ window.CONFIG = {
   }
 
   function hideCamera() {
+    stopRec(false);
     stopCamStream();
     clearCamStrip();
+    paintCamTimer(false, 0);
+    camMode = 'photo';
+    paintCamMode();
     camEl.hidden = true;
   }
 
   function finishCamera() {
-    var n = camShotCount();
-    var into = camInto, thumbs = camThumbs;
-    hideCamera();
-    camInto = null;
-    if (into) paintThumbs(into, thumbs);
-    toast(n ? (n === 1 ? tf('{0} photo taken', n) : tf('{0} photos taken', n)) : t('No photos taken.'));
+    stopRecPromise(true).then(function () {
+      var into = camInto, thumbs = camThumbs, from = camBaseline;
+      var session = into ? into.slice(from) : [];
+      hideCamera();
+      camInto = null;
+      if (into) paintThumbs(into, thumbs);
+      toast(takenLabel(session));
+    });
   }
 
   // Cancel means cancel: the shots from this session leave the staged list,
   // anything picked before the camera opened stays.
   function cancelCamera() {
-    var into = camInto, thumbs = camThumbs;
-    if (into) into.splice(camBaseline);
-    hideCamera();
-    camInto = null;
-    if (into) paintThumbs(into, thumbs);
+    stopRecPromise(false).then(function () {
+      var into = camInto, thumbs = camThumbs;
+      if (into) into.splice(camBaseline);
+      hideCamera();
+      camInto = null;
+      if (into) paintThumbs(into, thumbs);
+    });
   }
 
   /* ---------------- plain text export ---------------- */
@@ -5022,9 +5415,10 @@ window.CONFIG = {
       (en.entry_photos || []).forEach(function (p) {
         if (!p.url) return;
         seen[en.entry_date] = (seen[en.entry_date] || 0) + 1;
+        var ext = ((p.storage_path || '').match(/\.([a-z0-9]+)$/i) || [])[1] || 'jpg';
         out.push({
           url: p.url,
-          name: stem + '-' + en.entry_date + '-' + pad(seen[en.entry_date]) + '.jpg'
+          name: stem + '-' + en.entry_date + '-' + pad(seen[en.entry_date]) + '.' + ext.toLowerCase()
         });
       });
     });
@@ -5349,7 +5743,22 @@ window.CONFIG = {
         if (!photos.length) { y += 14; return; }
         y += 6;
 
-        return photos.reduce(function (c2, p, i) {
+        var stills = [];
+        var vidCount = 0;
+        photos.forEach(function (p) {
+          if (isVideoPath(p.storage_path)) vidCount++;
+          else stills.push(p);
+        });
+        if (vidCount) {
+          space(16);
+          doc.setFontSize(10);
+          doc.text(vidCount === 1 ? t('Video — watch in the app') : t('Videos — watch in the app'), M, y);
+          y += 16;
+          doc.setFontSize(11);
+        }
+        if (!stills.length) { y += 8; return; }
+
+        return stills.reduce(function (c2, p, i) {
           return c2.then(function () {
             return imageData(p.url || '').then(function (im) {
               if (!im) return;
@@ -5360,7 +5769,7 @@ window.CONFIG = {
               if (col === 0) space(h + 12);
               var x = M + col * (boxW + 12);
               doc.addImage(im.data, 'JPEG', x, y, w, h);
-              if (col === 1 || i === photos.length - 1) y += h + 12;
+              if (col === 1 || i === stills.length - 1) y += h + 12;
             });
           });
         }, Promise.resolve()).then(function () { y += 10; });
