@@ -1486,6 +1486,7 @@ window.CONFIG = {
   var JPEG_Q = 0.72;
   var MAX_VIDEO_BYTES = 50 * 1024 * 1024;   // typical Supabase file cap; site radio cannot carry more
   var MAX_VIDEO_MS = 120 * 1000;            // two minutes keeps uploads on a jobsite radio
+  var REC_BYTE_GUARD = 46 * 1024 * 1024;    // stop recording here, with room for the final chunk
   var app = document.getElementById('app');
   var toastEl = document.getElementById('toast');
   var whoamiBtn = document.getElementById('whoami');
@@ -1731,12 +1732,19 @@ window.CONFIG = {
     'Save the notes and the client PDF onto your own computer, then delete the job here. That keeps your photo storage down and leaves you holding the record — worth doing while the job is still fresh enough to answer questions about.': 'Guarda las notas y el PDF del cliente en tu computadora y luego borra el trabajo aquí. Así bajas el almacenamiento de fotos y te quedas con el registro — conviene hacerlo mientras el trabajo aún está fresco.',
     'Add a job': 'Agregar un trabajo',
     'Job name': 'Nombre del trabajo',
+    'Job description': 'Descripción del trabajo',
+    'Job notes': 'Notas del trabajo',
+    'Start date': 'Fecha de inicio',
+    'The start date goes straight onto the schedule, so the whole crew sees when this job begins.': 'La fecha de inicio va directo al calendario, para que toda la cuadrilla vea cuándo empieza este trabajo.',
+    'Starts {0}': 'Empieza el {0}',
     'Address': 'Dirección',
     'Your phone offers addresses you have used before. Tap an address on a job to open it in maps.': 'El teléfono sugiere direcciones que ya usaste. Toca una dirección en un trabajo para abrirla en mapas.',
     'Client': 'Cliente',
+    'Contractor / Home owner': 'Contratista / Dueño de casa',
     'Save job': 'Guardar trabajo',
     'Cancel': 'Cancelar',
     'No client listed': 'Sin cliente',
+    'No contractor or home owner listed': 'Sin contratista ni dueño de casa',
     'Completed': 'Terminado',
     '{0} days quiet': '{0} días en silencio',
     '{0} days since an entry': '{0} días desde una nota',
@@ -1749,6 +1757,8 @@ window.CONFIG = {
     'Nothing matches': 'Nada coincide',
     'Clear the search box, or switch “Show” to all jobs.': 'Limpia la búsqueda, o cambia “Mostrar” a todos los trabajos.',
     'Give the job a name.': 'Ponle un nombre al trabajo.',
+    'Say what the job is.': 'Di en qué consiste el trabajo.',
+    'Job saved, but the start date did not reach the schedule: {0}': 'Trabajo guardado, pero la fecha de inicio no llegó al calendario: {0}',
     'Could not save: {0}': 'No se pudo guardar: {0}',
     'Job saved': 'Trabajo guardado',
     'Delete "{0}"?\n\nEvery entry and photo on this job goes with it, for the whole crew. This cannot be undone.': '¿Borrar "{0}"?\n\nTodas las notas y fotos de este trabajo se van con él, para toda la cuadrilla. No se puede deshacer.',
@@ -1866,6 +1876,7 @@ window.CONFIG = {
     'That video is too large. Keep clips under 50 MB, or record in the app.': 'Ese video es demasiado grande. Deja los clips por debajo de 50 MB, o graba en la app.',
     'That video is too large to upload.': 'Ese video es demasiado grande para subirlo.',
     'Recording stopped at two minutes.': 'La grabación se detuvo a los dos minutos.',
+    'Recording stopped — the clip reached the size limit.': 'La grabación se detuvo — el clip llegó al límite de tamaño.',
     'Only one camera on this phone.': 'Este teléfono solo tiene una cámara.',
     'Add a note, a photo, or a video first.': 'Agrega una nota, una foto o un video primero.',
     'An entry needs a note, a photo, or a video.': 'Una nota necesita texto, una foto o un video.',
@@ -2073,7 +2084,10 @@ window.CONFIG = {
 
   function mediaContentType(file) {
     if (isVideoFile(file)) {
-      return (file && file.type) || (mediaExt(file) === 'mp4' ? 'video/mp4' : 'video/webm');
+      // A recorder reports "video/mp4;codecs=avc1…". Storage matches its
+      // allowed types on the bare type, so send that.
+      var type = ((file && file.type) || '').split(';')[0].trim();
+      return type || (mediaExt(file) === 'mp4' ? 'video/mp4' : 'video/webm');
     }
     return 'image/jpeg';
   }
@@ -4182,13 +4196,18 @@ window.CONFIG = {
 
       '<div id="newjob" class="panel" hidden style="margin-top:18px">' +
         '<h2 style="font-size:22px;margin-bottom:12px">' + t('Add a job') + '</h2>' +
-        '<div class="field"><label for="nj-name">' + t('Job name') + '</label>' +
-          '<input id="nj-name" type="text" placeholder="Hillcrest Apartments, Bldg C"></div>' +
+        '<div class="field"><label for="nj-name">' + t('Job description') + '</label>' +
+          '<input id="nj-name" type="text" placeholder="Hang and finish drywall — Hillcrest Bldg C"></div>' +
+        '<div class="field"><label for="nj-notes">' + t('Job notes') + '</label>' +
+          '<textarea id="nj-notes" placeholder="5/8 firecode throughout. Lift on site Monday. Gate code 4412."></textarea></div>' +
+        '<div class="field"><label for="nj-start">' + t('Start date') + '</label>' +
+          '<input id="nj-start" type="date" value="' + todayISO() + '">' +
+          '<p class="small muted" style="margin:6px 0 0">' + t('The start date goes straight onto the schedule, so the whole crew sees when this job begins.') + '</p></div>' +
         '<div class="field"><label for="nj-address">' + t('Address') + '</label>' +
           '<input id="nj-address" type="text" autocomplete="street-address" ' +
             'placeholder="412 Hillcrest Dr, Morris MN">' +
           '<p class="small muted" style="margin:6px 0 0">' + t('Your phone offers addresses you have used before. Tap an address on a job to open it in maps.') + '</p></div>' +
-        '<div class="field"><label for="nj-client">' + t('Client') + '</label>' +
+        '<div class="field"><label for="nj-client">' + t('Contractor / Home owner') + '</label>' +
           '<input id="nj-client" type="text" placeholder="Barrett Construction"></div>' +
         '<div class="row" style="margin-top:14px">' +
           '<button id="nj-save" class="btn grow">' + t('Save job') + '</button>' +
@@ -4244,7 +4263,8 @@ window.CONFIG = {
           '<span class="jobrow-name">' + esc(j.name) + '</span>' +
           '<span class="jobrow-when">' + esc(relTime(j.updated_at)) + '</span>' +
         '</div>' +
-        '<div class="jobrow-meta">' + esc(j.client_name || t('No client listed')) +
+        '<div class="jobrow-meta">' + esc(j.client_name || t('No contractor or home owner listed')) +
+          (j.start_date ? ' · ' + esc(tf('Starts {0}', longDate(j.start_date))) : '') +
           (j.address ? ' · ' + esc(j.address) : '') + '</div>' +
         (function () {
         var age = daysSince(j.updated_at);
@@ -4274,22 +4294,70 @@ window.CONFIG = {
   }
 
   function saveNewJob() {
-    var name = document.getElementById('nj-name').value.trim();
-    if (name.length < 2) return toast(t('Give the job a name.'));
+    var desc = document.getElementById('nj-name').value.trim();
+    if (desc.length < 2) return toast(t('Say what the job is.'));
+
+    var notes = document.getElementById('nj-notes').value.trim();
+    var start = document.getElementById('nj-start').value || '';
     var btn = document.getElementById('nj-save');
     btn.disabled = true;
     btn.textContent = t('Saving…');
 
     sb.from('jobs').insert({
       company_id: org.company_id,
-      name: name,
+      name: desc,
       address: document.getElementById('nj-address').value.trim(),
       client_name: document.getElementById('nj-client').value.trim(),
       status: 'Active'
     }).select().single().then(function (res) {
-      if (res.error) { btn.disabled = false; btn.textContent = t('Save job'); return toast(tf('Could not save: {0}', res.error.message)); }
+      if (res.error) throw res.error;
+      var job = res.data;
+      return saveJobExtras(job.id, notes, start).then(function () {
+        return start ? scheduleJobStart(job, start) : null;
+      }).then(function () { return job; });
+    }).then(function (job) {
       toast(t('Job saved'));
-      location.hash = '#/job/' + res.data.id;
+      location.hash = '#/job/' + job.id;
+    }).catch(function (err) {
+      btn.disabled = false;
+      btn.textContent = t('Save job');
+      toast(tf('Could not save: {0}', (err && err.message) || err));
+    });
+  }
+
+  // The notes and the start date are kept on the job itself. A database that
+  // predates those two columns still gets a saved job and a scheduled start,
+  // so creating work never fails over a column that is only for display.
+  function saveJobExtras(id, notes, start) {
+    var patch = {};
+    if (notes) patch.notes = notes;
+    if (start) patch.start_date = start;
+    if (!notes && !start) return Promise.resolve();
+
+    return sb.from('jobs').update(patch).eq('id', id).then(function (res) {
+      if (res.error && window.console) {
+        console.warn('[jobsite-logger] Job notes / start date were not stored — ' +
+          'run add-job-details.sql in the Supabase SQL Editor. ' + res.error.message);
+      }
+    }, function () {});
+  }
+
+  // What the crew actually reads is the schedule, so the start date is written
+  // there as a real planned day rather than only sitting on the job record.
+  function scheduleJobStart(job, start) {
+    return sb.from('schedule').insert({
+      company_id: org.company_id,
+      job_id: job.id,
+      work_date: start,
+      work_time: null,
+      assignee_email: '',
+      assignee_name: '',
+      note: 'Job starts',
+      created_by: me.email
+    }).then(function (res) {
+      if (res.error) {
+        toast(tf('Job saved, but the start date did not reach the schedule: {0}', res.error.message));
+      }
     });
   }
 
@@ -4351,11 +4419,15 @@ window.CONFIG = {
       '<div class="jobhead">' +
         '<span class="kicker">' + (j.status === 'Completed' ? t('Completed job') : t('Active job')) + '</span>' +
         '<h1>' + esc(j.name) + '</h1>' +
-        '<div class="jobhead-meta">' + esc(j.client_name || t('No client listed')) +
+        '<div class="jobhead-meta">' + esc(j.client_name || t('No contractor or home owner listed')) +
+          (j.start_date ? '<br>' + esc(tf('Starts {0}', longDate(j.start_date))) : '') +
           (j.address
             ? '<br><a class="maplink" target="_blank" rel="noopener" href="' +
                 esc(mapsUrl(j.address)) + '">' + esc(j.address) + '</a>'
             : '') + '</div>' +
+        (j.notes
+          ? '<p class="entry-note" style="margin-top:11px">' + esc(j.notes) + '</p>'
+          : '') +
         '<div class="row">' +
           '<button id="toggle-status" class="btn btn-quiet">' +
             (j.status === 'Completed' ? t('Reopen job') : t('Mark job completed')) + '</button>' +
@@ -5022,6 +5094,7 @@ window.CONFIG = {
   var camRecTimer = null;
   var camRecStarted = 0;
   var camRecWait = null;
+  var camRecBytes = 0;
 
   function cameraSupported() {
     return !!(camEl && navigator.mediaDevices && navigator.mediaDevices.getUserMedia);
@@ -5031,14 +5104,39 @@ window.CONFIG = {
     return cameraSupported() && typeof MediaRecorder === 'function';
   }
 
+  // H.264 first: phones encode it in hardware, so it holds detail at a given
+  // bitrate and plays back anywhere. VP9 beats VP8 per bit, so it comes next.
   function recMime() {
     if (typeof MediaRecorder === 'undefined' || !MediaRecorder.isTypeSupported) return '';
-    var types = ['video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm'];
+    var types = [
+      'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+      'video/mp4',
+      'video/webm;codecs=h264,opus',
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm'
+    ];
     var i;
     for (i = 0; i < types.length; i++) {
       if (MediaRecorder.isTypeSupported(types[i])) return types[i];
     }
     return '';
+  }
+
+  // Left to itself a browser picks a bitrate that turns drywall seams and
+  // framing into mush. These are sized to the frame the camera actually gave
+  // us, which is what "record it so I can see the detail" needs.
+  function recBitrate() {
+    var h = 720;
+    if (camStream && camStream.getVideoTracks) {
+      var track = camStream.getVideoTracks()[0];
+      var set = track && track.getSettings ? track.getSettings() : null;
+      if (set && set.height) h = set.height;
+      else if (camVideo && camVideo.videoHeight) h = camVideo.videoHeight;
+    }
+    if (h >= 1080) return 6000000;
+    if (h >= 720) return 4000000;
+    return 2500000;
   }
 
   function paintCamMode() {
@@ -5094,8 +5192,9 @@ window.CONFIG = {
     return {
       video: {
         facingMode: { ideal: camFacing },
-        width: { ideal: camMode === 'video' ? 1280 : 1920 },
-        height: { ideal: camMode === 'video' ? 720 : 1080 }
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+        frameRate: { ideal: 30 }
       },
       audio: !!withAudio
     };
@@ -5206,17 +5305,34 @@ window.CONFIG = {
       return toast(t('This browser cannot record video. Use Add photos or videos instead.'));
     }
     var mime = recMime();
+    var opts = { videoBitsPerSecond: recBitrate(), audioBitsPerSecond: 128000 };
+    if (mime) opts.mimeType = mime;
     try {
-      camRecorder = mime ? new MediaRecorder(camStream, { mimeType: mime }) : new MediaRecorder(camStream);
+      camRecorder = new MediaRecorder(camStream, opts);
     } catch (err) {
-      camRecorder = null;
-      return toast(t('This browser cannot record video. Use Add photos or videos instead.'));
+      // An old browser can reject the bitrate hints; recording at whatever it
+      // picks beats not recording at all.
+      try {
+        camRecorder = mime ? new MediaRecorder(camStream, { mimeType: mime }) : new MediaRecorder(camStream);
+      } catch (err2) {
+        camRecorder = null;
+        return toast(t('This browser cannot record video. Use Add photos or videos instead.'));
+      }
     }
     camChunks = [];
+    camRecBytes = 0;
     camKeepRec = true;
     camRecStarted = Date.now();
     camRecorder.ondataavailable = function (e) {
-      if (e.data && e.data.size) camChunks.push(e.data);
+      if (!e.data || !e.data.size) return;
+      camChunks.push(e.data);
+      camRecBytes += e.data.size;
+      // Recording at a bitrate worth watching fills the upload budget in about
+      // a minute, so stop and keep the clip rather than binning it at the end.
+      if (camRecBytes >= REC_BYTE_GUARD && camRecorder) {
+        stopRec(true);
+        toast(t('Recording stopped — the clip reached the size limit.'));
+      }
     };
     camRecorder.onstop = function () {
       var rec = camRecorder;
