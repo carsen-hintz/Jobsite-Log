@@ -1485,7 +1485,7 @@ window.CONFIG = {
     '</svg>';
   // Bump this whenever you upload a new index.html, alongside the CACHE name
   // in sw.js. It shows at the bottom of My profile.
-  var BUILD = '2026-09-23a';
+  var BUILD = '2026-09-23b';
   var MAX_PX = 1600;        // photos are shrunk to this on the long edge before upload
   var JPEG_Q = 0.72;
   var MAX_VIDEO_BYTES = 50 * 1024 * 1024;   // typical Supabase file cap; site radio cannot carry more
@@ -1882,7 +1882,7 @@ window.CONFIG = {
     'That video is too large to upload.': 'Ese video es demasiado grande para subirlo.',
     'Recording stopped at two minutes.': 'La grabación se detuvo a los dos minutos.',
     'Recording stopped — the clip reached the size limit.': 'La grabación se detuvo — el clip llegó al límite de tamaño.',
-    'This camera only records {0}×{1} — that is its own limit.': 'Esta cámara solo graba {0}×{1} — es su propio límite.',
+    'Clip: {0}': 'Clip: {0}',
     'Keep it under a minute — longer clips are too large to upload.': 'Que dure menos de un minuto — los clips largos son demasiado grandes para subir.',
     'Build {0}': 'Versión {0}',
     'Only one camera on this phone.': 'Este teléfono solo tiene una cámara.',
@@ -2135,6 +2135,50 @@ window.CONFIG = {
         ? '<video src="' + esc(url) + '" muted playsinline preload="metadata"></video><span class="play-badge">▶</span>'
         : '<img loading="lazy" src="' + esc(url) + '" alt="' + alt + '">') +
       '</span>';
+  }
+
+  // Every round of this has been guesswork, because nothing anywhere says what
+  // the app actually received. This reads the finished file: its true frame
+  // size and the bitrate it carries. A 1080p clip at 8 Mbps that still looks
+  // soft is a playback problem at our end; a 640x480 clip at half a megabit
+  // was ruined by the phone before the app ever saw it, and no setting here
+  // can put that back.
+  function clipFacts(file) {
+    return new Promise(function (resolve) {
+      var url = URL.createObjectURL(file);
+      var probe = document.createElement('video');
+      var done = false;
+      function finish() {
+        if (done) return;
+        done = true;
+        var secs = isFinite(probe.duration) ? probe.duration : 0;
+        var out = {
+          w: probe.videoWidth || 0,
+          h: probe.videoHeight || 0,
+          secs: secs,
+          bytes: file.size || 0,
+          mbps: secs ? (file.size * 8) / secs / 1000000 : 0
+        };
+        URL.revokeObjectURL(url);
+        resolve(out);
+      }
+      probe.preload = 'metadata';
+      probe.muted = true;
+      probe.onloadedmetadata = finish;
+      probe.onerror = finish;
+      setTimeout(finish, 4000);
+      probe.src = url;
+    });
+  }
+
+  function reportClip(file) {
+    clipFacts(file).then(function (f) {
+      var line = (f.w && f.h ? f.w + '×' + f.h : '?') +
+        ' · ' + Math.round(f.secs) + 's · ' + (Math.round(f.mbps * 10) / 10) + ' Mbps · ' +
+        (Math.round(f.bytes / 104857.6) / 10) + ' MB';
+      if (window.console) console.info('[jobsite-logger] clip ' + line);
+      toast(tf('Clip: {0}', line));
+    });
   }
 
   function prepareMedia(file) {
@@ -4821,6 +4865,7 @@ window.CONFIG = {
   function onPickFiles(e) { collectFiles(e, staged, 'c-thumbs'); }
 
   function collectFiles(e, into, thumbsId) {
+    var clip = null;
     Array.prototype.slice.call(e.target.files || []).forEach(function (f) {
       var type = f.type || '';
       if (type.indexOf('image/') === 0) into.push(f);
@@ -4830,10 +4875,12 @@ window.CONFIG = {
           return;
         }
         into.push(f);
+        clip = f;
       }
     });
     e.target.value = '';
     paintThumbs(into, thumbsId);
+    if (clip) reportClip(clip);
   }
 
   function paintThumbs(into, thumbsId) {
@@ -5301,14 +5348,17 @@ window.CONFIG = {
   function tookNativeVideo(files) {
     camNativeOpen = false;
     var big = false;
+    var last = null;
     Array.prototype.slice.call(files || []).forEach(function (file) {
       if (!camInto) return;
       if (file.size > MAX_VIDEO_BYTES) { big = true; return; }
       camInto.push(file);
       addCamThumb(file);
+      last = file;
     });
     paintCamCount();
     if (big) toast(t('That video is too large to upload.'));
+    else if (last) reportClip(last);
     resumeCamStream();
   }
 
@@ -5456,15 +5506,8 @@ window.CONFIG = {
           camInto.push(blob);
           addCamThumb(blob);
           paintCamCount();
-          if (window.console) {
-            console.info('[jobsite-logger] clip ' +
-              (camRecSize && camRecSize.h ? camRecSize.w + 'x' + camRecSize.h : 'size unknown') +
-              ' · ' + ((rec && rec.mimeType) || 'type unknown') +
-              ' · ' + Math.round(blob.size / 1024) + ' KB');
-          }
-          if (camRecSize && camRecSize.h && camRecSize.h < 720) {
-            toast(tf('This camera only records {0}×{1} — that is its own limit.', camRecSize.w, camRecSize.h));
-          }
+          if (window.console) console.info('[jobsite-logger] recorder ' + ((rec && rec.mimeType) || 'type unknown'));
+          reportClip(blob);
         }
       }
       if (camRecWait) {
