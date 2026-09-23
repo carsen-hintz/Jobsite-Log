@@ -365,7 +365,7 @@ textarea { min-height: 120px; resize: vertical; }
 }
 
 .chip-issue { color: #fff; background: var(--keel); border-color: var(--keel); }
-.chip-done { color: var(--steel); background: var(--wall); }
+.chip-done { color: #fff; background: #64748B; border-color: #64748B; }
 
 /* ---------- Job list ---------- */
 
@@ -385,6 +385,8 @@ textarea { min-height: 120px; resize: vertical; }
 .jobitem:hover { box-shadow: var(--shadow-md); }
 
 .jobitem.is-completed { border-left-color: var(--steel); }
+.jobitem.is-halt { border-left-color: var(--working); }
+.jobitem.is-upcoming { border-left-color: #7C3AED; }
 
 .jobact {
   flex: 0 0 auto;
@@ -519,8 +521,58 @@ textarea { min-height: 120px; resize: vertical; }
 }
 
 .jobhead-top h1 { min-width: 0; overflow-wrap: anywhere; }
-.jobhead-top .chip { flex: none; margin-top: 4px; }
+.jobhead-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+.jobhead-title h1 { flex: 1; }
+.jobedit-btn {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  margin-top: 2px;
+  border: none;
+  background: none;
+  color: var(--steel);
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.jobedit-btn:hover { color: var(--chalk); background: var(--wall); }
+
+.statuspick { position: relative; flex: none; }
+button.chip { font: inherit; cursor: pointer; }
+.statuspick > .chip { margin-top: 4px; padding-right: 10px; }
+.chip-upcoming { color: #fff; background: #7C3AED; border-color: #7C3AED; }
 .chip-active { color: #fff; background: var(--fixed); border-color: var(--fixed); }
+.chip-halt { color: #fff; background: var(--working); border-color: var(--working); }
+
+.status-menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 12;
+  min-width: 168px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+}
+.status-menu button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  margin: 0 0 4px;
+  cursor: pointer;
+}
+.status-menu button:last-child { margin-bottom: 0; }
+.status-menu button.is-on { box-shadow: 0 0 0 2px var(--ink); }
 
 /* Labelled facts read far better than a run of lines with no idea which is
    the client and which is the address. */
@@ -1650,9 +1702,15 @@ window.CONFIG = {
       'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">' +
       '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 12.5h9l1-12.5M10.5 10.5v6M13.5 10.5v6"/>' +
     '</svg>';
+  var PENCIL_SVG =
+    '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" focusable="false" ' +
+      'fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">' +
+      '<path d="M4 20h4l10.5-10.5-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/>' +
+    '</svg>';
+  var JOB_STATUSES = ['Upcoming', 'Active', 'On Halt', 'Completed'];
   // Bump this whenever you upload a new index.html, alongside the CACHE name
   // in sw.js. It shows at the bottom of My profile.
-  var BUILD = '2026-09-23e';
+  var BUILD = '2026-09-23f';
   var MAX_PX = 1600;        // photos are shrunk to this on the long edge before upload
   var JPEG_Q = 0.72;
   var MAX_VIDEO_BYTES = 50 * 1024 * 1024;   // typical Supabase file cap; site radio cannot carry more
@@ -1940,6 +1998,15 @@ window.CONFIG = {
     'No contractor or home owner listed': 'Sin contratista ni dueño de casa',
     'Completed': 'Terminado',
     'Active': 'Activo',
+    'Upcoming': 'Próximo',
+    'On Halt': 'En pausa',
+    'Upcoming jobs': 'Trabajos próximos',
+    'Jobs on halt': 'Trabajos en pausa',
+    'Upcoming ({0})': 'Próximos ({0})',
+    'On Halt ({0})': 'En pausa ({0})',
+    'Job status': 'Estado del trabajo',
+    'Status updated': 'Estado actualizado',
+    'That status is not in the database yet. Run add-job-details.sql in Supabase.': 'Ese estado aún no está en la base de datos. Ejecuta add-job-details.sql en Supabase.',
     'Edit details': 'Editar detalles',
     'Edit job details': 'Editar detalles del trabajo',
     'Save changes': 'Guardar cambios',
@@ -2274,6 +2341,34 @@ window.CONFIG = {
   }
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  // US numbers only: 10 digits become (320) 555-0123 as they type or paste.
+  function formatPhoneUS(raw) {
+    var d = String(raw || '').replace(/\D/g, '');
+    if (d.length === 11 && d.charAt(0) === '1') d = d.slice(1);
+    d = d.slice(0, 10);
+    if (!d) return '';
+    if (d.length < 4) return '(' + d;
+    if (d.length < 7) return '(' + d.slice(0, 3) + ') ' + d.slice(3);
+    return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
+  }
+
+  function bindPhoneField(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.value = formatPhoneUS(el.value);
+    el.addEventListener('input', function () {
+      var before = el.value.slice(0, el.selectionStart).replace(/\D/g, '').length;
+      var next = formatPhoneUS(el.value);
+      el.value = next;
+      var i = 0, seen = 0;
+      while (i < next.length && seen < before) {
+        if (/\d/.test(next.charAt(i))) seen++;
+        i++;
+      }
+      try { el.setSelectionRange(i, i); } catch (e) {}
+    });
+  }
 
   function isVideoFile(file) {
     var type = (file && file.type) || '';
@@ -2659,10 +2754,12 @@ window.CONFIG = {
 
     document.addEventListener('click', function (e) {
       if (!menuEl.hidden && !menuEl.contains(e.target) && e.target !== whoamiBtn) closeMenu();
+      closeStatusMenu(e.target);
     });
 
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && !menuEl.hidden) { closeMenu(); whoamiBtn.focus(); }
+      if (e.key === 'Escape') closeStatusMenu();
     });
 
     document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
@@ -4136,7 +4233,7 @@ window.CONFIG = {
           '<div class="grow"><label for="sc-job">' + t('Job') + '</label>' +
             '<select id="sc-job">' +
               '<option value="">' + t('No particular job') + '</option>' +
-              jobs.filter(function (j) { return j.status === 'Active'; }).map(function (j) {
+              jobs.filter(function (j) { return j.status !== 'Completed'; }).map(function (j) {
                 return '<option value="' + esc(j.id) + '">' + esc(j.name) + '</option>';
               }).join('') +
             '</select></div>' +
@@ -4440,8 +4537,13 @@ window.CONFIG = {
       return okStatus && (!q || hay.indexOf(q) > -1);
     });
 
-    var counts = { active: 0, completed: 0 };
-    jobs.forEach(function (j) { j.status === 'Completed' ? counts.completed++ : counts.active++; });
+    var counts = { upcoming: 0, active: 0, halt: 0, completed: 0 };
+    jobs.forEach(function (j) {
+      if (j.status === 'Upcoming') counts.upcoming++;
+      else if (j.status === 'On Halt') counts.halt++;
+      else if (j.status === 'Completed') counts.completed++;
+      else counts.active++;
+    });
 
     // Three buckets. Quiet first because that is what needs a phone call,
     // then everything else newest first, then the ones worth clearing out.
@@ -4461,9 +4563,11 @@ window.CONFIG = {
       '<div class="row" style="margin-bottom:4px">' +
         '<div class="grow"><label for="dash-q">' + t('Search jobs') + '</label>' +
           '<input id="dash-q" type="text" value="' + esc(dash.q) + '" placeholder="' + t('Name, address or client') + '"></div>' +
-        '<div style="flex:0 0 150px"><label for="dash-status">' + t('Show') + '</label>' +
+        '<div style="flex:0 0 180px"><label for="dash-status">' + t('Show') + '</label>' +
           '<select id="dash-status">' +
             opt('Active', tf('Active ({0})', counts.active), dash.status) +
+            opt('Upcoming', tf('Upcoming ({0})', counts.upcoming), dash.status) +
+            opt('On Halt', tf('On Halt ({0})', counts.halt), dash.status) +
             opt('Completed', tf('Completed ({0})', counts.completed), dash.status) +
             opt('All', tf('All jobs ({0})', jobs.length), dash.status) +
           '</select></div>' +
@@ -4479,7 +4583,7 @@ window.CONFIG = {
 
       (rest.length
         ? '<div class="section-head"><h2>' +
-            (dash.status === 'All' ? t('All jobs') : dash.status === 'Completed' ? t('Completed jobs') : t('Active jobs')) + '</h2>' +
+            dashStatusHeading(dash.status) + '</h2>' +
             '<span class="small muted">' + t('Newest activity first') + '</span></div>' +
           group(rest)
         : '') +
@@ -4514,7 +4618,7 @@ window.CONFIG = {
           '<input id="nj-client" type="text" placeholder="Barrett Construction"></div>' +
         '<div class="row">' +
           '<div class="field grow"><label for="nj-phone">' + t('Customer phone') + '</label>' +
-            '<input id="nj-phone" type="tel" autocomplete="tel" placeholder="320-555-0123"></div>' +
+            '<input id="nj-phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="(320) 555-0123"></div>' +
           '<div class="field grow"><label for="nj-email">' + t('Customer email') + '</label>' +
             '<input id="nj-email" type="email" autocomplete="email" placeholder="customer@example.com"></div>' +
         '</div>' +
@@ -4541,6 +4645,7 @@ window.CONFIG = {
       document.getElementById('nj-open').hidden = false;
     });
     on('nj-save', 'click', saveNewJob);
+    bindPhoneField('nj-phone');
 
     Array.prototype.forEach.call(document.querySelectorAll('.js-jobdel'), function (b) {
       b.addEventListener('click', function () { deleteJob(b.dataset.id, b.dataset.name); });
@@ -4561,12 +4666,20 @@ window.CONFIG = {
     try { node.setSelectionRange(pos, pos); } catch (e) {}
   }
 
+  function dashStatusHeading(st) {
+    if (st === 'All') return t('All jobs');
+    if (st === 'Completed') return t('Completed jobs');
+    if (st === 'Upcoming') return t('Upcoming jobs');
+    if (st === 'On Halt') return t('Jobs on halt');
+    return t('Active jobs');
+  }
+
   function opt(value, label, current) {
     return '<option value="' + value + '"' + (current === value ? ' selected' : '') + '>' + esc(label) + '</option>';
   }
 
   function jobRowHtml(j) {
-    return '<li class="jobitem' + (j.status === 'Completed' ? ' is-completed' : '') + '">' +
+    return '<li class="jobitem' + jobItemClass(j) + '">' +
       '<a class="jobrow" href="#/job/' + esc(j.id) + '">' +
         '<div class="jobrow-top">' +
           '<span class="jobrow-name">' + esc(j.name) + '</span>' +
@@ -4578,7 +4691,9 @@ window.CONFIG = {
         (function () {
         var age = daysSince(j.updated_at);
         var chips = [];
-        if (j.status === 'Completed') chips.push('<span class="chip chip-done">' + t('Completed') + '</span>');
+        if (j.status && j.status !== 'Active') {
+          chips.push('<span class="chip ' + statusChipClass(j.status) + '">' + t(j.status) + '</span>');
+        }
         if (age >= STALE_DAYS) chips.push('<span class="chip">' + tf('{0} days quiet', age) + '</span>');
         else if (j.status === 'Active' && age >= QUIET_DAYS) {
           chips.push('<span class="chip chip-issue">' + tf('{0} days since an entry', age) + '</span>');
@@ -4608,7 +4723,7 @@ window.CONFIG = {
 
     var notes = document.getElementById('nj-notes').value.trim();
     var start = document.getElementById('nj-start').value || '';
-    var phone = document.getElementById('nj-phone').value.trim();
+    var phone = formatPhoneUS(document.getElementById('nj-phone').value);
     var email = document.getElementById('nj-email').value.trim();
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       document.getElementById('nj-email').focus();
@@ -4694,7 +4809,7 @@ window.CONFIG = {
 
     var notes = document.getElementById('je-notes').value.trim();
     var start = document.getElementById('je-start').value || '';
-    var phone = document.getElementById('je-phone').value.trim();
+    var phone = formatPhoneUS(document.getElementById('je-phone').value);
     var email = document.getElementById('je-email').value.trim();
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       document.getElementById('je-email').focus();
@@ -4803,11 +4918,34 @@ window.CONFIG = {
     return '<div><dt>' + label + '</dt><dd>' + valueHtml + '</dd></div>';
   }
 
+  function statusChipClass(st) {
+    if (st === 'Upcoming') return 'chip-upcoming';
+    if (st === 'On Halt') return 'chip-halt';
+    if (st === 'Completed') return 'chip-done';
+    return 'chip-active';
+  }
+
+  function jobItemClass(j) {
+    if (j.status === 'Completed') return ' is-completed';
+    if (j.status === 'On Halt') return ' is-halt';
+    if (j.status === 'Upcoming') return ' is-upcoming';
+    return '';
+  }
+
+  function closeStatusMenu(except) {
+    var menu = document.getElementById('status-menu');
+    var btn = document.getElementById('status-btn');
+    if (!menu || menu.hidden) return;
+    if (except && (menu.contains(except) || btn === except || (btn && btn.contains(except)))) return;
+    menu.hidden = true;
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
+
   function customerContactHtml(job) {
     var bits = [];
     if (job.customer_phone) {
       bits.push('<a href="tel:' + esc(String(job.customer_phone).replace(/[^\d+]/g, '')) + '">' +
-        esc(job.customer_phone) + '</a>');
+        esc(formatPhoneUS(job.customer_phone)) + '</a>');
     }
     if (job.customer_email) {
       bits.push('<a href="mailto:' + esc(job.customer_email) + '">' + esc(job.customer_email) + '</a>');
@@ -4821,9 +4959,23 @@ window.CONFIG = {
     app.innerHTML =
       '<div class="jobhead">' +
         '<div class="jobhead-top">' +
-          '<h1>' + esc(j.name) + '</h1>' +
-          '<span class="chip ' + (j.status === 'Completed' ? 'chip-done' : 'chip-active') + '">' +
-            (j.status === 'Completed' ? t('Completed') : t('Active')) + '</span>' +
+          '<div class="jobhead-title">' +
+            '<h1>' + esc(j.name) + '</h1>' +
+            '<button id="do-edit" class="jobedit-btn" type="button" aria-label="' + t('Edit details') + '" title="' + t('Edit details') + '">' +
+              PENCIL_SVG + '</button>' +
+          '</div>' +
+          '<div class="statuspick">' +
+            '<button id="status-btn" class="chip ' + statusChipClass(j.status) + '" type="button" ' +
+              'aria-haspopup="listbox" aria-expanded="false" aria-label="' + t('Job status') + '">' +
+              t(j.status || 'Active') + '</button>' +
+            '<div id="status-menu" class="status-menu" role="listbox" hidden>' +
+              JOB_STATUSES.map(function (st) {
+                return '<button type="button" role="option" class="chip ' + statusChipClass(st) +
+                  (st === (j.status || 'Active') ? ' is-on' : '') +
+                  '" data-status="' + esc(st) + '">' + t(st) + '</button>';
+              }).join('') +
+            '</div>' +
+          '</div>' +
         '</div>' +
 
         '<dl class="jobfacts">' +
@@ -4845,12 +4997,9 @@ window.CONFIG = {
           : '') +
 
         '<div class="jobacts">' +
-          '<button id="toggle-status" class="btn btn-quiet">' +
-            (j.status === 'Completed' ? t('Reopen job') : t('Mark job completed')) + '</button>' +
           '<button id="do-pdf" class="btn btn-quiet">' + t('Client PDF') + '</button>' +
           '<button id="do-photos" class="btn btn-quiet">' + t('Save photos') + '</button>' +
           '<button id="do-drive" class="btn btn-quiet">' + t('Save to Drive') + '</button>' +
-          '<button id="do-edit" class="btn btn-quiet">' + t('Edit details') + '</button>' +
         '</div>' +
       '</div>' +
 
@@ -4870,7 +5019,8 @@ window.CONFIG = {
           '<input id="je-client" type="text" value="' + esc(j.client_name || '') + '"></div>' +
         '<div class="row">' +
           '<div class="field grow"><label for="je-phone">' + t('Customer phone') + '</label>' +
-            '<input id="je-phone" type="tel" autocomplete="tel" value="' + esc(j.customer_phone || '') + '"></div>' +
+            '<input id="je-phone" type="tel" inputmode="numeric" autocomplete="tel" placeholder="(320) 555-0123" value="' +
+              esc(formatPhoneUS(j.customer_phone || '')) + '"></div>' +
           '<div class="field grow"><label for="je-email">' + t('Customer email') + '</label>' +
             '<input id="je-email" type="email" autocomplete="email" value="' + esc(j.customer_email || '') + '"></div>' +
         '</div>' +
@@ -4931,10 +5081,22 @@ window.CONFIG = {
         '<button id="c-open" class="btn btn-block">' + t('Add entry') + '</button>' +
       '</div></div>';
 
-    on('toggle-status', 'click', toggleStatus);
     on('do-pdf', 'click', exportPdf);
     on('do-photos', 'click', saveJobPhotos);
     on('do-drive', 'click', savePhotosToDrive);
+    on('status-btn', 'click', function (e) {
+      e.stopPropagation();
+      var menu = document.getElementById('status-menu');
+      var open = menu.hidden;
+      menu.hidden = !open;
+      e.currentTarget.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('#status-menu [data-status]'), function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        setJobStatus(b.dataset.status);
+      });
+    });
 
     on('do-edit', 'click', function () {
       var panel = document.getElementById('jobedit');
@@ -4946,6 +5108,7 @@ window.CONFIG = {
       document.getElementById('jobedit').hidden = true;
     });
     on('je-save', 'click', saveJobEdits);
+    bindPhoneField('je-phone');
 
     on('c-open', 'click', function () {
       document.getElementById('compose').hidden = false;
@@ -5579,14 +5742,23 @@ window.CONFIG = {
     });
   }
 
-  function toggleStatus() {
-    var next = view.job.status === 'Completed' ? 'Active' : 'Completed';
+  function setJobStatus(next) {
+    if (!next || next === view.job.status) {
+      closeStatusMenu();
+      return;
+    }
     sb.from('jobs').update({ status: next, updated_at: new Date().toISOString() })
       .eq('id', view.job.id).select().single()
       .then(function (res) {
-        if (res.error) return toast(tf('Could not update: {0}', res.error.message));
+        if (res.error) {
+          var msg = res.error.message || '';
+          if (/check|jobs_status|invalid/i.test(msg)) {
+            return toast(t('That status is not in the database yet. Run add-job-details.sql in Supabase.'));
+          }
+          return toast(tf('Could not update: {0}', msg));
+        }
         view.job = res.data;
-        toast(next === 'Completed' ? t('Job marked completed') : t('Job reopened'));
+        toast(t('Status updated'));
         paintJob();
       });
   }
@@ -6201,7 +6373,7 @@ window.CONFIG = {
         L.push(job.name);
         L.push(new Array(job.name.length + 1).join('='));
         if (job.client_name) L.push('Client:  ' + job.client_name);
-        if (job.customer_phone) L.push('Phone:   ' + job.customer_phone);
+        if (job.customer_phone) L.push('Phone:   ' + formatPhoneUS(job.customer_phone));
         if (job.customer_email) L.push('Email:   ' + job.customer_email);
         if (job.address)     L.push('Address: ' + job.address);
         L.push('Status:  ' + job.status);
@@ -6549,10 +6721,10 @@ window.CONFIG = {
     doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
     [
       view.job.client_name ? t('Client: {0}').replace('{0}', view.job.client_name) : '',
-      view.job.customer_phone ? t('Customer phone') + ': ' + view.job.customer_phone : '',
+      view.job.customer_phone ? t('Customer phone') + ': ' + formatPhoneUS(view.job.customer_phone) : '',
       view.job.customer_email ? t('Customer email') + ': ' + view.job.customer_email : '',
       view.job.address || '',
-      tf('Status: {0}', view.job.status === 'Completed' ? t('Completed') : view.job.status),
+      tf('Status: {0}', t(view.job.status || 'Active')),
       tf('Report prepared by {0} on {1}', companyName(), longDate(todayISO())),
       list.length === 1 ? tf('{0} entry', list.length) : tf('{0} entries', list.length)
     ].filter(Boolean).forEach(function (line) {
