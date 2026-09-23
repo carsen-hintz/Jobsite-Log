@@ -818,6 +818,97 @@ textarea { min-height: 120px; resize: vertical; }
   cursor: pointer;
 }
 
+/* ---------- Photo markup ---------- */
+
+.markup {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  background: #111;
+  color: #fff;
+}
+
+.markup-head,
+.markup-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #111;
+  padding: calc(8px + env(safe-area-inset-top)) 10px 8px;
+}
+
+.markup-head { justify-content: space-between; }
+.markup-head strong { font-size: 16px; }
+.markup-save { color: #8fb0ff; }
+
+.markup-stage {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.markup-stage canvas {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.markup-tools {
+  justify-content: center;
+  padding: 12px 10px calc(12px + env(safe-area-inset-bottom));
+}
+
+.markup-tools button {
+  min-height: 44px;
+  padding: 0 14px;
+  color: #fff;
+  background: #2a2a2a;
+  border: 1px solid #555;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-weight: 600;
+}
+
+.markup-tools .markup-color {
+  width: 42px;
+  min-height: 42px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--mark-color);
+}
+
+.markup-color[data-color="#ef2929"] { --mark-color: #ef2929; }
+.markup-color[data-color="#ffd21c"] { --mark-color: #ffd21c; }
+.markup-color[data-color="#111111"] { --mark-color: #111111; }
+.markup-color.is-on { box-shadow: 0 0 0 3px #fff; }
+
+.stage-thumb,
+.photoedit { position: relative; display: inline-flex; flex-direction: column; gap: 4px; }
+.stage-thumb .media-thumb { width: 64px; height: 64px; }
+.thumb-action {
+  min-height: 30px;
+  padding: 3px 7px;
+  border: 1px solid var(--rule);
+  border-radius: 7px;
+  background: #fff;
+  color: var(--chalk-dark);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.photoedit .photochip { display: block; }
+.photoedit .thumb-action { width: 100%; }
+
 .filedrop-actions {
   display: flex;
   gap: 10px;
@@ -1490,6 +1581,22 @@ textarea { min-height: 120px; resize: vertical; }
   </div>
 </div>
 
+<div id="markup" class="markup" hidden>
+  <div class="markup-head">
+    <button id="markup-cancel" class="camera-text" type="button">Cancel</button>
+    <strong>Mark up photo</strong>
+    <button id="markup-save" class="camera-text markup-save" type="button">Save</button>
+  </div>
+  <div class="markup-stage"><canvas id="markup-canvas"></canvas></div>
+  <div class="markup-tools">
+    <button type="button" class="markup-color is-on" data-color="#ef2929" aria-label="Red"></button>
+    <button type="button" class="markup-color" data-color="#ffd21c" aria-label="Yellow"></button>
+    <button type="button" class="markup-color" data-color="#111111" aria-label="Black"></button>
+    <button id="markup-undo" type="button">Undo</button>
+    <button id="markup-clear" type="button">Clear</button>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -1545,7 +1652,7 @@ window.CONFIG = {
     '</svg>';
   // Bump this whenever you upload a new index.html, alongside the CACHE name
   // in sw.js. It shows at the bottom of My profile.
-  var BUILD = '2026-09-23d';
+  var BUILD = '2026-09-23e';
   var MAX_PX = 1600;        // photos are shrunk to this on the long edge before upload
   var JPEG_Q = 0.72;
   var MAX_VIDEO_BYTES = 50 * 1024 * 1024;   // typical Supabase file cap; site radio cannot carry more
@@ -1566,6 +1673,14 @@ window.CONFIG = {
   var camVideo = document.getElementById('cam-video');
   var camStrip = document.getElementById('cam-strip');
   var camNative = document.getElementById('cam-native');
+  var markupEl = document.getElementById('markup');
+  var markupCanvas = document.getElementById('markup-canvas');
+  var markupCtx = markupCanvas.getContext('2d');
+  var markupBase = null;
+  var markupStrokes = [];
+  var markupStroke = null;
+  var markupColor = '#ef2929';
+  var markupDone = null;
 
   var sb = null;
   var me = null;
@@ -1655,6 +1770,15 @@ window.CONFIG = {
     if (camModePhoto) camModePhoto.textContent = t('Photo');
     var camModeVideo = document.getElementById('cam-mode-video');
     if (camModeVideo) camModeVideo.textContent = t('Video');
+    document.querySelector('#markup .markup-head strong').textContent = t('Mark up photo');
+    document.getElementById('markup-cancel').textContent = t('Cancel');
+    document.getElementById('markup-save').textContent = t('Save');
+    document.getElementById('markup-undo').textContent = t('Undo');
+    document.getElementById('markup-clear').textContent = t('Clear');
+    Array.prototype.forEach.call(document.querySelectorAll('.markup-color'), function (b) {
+      var names = { '#ef2929': 'Red', '#ffd21c': 'Yellow', '#111111': 'Black' };
+      b.setAttribute('aria-label', t(names[b.dataset.color] || ''));
+    });
   }
 
   function langPickerHtml(id) {
@@ -1806,6 +1930,10 @@ window.CONFIG = {
     'Your phone offers addresses you have used before. Tap an address on a job to open it in maps.': 'El teléfono sugiere direcciones que ya usaste. Toca una dirección en un trabajo para abrirla en mapas.',
     'Client': 'Cliente',
     'Contractor / Home owner': 'Contratista / Dueño de casa',
+    'Customer contact': 'Contacto del cliente',
+    'Customer phone': 'Teléfono del cliente',
+    'Customer email': 'Correo del cliente',
+    'Enter a valid customer email.': 'Ingresa un correo válido del cliente.',
     'Save job': 'Guardar trabajo',
     'Cancel': 'Cancelar',
     'No client listed': 'Sin cliente',
@@ -1818,7 +1946,7 @@ window.CONFIG = {
     'Job updated': 'Trabajo actualizado',
     'The new start day is on the schedule, but the old one had to stay — remove it there.': 'El nuevo día de inicio está en el calendario, pero el anterior tuvo que quedarse — quítalo desde allí.',
     'Changing this moves the job’s start day on the schedule.': 'Cambiar esto mueve el día de inicio del trabajo en el calendario.',
-    'Job saved, but the notes and start date could not be stored. Run add-job-details.sql in Supabase.': 'Se guardó el trabajo, pero no se pudieron guardar las notas ni la fecha de inicio. Ejecuta add-job-details.sql en Supabase.',
+    'Job saved, but some job details could not be stored. Run add-job-details.sql in Supabase.': 'Se guardó el trabajo, pero no se pudieron guardar algunos detalles. Ejecuta add-job-details.sql en Supabase.',
     '{0} days quiet': '{0} días en silencio',
     '{0} days since an entry': '{0} días desde una nota',
     'Save notes for {0}': 'Guardar notas de {0}',
@@ -1904,10 +2032,20 @@ window.CONFIG = {
     'Delete': 'Borrar',
     'Editing your entry': 'Editando tu nota',
     'Photos on this entry': 'Fotos y videos en esta nota',
-    'Tap a photo to remove it when you save.': 'Toca una foto o un video para quitarlo al guardar.',
+    'Remove or mark up photos before saving.': 'Quita o marca las fotos antes de guardar.',
+    'Mark up': 'Marcar',
+    'Mark up photo': 'Marcar foto',
+    'Save': 'Guardar',
+    'Undo': 'Deshacer',
+    'Clear': 'Borrar todo',
+    'Red': 'Rojo',
+    'Yellow': 'Amarillo',
+    'Black': 'Negro',
+    'Could not open that photo for markup.': 'No se pudo abrir esa foto para marcarla.',
     'Photo on this entry': 'Foto en esta nota',
     'Video on this entry': 'Video en esta nota',
     'Removing': 'Quitando',
+    'Replacing': 'Reemplazando',
     'Logged by {0} on {1}': 'Registrado por {0} el {1}',
     ' · {0} update so far': ' · {0} actualización hasta ahora',
     ' · {0} updates so far': ' · {0} actualizaciones hasta ahora',
@@ -2255,6 +2393,7 @@ window.CONFIG = {
       }
       return Promise.resolve(file);
     }
+    if (file && file._jobsitePrepared) return Promise.resolve(file);
     return shrink(file);
   }
 
@@ -2528,7 +2667,11 @@ window.CONFIG = {
 
     document.getElementById('lightbox-close').addEventListener('click', closeLightbox);
     lightbox.addEventListener('click', function (e) { if (e.target === lightbox) closeLightbox(); });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeLightbox(); });
+    document.addEventListener('keydown', function (e) {
+      if (e.key !== 'Escape') return;
+      if (markupEl && !markupEl.hidden) closeMarkup();
+      else closeLightbox();
+    });
 
     on('cam-shoot', 'click', shutterClick);
     on('cam-flip', 'click', flipCamera);
@@ -2536,6 +2679,22 @@ window.CONFIG = {
     on('cam-cancel', 'click', cancelCamera);
     on('cam-mode-photo', 'click', function () { setCamMode('photo'); });
     on('cam-mode-video', 'click', function () { setCamMode('video'); });
+    on('markup-cancel', 'click', closeMarkup);
+    on('markup-save', 'click', saveMarkup);
+    on('markup-undo', 'click', function () { markupStrokes.pop(); drawMarkup(); });
+    on('markup-clear', 'click', function () { markupStrokes = []; drawMarkup(); });
+    Array.prototype.forEach.call(document.querySelectorAll('.markup-color'), function (b) {
+      b.addEventListener('click', function () {
+        markupColor = b.dataset.color;
+        Array.prototype.forEach.call(document.querySelectorAll('.markup-color'), function (x) {
+          x.classList.toggle('is-on', x === b);
+        });
+      });
+    });
+    markupCanvas.addEventListener('pointerdown', beginMarkupStroke);
+    markupCanvas.addEventListener('pointermove', moveMarkupStroke);
+    markupCanvas.addEventListener('pointerup', endMarkupStroke);
+    markupCanvas.addEventListener('pointercancel', endMarkupStroke);
     on('cam-native', 'change', function (e) {
       var files = e.target.files;
       tookNativeVideo(files);
@@ -4276,7 +4435,8 @@ window.CONFIG = {
     var q = dash.q.toLowerCase();
     var shown = jobs.filter(function (j) {
       var okStatus = dash.status === 'All' || j.status === dash.status;
-      var hay = (j.name + ' ' + (j.address || '') + ' ' + (j.client_name || '')).toLowerCase();
+      var hay = (j.name + ' ' + (j.address || '') + ' ' + (j.client_name || '') + ' ' +
+        (j.customer_phone || '') + ' ' + (j.customer_email || '')).toLowerCase();
       return okStatus && (!q || hay.indexOf(q) > -1);
     });
 
@@ -4352,6 +4512,12 @@ window.CONFIG = {
           '<p class="small muted" style="margin:6px 0 0">' + t('Your phone offers addresses you have used before. Tap an address on a job to open it in maps.') + '</p></div>' +
         '<div class="field"><label for="nj-client">' + t('Contractor / Home owner') + '</label>' +
           '<input id="nj-client" type="text" placeholder="Barrett Construction"></div>' +
+        '<div class="row">' +
+          '<div class="field grow"><label for="nj-phone">' + t('Customer phone') + '</label>' +
+            '<input id="nj-phone" type="tel" autocomplete="tel" placeholder="320-555-0123"></div>' +
+          '<div class="field grow"><label for="nj-email">' + t('Customer email') + '</label>' +
+            '<input id="nj-email" type="email" autocomplete="email" placeholder="customer@example.com"></div>' +
+        '</div>' +
         '<div class="row" style="margin-top:14px">' +
           '<button id="nj-save" class="btn grow">' + t('Save job') + '</button>' +
           '<button id="nj-cancel" class="btn btn-quiet">' + t('Cancel') + '</button>' +
@@ -4442,6 +4608,12 @@ window.CONFIG = {
 
     var notes = document.getElementById('nj-notes').value.trim();
     var start = document.getElementById('nj-start').value || '';
+    var phone = document.getElementById('nj-phone').value.trim();
+    var email = document.getElementById('nj-email').value.trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      document.getElementById('nj-email').focus();
+      return toast(t('Enter a valid customer email.'));
+    }
     var btn = document.getElementById('nj-save');
     btn.disabled = true;
     btn.textContent = t('Saving…');
@@ -4455,7 +4627,7 @@ window.CONFIG = {
     }).select().single().then(function (res) {
       if (res.error) throw res.error;
       var job = res.data;
-      return saveJobExtras(job.id, notes, start).then(function () {
+      return saveJobExtras(job.id, notes, start, phone, email).then(function () {
         return start ? scheduleJobStart(job, start) : null;
       }).then(function () { return job; });
     }).then(function (job) {
@@ -4473,21 +4645,23 @@ window.CONFIG = {
   // so creating work never fails over a column that is only for display.
   // "force" is for editing, where clearing the notes or the start date has to
   // actually clear them rather than be read as "leave it alone".
-  function saveJobExtras(id, notes, start, force) {
+  function saveJobExtras(id, notes, start, phone, email, force) {
     var patch = {};
     if (notes || force) patch.notes = notes || null;
     if (start || force) patch.start_date = start || null;
-    if (!notes && !start && !force) return Promise.resolve();
+    if (phone || force) patch.customer_phone = phone || null;
+    if (email || force) patch.customer_email = email || null;
+    if (!notes && !start && !phone && !email && !force) return Promise.resolve();
 
     return sb.from('jobs').update(patch).eq('id', id).then(function (res) {
       if (!res.error) return;
       // Silently dropping these is what made the notes look like a display
       // bug. Say it out loud instead.
       if (window.console) {
-        console.warn('[jobsite-logger] Job notes / start date were not stored — ' +
+        console.warn('[jobsite-logger] Extra job details were not stored — ' +
           'run add-job-details.sql in the Supabase SQL Editor. ' + res.error.message);
       }
-      toast(t('Job saved, but the notes and start date could not be stored. Run add-job-details.sql in Supabase.'));
+      toast(t('Job saved, but some job details could not be stored. Run add-job-details.sql in Supabase.'));
     }, function () {});
   }
 
@@ -4520,6 +4694,12 @@ window.CONFIG = {
 
     var notes = document.getElementById('je-notes').value.trim();
     var start = document.getElementById('je-start').value || '';
+    var phone = document.getElementById('je-phone').value.trim();
+    var email = document.getElementById('je-email').value.trim();
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      document.getElementById('je-email').focus();
+      return toast(t('Enter a valid customer email.'));
+    }
     var moved = start !== (j.start_date || '');
     var btn = document.getElementById('je-save');
     btn.disabled = true;
@@ -4533,7 +4713,7 @@ window.CONFIG = {
     }).eq('id', j.id).select().single().then(function (res) {
       if (res.error) throw res.error;
       view.job = res.data;
-      return saveJobExtras(j.id, notes, start, true).then(function () {
+      return saveJobExtras(j.id, notes, start, phone, email, true).then(function () {
         return moved ? moveJobStart(j, start) : null;
       });
     }).then(function () {
@@ -4541,6 +4721,8 @@ window.CONFIG = {
       // was just written rather than re-reading the job.
       view.job.notes = notes || null;
       view.job.start_date = start || null;
+      view.job.customer_phone = phone || null;
+      view.job.customer_email = email || null;
       toast(t('Job updated'));
       paintJob();
     }).catch(function (err) {
@@ -4621,6 +4803,18 @@ window.CONFIG = {
     return '<div><dt>' + label + '</dt><dd>' + valueHtml + '</dd></div>';
   }
 
+  function customerContactHtml(job) {
+    var bits = [];
+    if (job.customer_phone) {
+      bits.push('<a href="tel:' + esc(String(job.customer_phone).replace(/[^\d+]/g, '')) + '">' +
+        esc(job.customer_phone) + '</a>');
+    }
+    if (job.customer_email) {
+      bits.push('<a href="mailto:' + esc(job.customer_email) + '">' + esc(job.customer_email) + '</a>');
+    }
+    return bits.join('<br>');
+  }
+
   function paintJob() {
     var j = view.job;
 
@@ -4635,6 +4829,9 @@ window.CONFIG = {
         '<dl class="jobfacts">' +
           jobFact(t('Contractor / Home owner'),
             esc(j.client_name || t('No contractor or home owner listed'))) +
+          ((j.customer_phone || j.customer_email)
+            ? jobFact(t('Customer contact'), customerContactHtml(j))
+            : '') +
           (j.start_date ? jobFact(t('Start date'), esc(longDate(j.start_date))) : '') +
           (j.address
             ? jobFact(t('Address'), '<a class="maplink" target="_blank" rel="noopener" href="' +
@@ -4671,6 +4868,12 @@ window.CONFIG = {
           '<input id="je-address" type="text" autocomplete="street-address" value="' + esc(j.address || '') + '"></div>' +
         '<div class="field"><label for="je-client">' + t('Contractor / Home owner') + '</label>' +
           '<input id="je-client" type="text" value="' + esc(j.client_name || '') + '"></div>' +
+        '<div class="row">' +
+          '<div class="field grow"><label for="je-phone">' + t('Customer phone') + '</label>' +
+            '<input id="je-phone" type="tel" autocomplete="tel" value="' + esc(j.customer_phone || '') + '"></div>' +
+          '<div class="field grow"><label for="je-email">' + t('Customer email') + '</label>' +
+            '<input id="je-email" type="email" autocomplete="email" value="' + esc(j.customer_email || '') + '"></div>' +
+        '</div>' +
         '<div class="row" style="margin-top:14px">' +
           '<button id="je-save" class="btn grow">' + t('Save changes') + '</button>' +
           '<button id="je-cancel" class="btn btn-quiet">' + t('Cancel') + '</button>' +
@@ -4865,15 +5068,21 @@ window.CONFIG = {
 
       (photos.length ?
         '<div class="field"><label>' + t('Photos on this entry') + '</label>' +
-          '<p class="small muted" style="margin:0 0 8px">' + t('Tap a photo to remove it when you save.') + '</p>' +
+          '<p class="small muted" style="margin:0 0 8px">' + t('Remove or mark up photos before saving.') + '</p>' +
           '<div class="thumbs">' + photos.map(function (p) {
             var marked = !!editRemove[p.id];
             var video = isVideoPath(p.storage_path);
-            return '<button type="button" class="photochip js-photo-toggle' + (marked ? ' marked' : '') + '" ' +
-              'data-id="' + esc(p.id) + '">' +
-              thumbTag(p.url || '', video, t(video ? 'Video on this entry' : 'Photo on this entry')) +
-              (marked ? '<span class="photochip-x">' + t('Removing') + '</span>' : '') +
-            '</button>';
+            return '<span class="photoedit">' +
+              '<button type="button" class="photochip js-photo-toggle' + (marked ? ' marked' : '') + '" ' +
+                'data-id="' + esc(p.id) + '">' +
+                thumbTag(p.url || '', video, t(video ? 'Video on this entry' : 'Photo on this entry')) +
+                (marked ? '<span class="photochip-x">' + t('Removing') + '</span>' : '') +
+              '</button>' +
+              (!video && !marked
+                ? '<button type="button" class="thumb-action js-mark-existing" data-id="' + esc(p.id) +
+                    '" data-url="' + esc(p.url || '') + '">' + t('Mark up') + '</button>'
+                : '') +
+            '</span>';
           }).join('') + '</div></div>' : '') +
 
       '<div class="field">' +
@@ -5023,8 +5232,52 @@ window.CONFIG = {
     Array.prototype.forEach.call(document.querySelectorAll('.js-photo-toggle'), function (b) {
       b.addEventListener('click', function () {
         var id = b.dataset.id;
+        var replacement = -1;
+        editStaged.some(function (f, i) {
+          if (f && f._replacesPhotoId === id) { replacement = i; return true; }
+          return false;
+        });
+        if (replacement > -1 && editRemove[id]) {
+          editStaged.splice(replacement, 1);
+          editRemove[id] = false;
+          b.classList.remove('marked');
+          var replacing = b.querySelector('.photochip-x');
+          if (replacing) replacing.remove();
+          var markupButton = b.parentNode.querySelector('.js-mark-existing');
+          if (markupButton) markupButton.hidden = false;
+          paintThumbs(editStaged, 'e-thumbs');
+          return;
+        }
         editRemove[id] = !editRemove[id];
-        refreshFeed();
+        b.classList.toggle('marked', !!editRemove[id]);
+        var label = b.querySelector('.photochip-x');
+        if (editRemove[id] && !label) {
+          label = document.createElement('span');
+          label.className = 'photochip-x';
+          label.textContent = t('Removing');
+          b.appendChild(label);
+        } else if (!editRemove[id] && label) {
+          label.remove();
+        }
+        var mark = b.parentNode.querySelector('.js-mark-existing');
+        if (mark) mark.hidden = !!editRemove[id];
+      });
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.js-mark-existing'), function (b) {
+      b.addEventListener('click', function () {
+        openMarkup(b.dataset.url, function (marked) {
+          editRemove[b.dataset.id] = true;
+          try { marked._replacesPhotoId = b.dataset.id; } catch (e) {}
+          editStaged.push(marked);
+          var photo = b.parentNode.querySelector('.js-photo-toggle');
+          photo.classList.add('marked');
+          var label = document.createElement('span');
+          label.className = 'photochip-x';
+          label.textContent = t('Replacing');
+          photo.appendChild(label);
+          b.hidden = true;
+          paintThumbs(editStaged, 'e-thumbs');
+        });
       });
     });
 
@@ -5061,10 +5314,50 @@ window.CONFIG = {
   function paintThumbs(into, thumbsId) {
     var wrap = document.getElementById(thumbsId);
     if (!wrap) return;
-    wrap.innerHTML = into.map(function (f) {
+    Array.prototype.forEach.call(wrap.querySelectorAll('img,video'), function (el) {
+      if (el.src && el.src.indexOf('blob:') === 0) URL.revokeObjectURL(el.src);
+    });
+    wrap.innerHTML = into.map(function (f, i) {
       var url = URL.createObjectURL(f);
-      return thumbTag(url, isVideoFile(f), t('Selected photo'));
+      var video = isVideoFile(f);
+      return '<span class="stage-thumb">' +
+        thumbTag(url, video, t('Selected photo')) +
+        (!video ? '<button type="button" class="thumb-action js-mark-staged" data-index="' + i + '">' +
+          t('Mark up') + '</button>' : '') +
+        '<button type="button" class="thumb-action js-drop-staged" data-index="' + i + '">' +
+          t('Remove') + '</button>' +
+      '</span>';
     }).join('') + (into.length ? '<div class="small muted" style="width:100%">' + readyLabel(into) + '</div>' : '');
+
+    Array.prototype.forEach.call(wrap.querySelectorAll('.js-mark-staged'), function (b) {
+      b.addEventListener('click', function () {
+        var i = Number(b.dataset.index);
+        openMarkup(into[i], function (marked) {
+          into[i] = marked;
+          paintThumbs(into, thumbsId);
+        });
+      });
+    });
+    Array.prototype.forEach.call(wrap.querySelectorAll('.js-drop-staged'), function (b) {
+      b.addEventListener('click', function () {
+        var i = Number(b.dataset.index);
+        var file = into[i];
+        var replaced = file && file._replacesPhotoId;
+        into.splice(i, 1);
+        if (replaced) {
+          editRemove[replaced] = false;
+          Array.prototype.forEach.call(document.querySelectorAll('.js-photo-toggle'), function (photo) {
+            if (photo.dataset.id !== replaced) return;
+            photo.classList.remove('marked');
+            var label = photo.querySelector('.photochip-x');
+            if (label) label.remove();
+            var mark = photo.parentNode.querySelector('.js-mark-existing');
+            if (mark) mark.hidden = false;
+          });
+        }
+        paintThumbs(into, thumbsId);
+      });
+    });
   }
 
   function postEntry() {
@@ -5243,6 +5536,11 @@ window.CONFIG = {
       .eq('id', id).eq('author_email', me.email)
       .then(function (res) {
         if (res.error) throw res.error;
+        // Upload marked replacements before deleting their originals. If the
+        // connection drops, keeping both is safer than losing the only copy.
+        return uploadPhotos(en, editStaged, btn);
+      })
+      .then(function () {
         if (!dropping.length) return;
         var paths = dropping.map(function (p) { return p.storage_path; });
         var ids = dropping.map(function (p) { return p.id; });
@@ -5252,7 +5550,6 @@ window.CONFIG = {
           });
         });
       })
-      .then(function () { return uploadPhotos(en, editStaged, btn); })
       .then(function () {
         toast(t('Entry updated'));
         clearEditState();
@@ -5292,6 +5589,116 @@ window.CONFIG = {
         toast(next === 'Completed' ? t('Job marked completed') : t('Job reopened'));
         paintJob();
       });
+  }
+
+  /* ---------------- photo markup ---------------- */
+
+  function openMarkup(source, done) {
+    var getBlob = typeof source === 'string'
+      ? fetch(source).then(function (res) {
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          return res.blob();
+        })
+      : Promise.resolve(source);
+
+    getBlob.then(function (blob) {
+      if (!blob || isVideoFile(blob)) throw new Error('not an image');
+      var url = URL.createObjectURL(blob);
+      var img = new Image();
+      img.onload = function () {
+        var scale = Math.min(1, MAX_PX / Math.max(img.naturalWidth, img.naturalHeight));
+        markupCanvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+        markupCanvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+        markupBase = img;
+        markupStrokes = [];
+        markupStroke = null;
+        markupDone = done;
+        drawMarkup();
+        markupEl.hidden = false;
+        URL.revokeObjectURL(url);
+      };
+      img.onerror = function () {
+        URL.revokeObjectURL(url);
+        toast(t('Could not open that photo for markup.'));
+      };
+      img.src = url;
+    }).catch(function () {
+      toast(t('Could not open that photo for markup.'));
+    });
+  }
+
+  function drawMarkup() {
+    if (!markupBase) return;
+    markupCtx.clearRect(0, 0, markupCanvas.width, markupCanvas.height);
+    markupCtx.drawImage(markupBase, 0, 0, markupCanvas.width, markupCanvas.height);
+    markupStrokes.forEach(function (stroke) {
+      if (!stroke.points.length) return;
+      markupCtx.beginPath();
+      markupCtx.strokeStyle = stroke.color;
+      markupCtx.lineWidth = stroke.width;
+      markupCtx.lineCap = 'round';
+      markupCtx.lineJoin = 'round';
+      markupCtx.moveTo(stroke.points[0].x, stroke.points[0].y);
+      stroke.points.slice(1).forEach(function (p) { markupCtx.lineTo(p.x, p.y); });
+      if (stroke.points.length === 1) {
+        markupCtx.lineTo(stroke.points[0].x + 0.01, stroke.points[0].y + 0.01);
+      }
+      markupCtx.stroke();
+    });
+  }
+
+  function markupPoint(e) {
+    var r = markupCanvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) * markupCanvas.width / r.width,
+      y: (e.clientY - r.top) * markupCanvas.height / r.height
+    };
+  }
+
+  function beginMarkupStroke(e) {
+    e.preventDefault();
+    markupCanvas.setPointerCapture(e.pointerId);
+    markupStroke = {
+      color: markupColor,
+      width: Math.max(5, Math.round(Math.max(markupCanvas.width, markupCanvas.height) / 180)),
+      points: [markupPoint(e)]
+    };
+    markupStrokes.push(markupStroke);
+    drawMarkup();
+  }
+
+  function moveMarkupStroke(e) {
+    if (!markupStroke) return;
+    e.preventDefault();
+    markupStroke.points.push(markupPoint(e));
+    drawMarkup();
+  }
+
+  function endMarkupStroke(e) {
+    if (!markupStroke) return;
+    e.preventDefault();
+    markupStroke = null;
+  }
+
+  function closeMarkup() {
+    markupEl.hidden = true;
+    markupBase = null;
+    markupStrokes = [];
+    markupStroke = null;
+    markupDone = null;
+  }
+
+  function saveMarkup() {
+    if (!markupBase || !markupDone) return;
+    var done = markupDone;
+    markupCanvas.toBlob(function (blob) {
+      if (!blob) return toast(t('That photo could not be saved.'));
+      var out = blob;
+      try { out = new File([blob], 'marked-' + Date.now() + '.jpg', { type: 'image/jpeg' }); } catch (e) {}
+      try { out._jobsitePrepared = true; } catch (e2) {}
+      closeMarkup();
+      done(out);
+    }, 'image/jpeg', 0.9);
   }
 
   /* ---------------- lightbox ---------------- */
@@ -5794,6 +6201,8 @@ window.CONFIG = {
         L.push(job.name);
         L.push(new Array(job.name.length + 1).join('='));
         if (job.client_name) L.push('Client:  ' + job.client_name);
+        if (job.customer_phone) L.push('Phone:   ' + job.customer_phone);
+        if (job.customer_email) L.push('Email:   ' + job.customer_email);
         if (job.address)     L.push('Address: ' + job.address);
         L.push('Status:  ' + job.status);
         L.push('Entries: ' + list.length);
@@ -6140,6 +6549,8 @@ window.CONFIG = {
     doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
     [
       view.job.client_name ? t('Client: {0}').replace('{0}', view.job.client_name) : '',
+      view.job.customer_phone ? t('Customer phone') + ': ' + view.job.customer_phone : '',
+      view.job.customer_email ? t('Customer email') + ': ' + view.job.customer_email : '',
       view.job.address || '',
       tf('Status: {0}', view.job.status === 'Completed' ? t('Completed') : view.job.status),
       tf('Report prepared by {0} on {1}', companyName(), longDate(todayISO())),
