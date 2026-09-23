@@ -1483,6 +1483,9 @@ window.CONFIG = {
       'fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">' +
       '<path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 12.5h9l1-12.5M10.5 10.5v6M13.5 10.5v6"/>' +
     '</svg>';
+  // Bump this whenever you upload a new index.html, alongside the CACHE name
+  // in sw.js. It shows at the bottom of My profile.
+  var BUILD = '2026-09-23a';
   var MAX_PX = 1600;        // photos are shrunk to this on the long edge before upload
   var JPEG_Q = 0.72;
   var MAX_VIDEO_BYTES = 50 * 1024 * 1024;   // typical Supabase file cap; site radio cannot carry more
@@ -1881,6 +1884,7 @@ window.CONFIG = {
     'Recording stopped — the clip reached the size limit.': 'La grabación se detuvo — el clip llegó al límite de tamaño.',
     'This camera only records {0}×{1} — that is its own limit.': 'Esta cámara solo graba {0}×{1} — es su propio límite.',
     'Keep it under a minute — longer clips are too large to upload.': 'Que dure menos de un minuto — los clips largos son demasiado grandes para subir.',
+    'Build {0}': 'Versión {0}',
     'Only one camera on this phone.': 'Este teléfono solo tiene una cámara.',
     'Add a note, a photo, or a video first.': 'Agrega una nota, una foto o un video primero.',
     'An entry needs a note, a photo, or a video.': 'Una nota necesita texto, una foto o un video.',
@@ -3497,7 +3501,12 @@ window.CONFIG = {
         '<div class="row" style="margin-top:14px">' +
           '<button id="pf-pass-save" class="btn btn-quiet grow">' + t('Change password') + '</button>' +
         '</div>' +
-      '</div>';
+      '</div>' +
+
+      // A phone can sit on a cached copy of this file for days. This says
+      // which one it is actually running.
+      '<p class="small muted" style="text-align:center;margin:18px 0 4px">' +
+        tf('Build {0}', BUILD) + '</p>';
 
     bindLangPicker('pf-lang');
 
