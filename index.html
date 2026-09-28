@@ -641,6 +641,73 @@ button.chip { font: inherit; cursor: pointer; }
 
 .jobacts .btn { width: 100%; }
 
+/* ---------- Native work-shift tracking ---------- */
+
+.shiftcard {
+  margin-bottom: 16px;
+  padding: 16px;
+  background: var(--board);
+  border: 1px solid var(--rule);
+  border-left: 5px solid var(--chalk);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.shiftcard.is-live { border-left-color: var(--fixed); }
+.shiftcard.is-web { border-left-color: var(--steel); }
+.shiftcard-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.shiftcard h2 { font-size: 24px; }
+.shiftclock {
+  font-family: "Barlow Condensed", sans-serif;
+  font-size: 27px;
+  font-weight: 700;
+  color: var(--chalk-dark);
+  white-space: nowrap;
+}
+.shiftstate {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  background: var(--wall);
+  border-radius: var(--radius-sm);
+}
+.tracking-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--fixed);
+}
+.shift-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.shift-actions .btn { flex: 1 1 145px; }
+.tracking-consent {
+  margin-top: 12px;
+  padding: 13px;
+  background: var(--wall);
+  border-radius: var(--radius-sm);
+}
+.tracking-consent label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0;
+}
+.tracking-consent input { width: 20px; height: 20px; flex: none; margin-top: 2px; }
+
+.jobmap {
+  height: 300px;
+  margin-top: 12px;
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--wall);
+}
+
 .backlink {
   display: inline-block;
   padding: 8px 0;
@@ -1604,6 +1671,22 @@ button.chip { font: inherit; cursor: pointer; }
 .cal-sel .sc-time,
 .cal-weekrow.cal-rowsel .sc-time { color: inherit; }
 
+/* ---------- Translated crew text ---------- */
+
+.xlate-toggle {
+  display: inline-block;
+  margin: 2px 0 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12px;
+  color: var(--steel);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.xlate-toggle:hover { color: var(--chalk-dark); }
+
 </style>
 </head>
 <body>
@@ -1734,7 +1817,7 @@ window.CONFIG = {
   var JOB_STATUSES = ['Upcoming', 'Active', 'On Halt', 'Completed'];
   // Bump this whenever you upload a new index.html, alongside the CACHE name
   // in sw.js. It shows at the bottom of My profile.
-  var BUILD = '2026-09-23g';
+  var BUILD = '2026-09-28a';
   var MAX_PX = 1600;        // photos are shrunk to this on the long edge before upload
   var JPEG_Q = 0.72;
   var MAX_VIDEO_BYTES = 50 * 1024 * 1024;   // typical Supabase file cap; site radio cannot carry more
@@ -1772,8 +1855,13 @@ window.CONFIG = {
   var staged = [];                       // photos picked but not yet uploaded
   var editStaged = [];                   // photos added while editing an entry
   var editRemove = {};                   // existing photo ids marked for removal
-  var dash = { q: '', status: 'All' };
+  var dash = { q: '', status: 'Active' };
   var view = { entries: [], job: null, q: '', date: '', editing: null, issueEditing: null };
+  var TRACKING_POLICY_VERSION = '2026-09-23';
+  var TRACKING_PENDING_STOP_KEY = 'jobsite-pending-shift-stop';
+  var tracking = { active: null, jobs: [], timer: null, consented: false, provider: null };
+  var jobPinMap = null;
+  var jobPinMarker = null;
   var toastTimer = null;
   var LANG_KEY = 'jobsite-lang';
   var GOOGLE_ID_KEY = 'jobsite-google-client-id';
@@ -1863,6 +1951,141 @@ window.CONFIG = {
     });
   }
 
+  /* ---------------- translating what the crew typed ----------------
+     t() only covers the app's own labels. Notes, issue updates and job
+     notes are whatever the crew typed, so when the app is in Spanish they
+     go through the translate-text function (Google Cloud Translation, key
+     kept as a Supabase secret). Results are cached per device so each
+     note is only translated once. */
+
+  var XLATE_KEY = 'jobsite-xlate-';
+  var XLATE_MAX_CACHE = 600;
+  var xlate = { texts: {}, cache: null, cacheLang: '', busy: false, queued: false };
+
+  function xlateOn() {
+    return lang === 'es' && !!sb && !!me;
+  }
+
+  function xlateHash(s) {
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return (h >>> 0).toString(36) + s.length.toString(36);
+  }
+
+  function xlateCache() {
+    if (xlate.cache && xlate.cacheLang === lang) return xlate.cache;
+    xlate.cacheLang = lang;
+    xlate.cache = {};
+    try {
+      var raw = localStorage.getItem(XLATE_KEY + lang);
+      if (raw) xlate.cache = JSON.parse(raw) || {};
+    } catch (e) { xlate.cache = {}; }
+    return xlate.cache;
+  }
+
+  function xlateRemember(entries) {
+    var cache = xlateCache();
+    Object.keys(entries).forEach(function (k) { cache[k] = entries[k]; });
+    var keys = Object.keys(cache);
+    if (keys.length > XLATE_MAX_CACHE) {
+      keys.slice(0, keys.length - XLATE_MAX_CACHE).forEach(function (k) { delete cache[k]; });
+    }
+    try { localStorage.setItem(XLATE_KEY + lang, JSON.stringify(cache)); } catch (e) {}
+  }
+
+  // Renders crew-typed text. When a translation is already cached it shows
+  // the translation with a "See original" link; otherwise it shows the
+  // original and translateCrewText() fills it in after the paint.
+  function crewTextHtml(text, cls) {
+    if (!text) return '';
+    var raw = String(text);
+    if (!xlateOn() || !/[A-Za-z\u00C0-\u024F]{2}/.test(raw)) {
+      return '<p class="' + cls + '">' + esc(raw) + '</p>';
+    }
+    var key = xlateHash(raw);
+    xlate.texts[key] = raw;
+    var cached = xlateCache()[key];
+    if (cached === raw) return '<p class="' + cls + '">' + esc(raw) + '</p>';
+    if (cached) {
+      return '<p class="' + cls + ' js-xlate" data-xh="' + key + '" data-shown="xlate">' + esc(cached) + '</p>' +
+        '<button type="button" class="xlate-toggle" data-xh="' + key + '">' + t('See original') + '</button>';
+    }
+    return '<p class="' + cls + ' js-xlate" data-xh="' + key + '" data-shown="orig">' + esc(raw) + '</p>';
+  }
+
+  function translateCrewText() {
+    if (!xlateOn() || !navigator.onLine) return;
+    if (xlate.busy) { xlate.queued = true; return; }
+
+    var cache = xlateCache();
+    var keys = [];
+    Array.prototype.forEach.call(document.querySelectorAll('.js-xlate[data-shown="orig"]'), function (p) {
+      var k = p.dataset.xh;
+      if (cache[k] == null && xlate.texts[k] && keys.indexOf(k) < 0) keys.push(k);
+    });
+    if (!keys.length) return;
+    keys = keys.slice(0, 40);
+
+    xlate.busy = true;
+    sb.functions.invoke('translate-text', {
+      body: { target: lang, texts: keys.map(function (k) { return xlate.texts[k]; }) }
+    }).then(function (res) {
+      xlate.busy = false;
+      var list = res.data && res.data.translations;
+      if (res.error || !list) {
+        if (window.console) {
+          console.warn('[jobsite-logger] translate-text is not available: ' +
+            ((res.error && res.error.message) || (res.data && res.data.error) || ''));
+        }
+        return;
+      }
+      var learned = {};
+      list.forEach(function (item, i) {
+        var k = keys[i];
+        var original = xlate.texts[k];
+        var out = item && item.text ? String(item.text) : '';
+        // Same language, or nothing came back: remember that so we do not ask again.
+        learned[k] = (!out || out.trim() === original.trim()) ? original : out;
+      });
+      xlateRemember(learned);
+      paintCrewTranslations(learned);
+      if (xlate.queued) { xlate.queued = false; translateCrewText(); }
+    }, function () { xlate.busy = false; });
+  }
+
+  function paintCrewTranslations(map) {
+    Array.prototype.forEach.call(document.querySelectorAll('.js-xlate[data-shown="orig"]'), function (p) {
+      var k = p.dataset.xh;
+      var out = map[k];
+      if (!out || out === xlate.texts[k]) return;
+      p.textContent = out;
+      p.dataset.shown = 'xlate';
+      if (!(p.nextElementSibling && p.nextElementSibling.classList.contains('xlate-toggle'))) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'xlate-toggle';
+        b.dataset.xh = k;
+        b.textContent = t('See original');
+        p.parentNode.insertBefore(b, p.nextSibling);
+      }
+    });
+  }
+
+  function toggleCrewTranslation(btn) {
+    var p = btn.previousElementSibling;
+    if (!p || !p.classList.contains('js-xlate')) return;
+    var k = btn.dataset.xh;
+    if (p.dataset.shown === 'xlate') {
+      p.textContent = xlate.texts[k] || '';
+      p.dataset.shown = 'orig-pinned';
+      btn.textContent = t('See translation');
+    } else {
+      p.textContent = xlateCache()[k] || xlate.texts[k] || '';
+      p.dataset.shown = 'xlate';
+      btn.textContent = t('See original');
+    }
+  }
+
   function langPickerHtml(id) {
     return '<div class="field langpick"><span class="kicker">' + t('Language') + '</span>' +
       '<div class="langseg" role="group" aria-label="' + t('Language') + '">' +
@@ -1941,8 +2164,40 @@ window.CONFIG = {
     ' Every job, note and photo is exactly where you left it and nothing has been deleted. Get in touch to switch it back on.': ' Cada trabajo, nota y foto sigue donde lo dejaste y no se ha borrado nada. Contáctanos para reactivarlo.',
     'Something went wrong.': 'Algo salió mal.',
     'My profile': 'Mi perfil',
+    'My work shifts': 'Mis turnos',
+    'Location privacy': 'Privacidad de ubicación',
+    'No completed shifts yet.': 'Aún no hay turnos terminados.',
+    'Shift': 'Turno',
+    'Travel': 'Viaje',
+    'At jobs': 'En obras',
+    'Distance': 'Distancia',
+    'Revoke location consent': 'Revocar consentimiento de ubicación',
+    'Clock out before revoking location consent.': 'Termina el turno antes de revocar el consentimiento de ubicación.',
+    'Location consent revoked': 'Consentimiento de ubicación revocado',
+    'Location fixes are reduced to work events and discarded. Shift summaries are retained for 90 days unless your company changes that setting.': 'Las ubicaciones se convierten en eventos de trabajo y se descartan. Los resúmenes de turnos se conservan 90 días, salvo que la empresa cambie ese ajuste.',
     'Schedule': 'Horario',
     'Crew': 'Cuadrilla',
+    'Crew activity': 'Actividad de la cuadrilla',
+    'Loading crew activity…': 'Cargando actividad de la cuadrilla…',
+    'Event summaries only — no route history is stored.': 'Solo resúmenes de eventos — no se guarda el recorrido.',
+    'Clocked in now': 'Trabajando ahora',
+    'Nobody is clocked in.': 'Nadie ha iniciado turno.',
+    'Last 30 days': 'Últimos 30 días',
+    'No shifts in the last 30 days.': 'No hay turnos en los últimos 30 días.',
+    'Correct job visits': 'Corregir visitas a obras',
+    'Corrections preserve the original times and record who changed them.': 'Las correcciones conservan los horarios originales y registran quién los cambió.',
+    'No job visits to correct.': 'No hay visitas que corregir.',
+    'Arrived': 'Llegó',
+    'Departed': 'Salió',
+    'Reason for correction': 'Motivo de la corrección',
+    'Save correction': 'Guardar corrección',
+    'Arrival, departure, and a reason are required.': 'Se requieren la llegada, la salida y un motivo.',
+    'Correction saved': 'Corrección guardada',
+    'Keep shift summaries': 'Conservar resúmenes de turnos',
+    'days': 'días',
+    'Retention saved': 'Retención guardada',
+    'See original': 'Ver original',
+    'See translation': 'Ver traducción',
     'Admin console': 'Consola de admin',
     'account owner': 'propietario de la cuenta',
     'crew': 'cuadrilla',
@@ -1986,6 +2241,32 @@ window.CONFIG = {
     'The app could not start': 'La app no pudo arrancar',
     'Send this message on and it can be fixed. A refresh sometimes clears it if the connection dropped mid-load.': 'Pasa este mensaje y se puede corregir. A veces recargar basta si se cortó la conexión al cargar.',
     'Loading jobs…': 'Cargando trabajos…',
+    'Work shift': 'Turno de trabajo',
+    'Location tracking': 'Rastreo de ubicación',
+    'Clock in': 'Iniciar turno',
+    'Clock out': 'Terminar turno',
+    'Location tracking on': 'Rastreo de ubicación activo',
+    'Traveling': 'Viajando',
+    'Onsite': 'En la obra',
+    'Between jobs': 'Entre trabajos',
+    'Shift started': 'Turno iniciado',
+    'Shift ended': 'Turno terminado',
+    'I’m onsite': 'Estoy en la obra',
+    'I left': 'Ya salí',
+    'Select the job': 'Selecciona el trabajo',
+    'Reliable background tracking requires the installed iPhone or Android app. All other features still work here.': 'El rastreo confiable en segundo plano requiere la app instalada para iPhone o Android. Las demás funciones siguen disponibles aquí.',
+    'This app collects location during an active work shift, including when the app is closed, to calculate travel and time at jobs. Your employer can see shift, travel, arrival, departure, duration, and distance summaries. Tracking stops when you clock out. A route history is not retained.': 'Esta app recopila la ubicación durante un turno activo, incluso cuando la app está cerrada, para calcular viajes y tiempo en las obras. Tu empleador puede ver resúmenes del turno, viajes, llegadas, salidas, duración y distancia. El rastreo se detiene al terminar el turno. No se guarda el recorrido.',
+    'I understand and agree': 'Entiendo y acepto',
+    'Agree and clock in': 'Aceptar e iniciar turno',
+    'Starting…': 'Iniciando…',
+    'Travel and time at jobs are calculated only while this shift is active.': 'Los viajes y el tiempo en las obras se calculan solo mientras este turno esté activo.',
+    'Location consent is required to start a tracked shift.': 'Se requiere consentimiento de ubicación para iniciar un turno rastreado.',
+    'Location services are unavailable. Check the app’s location permission.': 'Los servicios de ubicación no están disponibles. Revisa el permiso de ubicación de la app.',
+    'Open location settings': 'Abrir ajustes de ubicación',
+    'Could not start shift: {0}': 'No se pudo iniciar el turno: {0}',
+    'Could not end shift: {0}': 'No se pudo terminar el turno: {0}',
+    'Arrival recorded': 'Llegada registrada',
+    'Departure recorded': 'Salida registrada',
     'Search jobs': 'Buscar trabajos',
     'Name, address or client': 'Nombre, dirección o cliente',
     'Show': 'Mostrar',
@@ -1998,7 +2279,6 @@ window.CONFIG = {
     'Active jobs': 'Trabajos activos',
     'Completed jobs': 'Trabajos terminados',
     'Newest activity first': 'Actividad más reciente primero',
-    'Active first, then newest': 'Activos primero, luego lo más reciente',
     'Worth archiving': 'Conviene archivar',
     'Nothing on these for {0}+ days.': 'Nada en estos por {0}+ días.',
     'Save the notes and the client PDF onto your own computer, then delete the job here. That keeps your photo storage down and leaves you holding the record — worth doing while the job is still fresh enough to answer questions about.': 'Guarda las notas y el PDF del cliente en tu computadora y luego borra el trabajo aquí. Así bajas el almacenamiento de fotos y te quedas con el registro — conviene hacerlo mientras el trabajo aún está fresco.',
@@ -2054,6 +2334,18 @@ window.CONFIG = {
     'Job saved, but the start date did not reach the schedule: {0}': 'Trabajo guardado, pero la fecha de inicio no llegó al calendario: {0}',
     'Could not save: {0}': 'No se pudo guardar: {0}',
     'Job saved': 'Trabajo guardado',
+    'Job saved, but its map location could not be found: {0}': 'Se guardó el trabajo, pero no se encontró su ubicación en el mapa: {0}',
+    'Automatic job location': 'Ubicación automática de la obra',
+    'Location ready for automatic arrival and departure.': 'La ubicación está lista para llegadas y salidas automáticas.',
+    'This address still needs a map location before automatic arrival works.': 'Esta dirección necesita una ubicación en el mapa antes de que funcione la llegada automática.',
+    'Locate address': 'Ubicar dirección',
+    'Locating…': 'Ubicando…',
+    'Adjust pin': 'Ajustar marcador',
+    'View pin': 'Ver marcador',
+    'Save pin': 'Guardar marcador',
+    'Enter a job address first.': 'Primero ingresa la dirección de la obra.',
+    'Job location ready': 'Ubicación de la obra lista',
+    'Could not open map: {0}': 'No se pudo abrir el mapa: {0}',
     'Delete "{0}"?\n\nEvery entry and photo on this job goes with it, for the whole crew. This cannot be undone.': '¿Borrar "{0}"?\n\nTodas las notas y fotos de este trabajo se van con él, para toda la cuadrilla. No se puede deshacer.',
     'Deleting…': 'Borrando…',
     'Could not delete: {0}': 'No se pudo borrar: {0}',
@@ -2780,6 +3072,8 @@ window.CONFIG = {
     document.addEventListener('click', function (e) {
       if (!menuEl.hidden && !menuEl.contains(e.target) && e.target !== whoamiBtn) closeMenu();
       closeStatusMenu(e.target);
+      var xt = e.target.closest && e.target.closest('.xlate-toggle');
+      if (xt) toggleCrewTranslation(xt);
     });
 
     document.addEventListener('keydown', function (e) {
@@ -2840,7 +3134,8 @@ window.CONFIG = {
       stopCamStream();
     });
 
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator &&
+        !(window.JobsiteNative && window.JobsiteNative.isNative)) {
       navigator.serviceWorker.register('sw.js').catch(function () {
         // Offline opening is a bonus, not a requirement.
       });
@@ -2849,8 +3144,19 @@ window.CONFIG = {
     window.addEventListener('online', function () {
       paintQueueBanner();
       flushQueue().then(function (n) { if (n) route(); });
+      retryPendingShiftStop();
     });
     window.addEventListener('offline', paintQueueBanner);
+    window.addEventListener('jobsite:provider', function (e) {
+      tracking.provider = e.detail || {};
+      if (tracking.active && tracking.provider.enabled === false) {
+        toast(t('Location services are unavailable. Check the app’s location permission.'));
+        refreshShiftCard();
+      }
+    });
+    window.addEventListener('jobsite:tracking-error', function () {
+      if (tracking.active) toast(t('Location services are unavailable. Check the app’s location permission.'));
+    });
 
     applyChromeLang();
     startSession();
@@ -2879,6 +3185,7 @@ window.CONFIG = {
     var u = session.user;
     var meta = u.user_metadata || {};
     return {
+      id: u.id,
       email: u.email,
       name: meta.full_name || meta.name || (u.email || '').split('@')[0]
     };
@@ -2897,6 +3204,10 @@ window.CONFIG = {
       window.addEventListener('hashchange', route);
       if (!me) return route();
       return loadOrg().then(function () {
+        retryPendingShiftStop();
+        if (trackingNativeAvailable()) {
+          window.JobsiteNative.initialize().catch(function () {});
+        }
         route();
         flushQueue(true).then(function (n) {
           paintQueueBanner();
@@ -2960,8 +3271,11 @@ window.CONFIG = {
     var isCrew = hash.indexOf('#/crew') === 0 || hash.indexOf('#/team') === 0;
     var isProfile = hash.indexOf('#/profile') === 0;
     var isSched = hash.indexOf('#/schedule') === 0;
+    var isMyShifts = hash.indexOf('#/my-shifts') === 0;
+    var isTrackingPrivacy = hash.indexOf('#/tracking-privacy') === 0;
+    var isCrewActivity = hash.indexOf('#/crew-activity') === 0;
     var isAdminPage = hash.indexOf('#/admin') === 0;
-    var isTeam = isCrew || isProfile || isSched;
+    var isTeam = isCrew || isProfile || isSched || isMyShifts || isTrackingPrivacy || isCrewActivity;
 
     closeMenu();
 
@@ -2990,6 +3304,9 @@ window.CONFIG = {
     if (!org.active) return renderSuspended();
     if (isProfile) return renderProfile();
     if (isSched) return renderSchedule();
+    if (isMyShifts) return renderMyShifts();
+    if (isTrackingPrivacy) return renderTrackingPrivacy();
+    if (isCrewActivity && org.role === 'owner') return renderCrewActivity();
     if (isCrew) return renderCrew();
     if (m) return renderJob(m[1]);
     renderDashboard();
@@ -3003,6 +3320,9 @@ window.CONFIG = {
     if (org) {
       items.push({ label: t('My profile'), hash: '#/profile' });
       items.push({ label: t('Schedule'), hash: '#/schedule' });
+      items.push({ label: t('My work shifts'), hash: '#/my-shifts' });
+      items.push({ label: t('Location privacy'), hash: '#/tracking-privacy' });
+      if (org.role === 'owner') items.push({ label: t('Crew activity'), hash: '#/crew-activity' });
       items.push({ label: t('Crew'), hash: '#/crew' });
     }
     if (isAdmin) items.push({ label: t('Admin console'), hash: '#/admin' });
@@ -3846,6 +4166,221 @@ window.CONFIG = {
     });
   }
 
+  /* ---------------- shift history + privacy ---------------- */
+
+  function localDateTimeInput(iso) {
+    if (!iso) return '';
+    var d = new Date(iso);
+    if (isNaN(d)) return '';
+    var local = new Date(d.getTime() - d.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 16);
+  }
+
+  function renderCrewActivity() {
+    app.innerHTML = '<p class="muted">' + t('Loading crew activity…') + '</p>';
+    var since = new Date(Date.now() - 30 * 86400000).toISOString();
+    Promise.all([
+      sb.rpc('company_crew_activity', { p_company_id: org.company_id }),
+      sb.from('work_shifts')
+        .select('id,user_id,employee_name,employee_email,started_at,ended_at,status,shift_seconds,travel_seconds,onsite_seconds,distance_meters')
+        .eq('company_id', org.company_id)
+        .gte('started_at', since).order('started_at', { ascending: false }).limit(100),
+      sb.from('job_visits')
+        .select('id,job_id,arrived_at,departed_at,onsite_seconds,source,confidence,correction_note,jobs(name),work_shifts(employee_name)')
+        .eq('company_id', org.company_id)
+        .gte('arrived_at', since).order('arrived_at', { ascending: false }).limit(100),
+      sb.from('tracking_settings').select('retention_days')
+        .eq('company_id', org.company_id).maybeSingle()
+    ]).then(function (all) {
+      var error = all[0].error || all[1].error || all[2].error || all[3].error;
+      if (error) return renderError(error.message);
+      var active = all[0].data || [];
+      var shifts = all[1].data || [];
+      var visits = all[2].data || [];
+      var retention = (all[3].data && all[3].data.retention_days) || 90;
+
+      app.innerHTML =
+        '<div class="jobhead"><span class="kicker">' + t('Location tracking') + '</span>' +
+          '<h1>' + t('Crew activity') + '</h1>' +
+          '<p class="jobhead-meta">' + t('Event summaries only — no route history is stored.') + '</p></div>' +
+
+        '<div class="panel" style="margin-top:14px">' +
+          '<div class="row"><div class="field grow"><label for="tracking-retention">' +
+            t('Keep shift summaries') + '</label><select id="tracking-retention">' +
+              [30, 60, 90, 180, 365].map(function (days) {
+                return '<option value="' + days + '"' + (days === retention ? ' selected' : '') + '>' +
+                  days + ' ' + t('days') + '</option>';
+              }).join('') +
+            '</select></div><div style="align-self:flex-end">' +
+              '<button id="tracking-retention-save" class="btn btn-quiet">' + t('Save') + '</button>' +
+            '</div></div></div>' +
+
+        '<div class="section-head"><h2>' + t('Clocked in now') + '</h2><span class="small muted">' +
+          active.length + '</span></div>' +
+        (active.length
+          ? '<ul class="joblist">' + active.map(function (a) {
+              return '<li class="jobitem"><div class="jobrow">' +
+                '<div class="jobrow-top"><span class="jobrow-name">' + esc(a.employee_name) + '</span>' +
+                  '<span class="chip chip-active">' + durationLabel((Date.now() - new Date(a.started_at)) / 1000) + '</span></div>' +
+                '<div class="jobrow-meta">' + esc(shiftActivityLabel(a)) +
+                  (a.last_recorded_at ? ' · ' + esc(relTime(a.last_recorded_at)) : '') + '</div>' +
+              '</div></li>';
+            }).join('') + '</ul>'
+          : '<div class="empty"><h2>' + t('Nobody is clocked in.') + '</h2></div>') +
+
+        '<div class="section-head"><h2>' + t('Last 30 days') + '</h2></div>' +
+        (shifts.length
+          ? '<ul class="joblist">' + shifts.map(function (s) {
+              return '<li class="jobitem"><div class="jobrow">' +
+                '<div class="jobrow-top"><span class="jobrow-name">' + esc(s.employee_name) + '</span>' +
+                  '<span class="jobrow-when">' + esc(longDate(String(s.started_at).slice(0, 10))) + '</span></div>' +
+                '<div class="jobrow-meta">' + t('Shift') + ': ' + durationLabel(s.shift_seconds) + ' · ' +
+                  t('Travel') + ': ' + durationLabel(s.travel_seconds) + ' · ' +
+                  t('At jobs') + ': ' + durationLabel(s.onsite_seconds) + ' · ' +
+                  t('Distance') + ': ' + (Math.round((Number(s.distance_meters) || 0) / 160.934) / 10) + ' mi</div>' +
+              '</div></li>';
+            }).join('') + '</ul>'
+          : '<div class="empty"><h2>' + t('No shifts in the last 30 days.') + '</h2></div>') +
+
+        '<div class="section-head"><h2>' + t('Correct job visits') + '</h2></div>' +
+        '<p class="small muted" style="margin:-4px 0 10px">' +
+          t('Corrections preserve the original times and record who changed them.') + '</p>' +
+        (visits.length
+          ? '<div class="visit-corrections">' + visits.map(visitCorrectionHtml).join('') + '</div>'
+          : '<div class="empty"><h2>' + t('No job visits to correct.') + '</h2></div>');
+
+      Array.prototype.forEach.call(document.querySelectorAll('.js-visit-correct'), function (btn) {
+        btn.addEventListener('click', function () { saveVisitCorrection(btn.dataset.id); });
+      });
+      on('tracking-retention-save', 'click', saveTrackingRetention);
+    });
+  }
+
+  function saveTrackingRetention() {
+    var days = Number(document.getElementById('tracking-retention').value) || 90;
+    sb.from('tracking_settings').upsert({
+      company_id: org.company_id,
+      retention_days: days,
+      updated_at: new Date().toISOString(),
+      updated_by: me.id
+    }).then(function (res) {
+      if (res.error) return toast(tf('Could not save: {0}', res.error.message));
+      toast(t('Retention saved'));
+    });
+  }
+
+  function shiftActivityLabel(row) {
+    if (row.tracking_state === 'onsite') {
+      return t('Onsite') + (row.current_job_name ? ' · ' + row.current_job_name : '');
+    }
+    if (row.tracking_state === 'between_jobs') return t('Between jobs');
+    return t('Traveling');
+  }
+
+  function visitCorrectionHtml(v) {
+    var job = v.jobs && (v.jobs.name || (v.jobs[0] && v.jobs[0].name));
+    var employee = v.work_shifts &&
+      (v.work_shifts.employee_name || (v.work_shifts[0] && v.work_shifts[0].employee_name));
+    return '<div class="panel" style="margin-bottom:10px">' +
+      '<div class="row"><strong class="grow">' + esc(employee || '') + ' · ' + esc(job || '') + '</strong>' +
+        '<span class="chip">' + esc(v.source || '') + '</span></div>' +
+      '<div class="row" style="margin-top:10px">' +
+        '<div class="field grow"><label for="cv-arrive-' + esc(v.id) + '">' + t('Arrived') + '</label>' +
+          '<input id="cv-arrive-' + esc(v.id) + '" type="datetime-local" value="' +
+            esc(localDateTimeInput(v.arrived_at)) + '"></div>' +
+        '<div class="field grow"><label for="cv-leave-' + esc(v.id) + '">' + t('Departed') + '</label>' +
+          '<input id="cv-leave-' + esc(v.id) + '" type="datetime-local" value="' +
+            esc(localDateTimeInput(v.departed_at)) + '"></div>' +
+      '</div>' +
+      '<div class="field"><label for="cv-note-' + esc(v.id) + '">' + t('Reason for correction') + '</label>' +
+        '<input id="cv-note-' + esc(v.id) + '" type="text" value="' + esc(v.correction_note || '') + '"></div>' +
+      '<button type="button" class="btn btn-quiet js-visit-correct" data-id="' + esc(v.id) + '">' +
+        t('Save correction') + '</button>' +
+    '</div>';
+  }
+
+  function saveVisitCorrection(id) {
+    var arrived = document.getElementById('cv-arrive-' + id).value;
+    var departed = document.getElementById('cv-leave-' + id).value;
+    var note = document.getElementById('cv-note-' + id).value.trim();
+    if (!arrived || !departed || !note) return toast(t('Arrival, departure, and a reason are required.'));
+    var btn = document.querySelector('.js-visit-correct[data-id="' + id + '"]');
+    btn.disabled = true;
+    btn.textContent = t('Saving…');
+    sb.rpc('correct_job_visit', {
+      p_visit_id: id,
+      p_arrived_at: new Date(arrived).toISOString(),
+      p_departed_at: new Date(departed).toISOString(),
+      p_note: note
+    }).then(function (res) {
+      if (res.error) {
+        btn.disabled = false;
+        btn.textContent = t('Save correction');
+        return toast(tf('Could not save: {0}', res.error.message));
+      }
+      toast(t('Correction saved'));
+      renderCrewActivity();
+    });
+  }
+
+  function durationLabel(seconds) {
+    var mins = Math.max(0, Math.round((Number(seconds) || 0) / 60));
+    var h = Math.floor(mins / 60);
+    var m = mins % 60;
+    return (h ? h + 'h ' : '') + m + 'm';
+  }
+
+  function renderMyShifts() {
+    app.innerHTML = '<p class="muted">' + t('Loading…') + '</p>';
+    sb.from('work_shifts')
+      .select('id,started_at,ended_at,status,shift_seconds,travel_seconds,onsite_seconds,distance_meters')
+      .order('started_at', { ascending: false })
+      .limit(30)
+      .then(function (res) {
+        if (res.error) return renderError(res.error.message);
+        var rows = res.data || [];
+        app.innerHTML =
+          '<div class="jobhead"><span class="kicker">' + t('Location tracking') + '</span>' +
+            '<h1>' + t('My work shifts') + '</h1></div>' +
+          (rows.length
+            ? '<ul class="joblist" style="margin-top:14px">' + rows.map(function (s) {
+                var day = String(s.started_at || '').slice(0, 10);
+                return '<li class="jobitem"><div class="jobrow">' +
+                  '<div class="jobrow-top"><span class="jobrow-name">' + esc(longDate(day)) + '</span>' +
+                    '<span class="chip ' + (s.status === 'active' ? 'chip-active' : 'chip-done') + '">' +
+                      t(s.status === 'active' ? 'Active' : 'Completed') + '</span></div>' +
+                  '<div class="jobrow-meta">' +
+                    t('Shift') + ': ' + durationLabel(s.shift_seconds) + ' · ' +
+                    t('Travel') + ': ' + durationLabel(s.travel_seconds) + ' · ' +
+                    t('At jobs') + ': ' + durationLabel(s.onsite_seconds) + ' · ' +
+                    t('Distance') + ': ' + (Math.round((Number(s.distance_meters) || 0) / 160.934) / 10) + ' mi' +
+                  '</div></div></li>';
+              }).join('') + '</ul>'
+            : '<div class="empty" style="margin-top:14px"><h2>' + t('No completed shifts yet.') + '</h2></div>');
+      });
+  }
+
+  function renderTrackingPrivacy() {
+    app.innerHTML =
+      '<div class="jobhead"><span class="kicker">' + t('Location tracking') + '</span>' +
+        '<h1>' + t('Location privacy') + '</h1></div>' +
+      '<div class="panel" style="margin-top:14px">' +
+        '<p>' + t('This app collects location during an active work shift, including when the app is closed, to calculate travel and time at jobs. Your employer can see shift, travel, arrival, departure, duration, and distance summaries. Tracking stops when you clock out. A route history is not retained.') + '</p>' +
+        '<p class="small muted">' + t('Location fixes are reduced to work events and discarded. Shift summaries are retained for 90 days unless your company changes that setting.') + '</p>' +
+        '<button id="tracking-revoke" class="btn btn-soft-danger">' + t('Revoke location consent') + '</button>' +
+      '</div>';
+
+    on('tracking-revoke', 'click', function () {
+      if (tracking.active) return toast(t('Clock out before revoking location consent.'));
+      sb.from('tracking_consents').update({ revoked_at: new Date().toISOString() })
+        .eq('user_id', me.id).then(function (res) {
+          if (res.error) return toast(tf('Could not update: {0}', res.error.message));
+          tracking.consented = false;
+          toast(t('Location consent revoked'));
+        });
+    });
+  }
+
   /* ---------------- my profile ---------------- */
 
   function renderProfile() {
@@ -4537,11 +5072,15 @@ window.CONFIG = {
   function renderDashboard() {
     app.innerHTML = '<p class="muted">' + t('Loading jobs…') + '</p>';
 
-    sb.from('jobs').select('*').order('updated_at', { ascending: false })
-      .then(function (res) {
-        if (res.error) return renderError(res.error.message);
-        paintDashboard(res.data || []);
-      });
+    Promise.all([
+      sb.from('jobs').select('*').order('updated_at', { ascending: false }),
+      loadTrackingState()
+    ]).then(function (all) {
+      var res = all[0];
+      if (res.error) return renderError(res.error.message);
+      tracking.jobs = res.data || [];
+      paintDashboard(tracking.jobs);
+    });
   }
 
   var QUIET_DAYS = 3;      // no entry in this many days = worth a look
@@ -4553,10 +5092,242 @@ window.CONFIG = {
     return Math.floor((Date.now() - t) / 86400000);
   }
 
+  function trackingNativeAvailable() {
+    return !!(window.JobsiteNative && window.JobsiteNative.isNative);
+  }
+
+  function loadTrackingState() {
+    if (!sb || !me) return Promise.resolve(null);
+    return Promise.all([
+      sb.rpc('my_active_shift'),
+      sb.from('tracking_consents').select('policy_version,revoked_at')
+        .eq('user_id', me.id).maybeSingle()
+    ]).then(function (all) {
+      tracking.active = all[0].error || !all[0].data || !all[0].data.id ? null : all[0].data;
+      tracking.consented = !!(all[1].data && !all[1].data.revoked_at &&
+        all[1].data.policy_version === TRACKING_POLICY_VERSION);
+      startShiftClock();
+      return tracking.active;
+    }).catch(function () {
+      // The app still works before the tracking migration is installed.
+      tracking.active = null;
+      tracking.consented = false;
+      return null;
+    });
+  }
+
+  function shiftStateLabel(active) {
+    if (!active) return '';
+    if (active.state === 'onsite') {
+      return t('Onsite') + (active.current_job_name ? ' · ' + esc(active.current_job_name) : '');
+    }
+    if (active.state === 'between_jobs') return t('Between jobs');
+    return t('Traveling');
+  }
+
+  function elapsedClock(startedAt) {
+    var sec = Math.max(0, Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000));
+    return pad(Math.floor(sec / 3600)) + ':' + pad(Math.floor((sec % 3600) / 60)) + ':' + pad(sec % 60);
+  }
+
+  function shiftCardHtml(jobs) {
+    if (!trackingNativeAvailable()) {
+      return '<div class="shiftcard is-web">' +
+        '<div class="shiftcard-head"><div><span class="kicker">' + t('Work shift') + '</span>' +
+          '<h2>' + t('Location tracking') + '</h2></div></div>' +
+        '<p class="small muted" style="margin:8px 0 0">' +
+          t('Reliable background tracking requires the installed iPhone or Android app. All other features still work here.') +
+        '</p></div>';
+    }
+
+    if (tracking.active) {
+      var a = tracking.active;
+      var available = (jobs || []).filter(function (j) {
+        return j.status !== 'Completed' && j.latitude != null && j.longitude != null;
+      });
+      return '<div class="shiftcard is-live">' +
+        '<div class="shiftcard-head"><div><span class="kicker"><span class="tracking-dot"></span>' +
+          t('Location tracking on') + '</span><h2>' + t('Work shift') + '</h2></div>' +
+          '<span id="shift-clock" class="shiftclock">' + elapsedClock(a.started_at) + '</span></div>' +
+        '<div class="shiftstate"><strong>' + shiftStateLabel(a) + '</strong></div>' +
+        (tracking.provider && tracking.provider.enabled === false
+          ? '<div class="error" style="margin-top:10px"><p style="margin:0 0 8px">' +
+              t('Location services are unavailable. Check the app’s location permission.') + '</p>' +
+              '<button id="shift-settings" class="btn btn-quiet">' + t('Open location settings') + '</button></div>'
+          : '') +
+        '<div class="field" style="margin-top:12px"><label for="shift-job">' + t('Select the job') + '</label>' +
+          '<select id="shift-job"><option value="">' + t('Select the job') + '</option>' +
+            available.map(function (j) {
+              return '<option value="' + esc(j.id) + '"' +
+                (j.id === a.current_job_id ? ' selected' : '') + '>' + esc(j.name) + '</option>';
+            }).join('') +
+          '</select></div>' +
+        '<div class="shift-actions">' +
+          '<button id="shift-arrive" class="btn btn-quiet">' + t('I’m onsite') + '</button>' +
+          '<button id="shift-leave" class="btn btn-quiet"' + (a.current_job_id ? '' : ' disabled') + '>' +
+            t('I left') + '</button>' +
+          '<button id="shift-stop" class="btn btn-soft-danger">' + t('Clock out') + '</button>' +
+        '</div></div>';
+    }
+
+    return '<div class="shiftcard">' +
+      '<div class="shiftcard-head"><div><span class="kicker">' + t('Work shift') + '</span>' +
+        '<h2>' + t('Clock in') + '</h2></div></div>' +
+      '<p class="small muted" style="margin:7px 0 0">' +
+        t('Travel and time at jobs are calculated only while this shift is active.') + '</p>' +
+      '<div id="tracking-consent" class="tracking-consent"' + (tracking.consented ? ' hidden' : '') + '>' +
+        '<p class="small" style="margin:0 0 10px">' +
+          t('This app collects location during an active work shift, including when the app is closed, to calculate travel and time at jobs. Your employer can see shift, travel, arrival, departure, duration, and distance summaries. Tracking stops when you clock out. A route history is not retained.') +
+        '</p><label><input id="tracking-agree" type="checkbox"><span>' +
+          t('I understand and agree') + '</span></label></div>' +
+      '<div class="shift-actions"><button id="shift-start" class="btn">' +
+        (tracking.consented ? t('Clock in') : t('Agree and clock in')) + '</button></div>' +
+    '</div>';
+  }
+
+  function startShiftClock() {
+    if (tracking.timer) clearInterval(tracking.timer);
+    tracking.timer = null;
+    if (!tracking.active) return;
+    var ticks = 0;
+    tracking.timer = setInterval(function () {
+      var el = document.getElementById('shift-clock');
+      if (el && tracking.active) el.textContent = elapsedClock(tracking.active.started_at);
+      ticks++;
+      if (ticks % 60 === 0) {
+        loadTrackingState().then(refreshShiftCard);
+      }
+    }, 1000);
+  }
+
+  function refreshShiftCard() {
+    var wrap = document.getElementById('shift-card-wrap');
+    if (!wrap) return;
+    wrap.innerHTML = shiftCardHtml(tracking.jobs);
+    wireShiftCard();
+  }
+
+  function wireShiftCard() {
+    on('shift-start', 'click', beginTrackedShift);
+    on('shift-stop', 'click', finishTrackedShift);
+    on('shift-arrive', 'click', function () { manualShiftEvent('arrive'); });
+    on('shift-leave', 'click', function () { manualShiftEvent('leave'); });
+    on('shift-settings', 'click', function () {
+      if (window.JobsiteNative) window.JobsiteNative.openLocationSettings();
+    });
+  }
+
+  function beginTrackedShift() {
+    if (!trackingNativeAvailable()) return;
+    var agreed = tracking.consented || (document.getElementById('tracking-agree') || {}).checked;
+    if (!agreed) return toast(t('Location consent is required to start a tracked shift.'));
+    var btn = document.getElementById('shift-start');
+    btn.disabled = true;
+    btn.textContent = t('Starting…');
+
+    var consent = tracking.consented
+      ? Promise.resolve()
+      : sb.rpc('record_tracking_consent', { p_policy_version: TRACKING_POLICY_VERSION });
+
+    consent.then(function (res) {
+      if (res && res.error) throw res.error;
+      tracking.consented = true;
+      return sb.rpc('start_work_shift', {
+        p_employee_name: me.name || me.email.split('@')[0],
+        p_employee_email: me.email,
+        p_policy_version: TRACKING_POLICY_VERSION
+      });
+    }).then(function (res) {
+      if (res.error) throw res.error;
+      var payload = res.data || {};
+      var shift = payload.shift;
+      if (!shift || !payload.upload_token) throw new Error('Shift token was not returned');
+      return window.JobsiteNative.startShift({
+        supabaseUrl: window.CONFIG.SUPABASE_URL,
+        shiftId: shift.id,
+        uploadToken: payload.upload_token,
+        jobs: tracking.jobs.filter(function (j) {
+          return j.status !== 'Completed' && j.latitude != null && j.longitude != null;
+        })
+      }).then(function () {
+        tracking.active = {
+          id: shift.id,
+          started_at: shift.started_at,
+          state: 'traveling',
+          current_job_id: null,
+          current_job_name: null
+        };
+        startShiftClock();
+        refreshShiftCard();
+        toast(t('Shift started'));
+      });
+    }).catch(function (err) {
+      btn.disabled = false;
+      btn.textContent = t('Agree and clock in');
+      toast(tf('Could not start shift: {0}', (err && err.message) || err));
+    });
+  }
+
+  function finishTrackedShift() {
+    if (!tracking.active) return;
+    var id = tracking.active.id;
+    var btn = document.getElementById('shift-stop');
+    if (btn) btn.disabled = true;
+
+    // Stop collection first. A network failure must never make the app keep
+    // watching somebody after they tapped Clock out.
+    Promise.resolve(window.JobsiteNative && window.JobsiteNative.stopShift
+      ? window.JobsiteNative.stopShift() : null)
+      .then(function () {
+        try { localStorage.setItem(TRACKING_PENDING_STOP_KEY, id); } catch (e) {}
+        return sb.rpc('stop_work_shift', { p_shift_id: id });
+      }).then(function (res) {
+        if (res.error) throw res.error;
+        try { localStorage.removeItem(TRACKING_PENDING_STOP_KEY); } catch (e) {}
+        tracking.active = null;
+        startShiftClock();
+        refreshShiftCard();
+        toast(t('Shift ended'));
+      }).catch(function (err) {
+        tracking.active = null;
+        startShiftClock();
+        refreshShiftCard();
+        toast(tf('Could not end shift: {0}', (err && err.message) || err));
+      });
+  }
+
+  function retryPendingShiftStop() {
+    var id = '';
+    try { id = localStorage.getItem(TRACKING_PENDING_STOP_KEY) || ''; } catch (e) {}
+    if (!id || !sb) return Promise.resolve();
+    return sb.rpc('stop_work_shift', { p_shift_id: id }).then(function (res) {
+      if (!res.error) {
+        try { localStorage.removeItem(TRACKING_PENDING_STOP_KEY); } catch (e) {}
+      }
+    });
+  }
+
+  function manualShiftEvent(kind) {
+    if (!tracking.active) return;
+    var jobId = kind === 'leave'
+      ? tracking.active.current_job_id
+      : (document.getElementById('shift-job') || {}).value;
+    if (!jobId) return toast(t('Select the job'));
+    sb.rpc('manual_tracking_event', {
+      p_shift_id: tracking.active.id,
+      p_job_id: jobId,
+      p_event: kind
+    }).then(function (res) {
+      if (res.error) return toast(tf('Could not update: {0}', res.error.message));
+      toast(kind === 'arrive' ? t('Arrival recorded') : t('Departure recorded'));
+      loadTrackingState().then(refreshShiftCard);
+    });
+  }
+
   function paintDashboard(jobs) {
     var q = dash.q.toLowerCase();
     var shown = jobs.filter(function (j) {
-      var okStatus = dash.status === 'All' || (j.status || 'Active') === dash.status;
+      var okStatus = dash.status === 'All' || j.status === dash.status;
       var hay = (j.name + ' ' + (j.address || '') + ' ' + (j.client_name || '') + ' ' +
         (j.customer_phone || '') + ' ' + (j.customer_email || '')).toLowerCase();
       return okStatus && (!q || hay.indexOf(q) > -1);
@@ -4580,18 +5351,12 @@ window.CONFIG = {
       else rest.push(j);
     });
 
-    // Within a bucket the order is Active, On Halt, Upcoming, Completed.
-    // jobs arrives newest first, and sort is stable, so recency still holds
-    // inside each status.
-    [stale, quiet, rest].forEach(function (list) {
-      list.sort(function (a, b) { return statusRank(a.status) - statusRank(b.status); });
-    });
-
     function group(list) {
       return '<ul class="joblist">' + list.map(jobRowHtml).join('') + '</ul>';
     }
 
     app.innerHTML =
+      '<div id="shift-card-wrap">' + shiftCardHtml(jobs) + '</div>' +
       '<div class="row" style="margin-bottom:4px">' +
         '<div class="grow"><label for="dash-q">' + t('Search jobs') + '</label>' +
           '<input id="dash-q" type="text" value="' + esc(dash.q) + '" placeholder="' + t('Name, address or client') + '"></div>' +
@@ -4616,9 +5381,7 @@ window.CONFIG = {
       (rest.length
         ? '<div class="section-head"><h2>' +
             dashStatusHeading(dash.status) + '</h2>' +
-            '<span class="small muted">' +
-              t(dash.status === 'All' ? 'Active first, then newest' : 'Newest activity first') +
-            '</span></div>' +
+            '<span class="small muted">' + t('Newest activity first') + '</span></div>' +
           group(rest)
         : '') +
 
@@ -4668,6 +5431,7 @@ window.CONFIG = {
 
     on('dash-q', 'input', function (e) { dash.q = e.target.value; paintDashboardKeepFocus(jobs, 'dash-q'); });
     on('dash-status', 'change', function (e) { dash.status = e.target.value; paintDashboard(jobs); });
+    wireShiftCard();
 
     on('nj-open', 'click', function () {
       document.getElementById('newjob').hidden = false;
@@ -4725,7 +5489,9 @@ window.CONFIG = {
         (function () {
         var age = daysSince(j.updated_at);
         var chips = [];
-        chips.push('<span class="chip ' + statusChipClass(j.status) + '">' + t(j.status || 'Active') + '</span>');
+        if (j.status && j.status !== 'Active') {
+          chips.push('<span class="chip ' + statusChipClass(j.status) + '">' + t(j.status) + '</span>');
+        }
         if (age >= STALE_DAYS) chips.push('<span class="chip">' + tf('{0} days quiet', age) + '</span>');
         else if (j.status === 'Active' && age >= QUIET_DAYS) {
           chips.push('<span class="chip chip-issue">' + tf('{0} days since an entry', age) + '</span>');
@@ -4757,6 +5523,7 @@ window.CONFIG = {
     var start = document.getElementById('nj-start').value || '';
     var phone = formatPhoneUS(document.getElementById('nj-phone').value);
     var email = document.getElementById('nj-email').value.trim();
+    var address = document.getElementById('nj-address').value.trim();
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       document.getElementById('nj-email').focus();
       return toast(t('Enter a valid customer email.'));
@@ -4768,7 +5535,7 @@ window.CONFIG = {
     sb.from('jobs').insert({
       company_id: org.company_id,
       name: desc,
-      address: document.getElementById('nj-address').value.trim(),
+      address: address,
       client_name: document.getElementById('nj-client').value.trim(),
       status: 'Active'
     }).select().single().then(function (res) {
@@ -4776,6 +5543,8 @@ window.CONFIG = {
       var job = res.data;
       return saveJobExtras(job.id, notes, start, phone, email).then(function () {
         return start ? scheduleJobStart(job, start) : null;
+      }).then(function () {
+        return address && org.role === 'owner' ? geocodeJob(job.id, address) : null;
       }).then(function () { return job; });
     }).then(function (job) {
       toast(t('Job saved'));
@@ -4812,6 +5581,134 @@ window.CONFIG = {
     }, function () {});
   }
 
+  function geocodeJob(jobId, address) {
+    if (!address || !org || org.role !== 'owner') return Promise.resolve(null);
+    return sb.functions.invoke('geocode-job', {
+      body: { job_id: jobId, address: address }
+    }).then(function (res) {
+      if (res.error || !res.data || res.data.error) {
+        var message = (res.error && res.error.message) || (res.data && res.data.error) || '';
+        toast(tf('Job saved, but its map location could not be found: {0}', message));
+        return null;
+      }
+      var located = res.data.job;
+      if (view.job && view.job.id === jobId && located) {
+        Object.keys(located).forEach(function (key) { view.job[key] = located[key]; });
+      }
+      return syncNativeJobGeofences().then(function () { return located; });
+    });
+  }
+
+  function syncNativeJobGeofences() {
+    if (!trackingNativeAvailable() || !tracking.active) return Promise.resolve();
+    return sb.from('jobs')
+      .select('id,name,status,latitude,longitude,geofence_radius_meters,geocode_status')
+      .eq('company_id', org.company_id)
+      .neq('status', 'Completed')
+      .in('geocode_status', ['ready', 'manual'])
+      .not('latitude', 'is', null)
+      .not('longitude', 'is', null)
+      .then(function (res) {
+        if (res.error) throw res.error;
+        tracking.jobs = tracking.jobs.map(function (j) {
+          var fresh = (res.data || []).filter(function (x) { return x.id === j.id; })[0];
+          return fresh ? Object.assign({}, j, fresh) : j;
+        });
+        return window.JobsiteNative.syncGeofences(res.data || []);
+      }).catch(function () {});
+  }
+
+  function loadLeaflet() {
+    if (window.L) return Promise.resolve(window.L);
+    if (window._jobsiteLeaflet) return window._jobsiteLeaflet;
+    window._jobsiteLeaflet = new Promise(function (resolve, reject) {
+      if (!document.querySelector('link[data-jobsite-leaflet]')) {
+        var css = document.createElement('link');
+        css.rel = 'stylesheet';
+        css.href = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css';
+        css.setAttribute('data-jobsite-leaflet', '');
+        document.head.appendChild(css);
+      }
+      var script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js';
+      script.onload = function () { resolve(window.L); };
+      script.onerror = function () { reject(new Error('Map library did not load')); };
+      document.head.appendChild(script);
+    });
+    return window._jobsiteLeaflet;
+  }
+
+  function currentPinPosition() {
+    if (view.job && view.job.latitude != null && view.job.longitude != null) {
+      return Promise.resolve({
+        latitude: Number(view.job.latitude),
+        longitude: Number(view.job.longitude)
+      });
+    }
+    if (trackingNativeAvailable()) {
+      return window.JobsiteNative.requestCurrentPosition().then(function (loc) {
+        return { latitude: loc.coords.latitude, longitude: loc.coords.longitude };
+      });
+    }
+    return new Promise(function (resolve, reject) {
+      if (!navigator.geolocation) return reject(new Error('Location unavailable'));
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+      }, reject, { enableHighAccuracy: true, timeout: 15000 });
+    });
+  }
+
+  function openJobPinEditor() {
+    var wrap = document.getElementById('je-map-wrap');
+    if (!wrap) return;
+    wrap.hidden = false;
+    Promise.all([loadLeaflet(), currentPinPosition()]).then(function (all) {
+      var L = all[0], pos = all[1];
+      if (jobPinMap) jobPinMap.remove();
+      jobPinMap = L.map('je-map').setView([pos.latitude, pos.longitude], 17);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 20,
+        attribution: '&copy; OpenStreetMap contributors'
+      }).addTo(jobPinMap);
+      jobPinMarker = L.marker([pos.latitude, pos.longitude], { draggable: true }).addTo(jobPinMap);
+      setTimeout(function () { jobPinMap.invalidateSize(); }, 50);
+    }).catch(function (err) {
+      toast(tf('Could not open map: {0}', (err && err.message) || err));
+      wrap.hidden = true;
+    });
+  }
+
+  function closeJobPinEditor() {
+    var wrap = document.getElementById('je-map-wrap');
+    if (wrap) wrap.hidden = true;
+    if (jobPinMap) jobPinMap.remove();
+    jobPinMap = null;
+    jobPinMarker = null;
+  }
+
+  function saveJobPin() {
+    if (!view.job || !jobPinMarker) return;
+    var ll = jobPinMarker.getLatLng();
+    var btn = document.getElementById('je-pin-save');
+    btn.disabled = true;
+    btn.textContent = t('Saving…');
+    sb.rpc('set_job_geofence', {
+      p_job_id: view.job.id,
+      p_latitude: ll.lat,
+      p_longitude: ll.lng,
+      p_radius_meters: Number(view.job.geofence_radius_meters) || 125
+    }).then(function (res) {
+      btn.disabled = false;
+      btn.textContent = t('Save pin');
+      if (res.error) return toast(tf('Could not save: {0}', res.error.message));
+      view.job = res.data;
+      closeJobPinEditor();
+      syncNativeJobGeofences();
+      toast(t('Job location ready'));
+      paintJob();
+    });
+  }
+
   // What the crew actually reads is the schedule, so the start date is written
   // there as a real planned day rather than only sitting on the job record.
   function scheduleJobStart(job, start) {
@@ -4836,6 +5733,7 @@ window.CONFIG = {
   // lost to a database that has not had add-job-details.sql run on it.
   function saveJobEdits() {
     var j = view.job;
+    var oldAddress = j.address || '';
     var desc = document.getElementById('je-name').value.trim();
     if (desc.length < 2) return toast(t('Say what the job is.'));
 
@@ -4843,6 +5741,7 @@ window.CONFIG = {
     var start = document.getElementById('je-start').value || '';
     var phone = formatPhoneUS(document.getElementById('je-phone').value);
     var email = document.getElementById('je-email').value.trim();
+    var address = document.getElementById('je-address').value.trim();
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       document.getElementById('je-email').focus();
       return toast(t('Enter a valid customer email.'));
@@ -4854,7 +5753,7 @@ window.CONFIG = {
 
     sb.from('jobs').update({
       name: desc,
-      address: document.getElementById('je-address').value.trim(),
+      address: address,
       client_name: document.getElementById('je-client').value.trim(),
       updated_at: new Date().toISOString()
     }).eq('id', j.id).select().single().then(function (res) {
@@ -4862,6 +5761,10 @@ window.CONFIG = {
       view.job = res.data;
       return saveJobExtras(j.id, notes, start, phone, email, true).then(function () {
         return moved ? moveJobStart(j, start) : null;
+      }).then(function () {
+        return address && address !== oldAddress && org.role === 'owner'
+          ? geocodeJob(j.id, address)
+          : null;
       });
     }).then(function () {
       // The follow-up update does not hand back a row, so mirror locally what
@@ -4957,13 +5860,6 @@ window.CONFIG = {
     return 'chip-active';
   }
 
-  function statusRank(st) {
-    if (st === 'On Halt') return 1;
-    if (st === 'Upcoming') return 2;
-    if (st === 'Completed') return 3;
-    return 0;
-  }
-
   function jobItemClass(j) {
     if (j.status === 'Completed') return ' is-completed';
     if (j.status === 'On Halt') return ' is-halt';
@@ -4990,6 +5886,29 @@ window.CONFIG = {
       bits.push('<a href="mailto:' + esc(job.customer_email) + '">' + esc(job.customer_email) + '</a>');
     }
     return bits.join('<br>');
+  }
+
+  function jobLocationEditorHtml(job) {
+    if (!org || org.role !== 'owner') return '';
+    var ready = job.latitude != null && job.longitude != null;
+    return '<div class="field"><label>' + t('Automatic job location') + '</label>' +
+      '<p class="small muted" style="margin:0 0 9px">' +
+        (ready
+          ? t('Location ready for automatic arrival and departure.')
+          : t('This address still needs a map location before automatic arrival works.')) +
+      '</p><div class="row">' +
+        '<button id="je-geocode" type="button" class="btn btn-quiet">' + t('Locate address') + '</button>' +
+        '<button id="je-pin" type="button" class="btn btn-quiet">' + t('Adjust pin') + '</button>' +
+        (ready
+          ? '<a class="btn btn-quiet" target="_blank" rel="noopener" href="https://www.google.com/maps?q=' +
+              encodeURIComponent(job.latitude + ',' + job.longitude) + '">' + t('View pin') + '</a>'
+          : '') +
+      '</div><div id="je-map-wrap" hidden>' +
+        '<div id="je-map" class="jobmap"></div>' +
+        '<div class="row" style="margin-top:10px">' +
+          '<button id="je-pin-save" type="button" class="btn grow">' + t('Save pin') + '</button>' +
+          '<button id="je-pin-cancel" type="button" class="btn btn-quiet">' + t('Cancel') + '</button>' +
+        '</div></div></div>';
   }
 
   function paintJob() {
@@ -5032,7 +5951,7 @@ window.CONFIG = {
 
         (j.notes
           ? '<div class="jobnotes"><span class="kicker">' + t('Job notes') + '</span>' +
-              '<p class="entry-note">' + esc(j.notes) + '</p></div>'
+              crewTextHtml(j.notes, 'entry-note') + '</div>'
           : '') +
 
         '<div class="jobacts">' +
@@ -5054,6 +5973,7 @@ window.CONFIG = {
             t('Changing this moves the job’s start day on the schedule.') + '</p></div>' +
         '<div class="field"><label for="je-address">' + t('Address') + '</label>' +
           '<input id="je-address" type="text" autocomplete="street-address" value="' + esc(j.address || '') + '"></div>' +
+        jobLocationEditorHtml(j) +
         '<div class="field"><label for="je-client">' + t('Contractor / Home owner') + '</label>' +
           '<input id="je-client" type="text" value="' + esc(j.client_name || '') + '"></div>' +
         '<div class="row">' +
@@ -5148,6 +6068,24 @@ window.CONFIG = {
     });
     on('je-save', 'click', saveJobEdits);
     bindPhoneField('je-phone');
+    on('je-geocode', 'click', function () {
+      var address = document.getElementById('je-address').value.trim();
+      if (!address) return toast(t('Enter a job address first.'));
+      var btn = document.getElementById('je-geocode');
+      btn.disabled = true;
+      btn.textContent = t('Locating…');
+      geocodeJob(j.id, address).then(function (located) {
+        btn.disabled = false;
+        btn.textContent = t('Locate address');
+        if (located) {
+          toast(t('Job location ready'));
+          openJobPinEditor();
+        }
+      });
+    });
+    on('je-pin', 'click', openJobPinEditor);
+    on('je-pin-cancel', 'click', closeJobPinEditor);
+    on('je-pin-save', 'click', saveJobPin);
 
     on('c-open', 'click', function () {
       document.getElementById('compose').hidden = false;
@@ -5228,7 +6166,7 @@ window.CONFIG = {
           '<span class="entry-time">' + esc(clockTime(en.created_at)) + '</span>' +
           tagChip(en) +
         '</div>' +
-        (en.notes ? '<p class="entry-note">' + esc(en.notes) + '</p>' : '') +
+        crewTextHtml(en.notes, 'entry-note') +
 
         issueHistoryHtml(en) +
         (photos.length ? '<div class="gallery">' + photos.map(function (p) {
@@ -5394,7 +6332,7 @@ window.CONFIG = {
             ' · ' + esc(longDate(u.created_at.slice(0, 10))) +
             ' ' + esc(clockTime(u.created_at)) +
           '</div>' +
-          (u.note ? '<p class="history-note">' + esc(u.note) + '</p>' : '') +
+          crewTextHtml(u.note, 'history-note') +
         '</div>';
       }).join('') +
     '</div>';
@@ -5482,6 +6420,8 @@ window.CONFIG = {
         });
       });
     });
+
+    translateCrewText();
 
     on('e-cancel', 'click', function () { clearEditState(); refreshFeed(); });
     on('e-files', 'change', function (e) { collectFiles(e, editStaged, 'e-thumbs'); });
@@ -5797,6 +6737,7 @@ window.CONFIG = {
           return toast(tf('Could not update: {0}', msg));
         }
         view.job = res.data;
+        syncNativeJobGeofences();
         toast(t('Status updated'));
         paintJob();
       });
